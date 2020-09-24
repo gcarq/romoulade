@@ -9,12 +9,12 @@ pub const IRQ_LCD: u8 = 0b00000010;
 pub const IRQ_TIMER: u8 = 0b00000100;
 pub const IRQ_JOYPAD: u8 = 0b00010000;
 
-pub struct IRQHandler<'a> {
-    cpu: &'a RefCell<CPU<'a>>,
+pub struct IRQHandler<'a, T: AddressSpace> {
+    cpu: &'a RefCell<CPU<'a, T>>,
 }
 
-impl<'a> IRQHandler<'a> {
-    pub fn new(cpu: &'a RefCell<CPU<'a>>) -> Self {
+impl<'a, T: AddressSpace> IRQHandler<'a, T> {
+    pub fn new(cpu: &'a RefCell<CPU<'a, T>>) -> Self {
         Self { cpu }
     }
 

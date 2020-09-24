@@ -18,7 +18,6 @@ pub fn set_bit(input: u8, n: u8, state: bool) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
     #[test]

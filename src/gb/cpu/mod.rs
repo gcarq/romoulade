@@ -3,25 +3,27 @@ use crate::gb::instruction::{
     ArithmeticWordTarget, BitOperationSource, ByteSource, IncDecTarget, Instruction, JumpTest,
     LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget, ResetCode, StackTarget, WordSource,
 };
-use crate::gb::memory::MemoryBus;
-use crate::gb::registers::Registers;
 use crate::gb::timings::Clock;
 use crate::gb::AddressSpace;
 use crate::utils;
+use registers::Registers;
 use std::cell::RefCell;
 
-pub struct CPU<'a> {
+mod registers;
+mod tests;
+
+pub struct CPU<'a, T: AddressSpace> {
     r: Registers,
     pub pc: u16,   // Program counter
     sp: u16,       // Stack Pointer
     pub ime: bool, // Interrupt Master Enable
     is_halted: bool,
-    pub bus: &'a RefCell<MemoryBus>,
+    pub bus: &'a RefCell<T>, // TODO: make me private
     clock: Clock,
 }
 
-impl<'a> CPU<'a> {
-    pub fn new(bus: &'a RefCell<MemoryBus>) -> Self {
+impl<'a, T: AddressSpace> CPU<'a, T> {
+    pub fn new(bus: &'a RefCell<T>) -> Self {
         Self {
             r: Registers::default(),
             pc: 0,
@@ -847,7 +849,7 @@ impl<'a> CPU<'a> {
     }
 }
 
-impl<'a> AddressSpace for CPU<'a> {
+impl<'a, T: AddressSpace> AddressSpace for CPU<'a, T> {
     fn write(&mut self, address: u16, value: u8) {
         self.bus.borrow_mut().write(address, value);
     }
