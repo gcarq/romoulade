@@ -1,11 +1,11 @@
 /// When the Game Boy first boot's the very bottom 256 bytes
-/// of memory is occuppied with the boot ROM.
+/// of memory is occupied with the boot ROM.
 pub const BOOT_BEGIN: u16 = 0x0000;
 pub const BOOT_END: u16 = 0x00FF;
 pub const BOOT_SIZE: usize = (BOOT_END - BOOT_BEGIN + 1) as usize;
 
 /// This area of memory contains data about the graphics that can be displayed to the screen.
-/// The Game Boy uses a tiling system for grapics meaning that a game doesn't control
+/// The Game Boy uses a tiling system for graphics meaning that a game doesn't control
 /// the specific pixels that get drawn to the screen, at least not directly.
 pub const VRAM_BEGIN: u16 = 0x8000;
 pub const VRAM_END: u16 = 0x9FFF;
@@ -59,16 +59,21 @@ pub const HRAM_BEGIN: u16 = 0xFF80;
 pub const HRAM_END: u16 = 0xFFFE;
 pub const HRAM_SIZE: usize = (HRAM_END - HRAM_BEGIN + 1) as usize;
 
-// Joypad Input
+/// Joypad Input Register
 pub const JOYPAD: u16 = 0xFF00;
 
-// Timer
+// Timer Registers
+/// Counts up at a fixed 16384Hz rate, resets to 0 whenever written to.
 pub const TIMER_DIVIDER: u16 = 0xFF04;
+/// Counts up at a specified rate. Triggers INT (0x50) when overflows.
 pub const TIMER_COUNTER: u16 = 0xFF05;
+/// When counter overflows, it's reset to start at modulo.
 pub const TIMER_MODULO: u16 = 0xFF06;
+/// Timer Controller which uses 3 bits,
+/// bit 2 specifies whether the timer is enabled (1) or disabled (0).
 pub const TIMER_CTRL: u16 = 0xFF07;
 
-// Pixel Processing Unit
+// Pixel Processing Unit Registers
 pub const PPU_LCDC: u16 = 0xFF40;
 pub const PPU_STAT: u16 = 0xFF41;
 pub const PPU_SCY: u16 = 0xFF42;
@@ -82,6 +87,6 @@ pub const PPU_OBP1: u16 = 0xFF49;
 pub const PPU_WY: u16 = 0xFF4A;
 pub const PPU_WX: u16 = 0xFF4B;
 
-// Interrupt Controller
+// Interrupt Controller Registers
 pub const INTERRUPT_FLAG: u16 = 0xFF0F;
 pub const INTERRUPT_ENABLE: u16 = 0xFFFF;

@@ -4,6 +4,7 @@ use crate::gb::memory::constants::*;
 use crate::gb::AddressSpace;
 use crate::utils;
 
+/// Defines a global MemoryBus, all processing units should access memory through this bus.
 pub struct MemoryBus {
     boot: [u8; BOOT_SIZE],
     vram: [u8; VRAM_SIZE],
@@ -55,8 +56,8 @@ impl MemoryBus {
         }
     }
 
-    // Requests an interrupt for the given id
-    // TODO: create enum? See interrupt.rs
+    /// Requests an interrupt for the given id
+    /// TODO: create enum? See interrupt.rs
     pub fn irq(&mut self, id: u8) {
         let req = utils::set_bit(self.read(INTERRUPT_FLAG), id, true);
         self.write(INTERRUPT_FLAG, req);
@@ -66,7 +67,6 @@ impl MemoryBus {
 impl AddressSpace for MemoryBus {
     fn write(&mut self, address: u16, value: u8) {
         // TODO: Implement DMA Transfer if address == 0xFF46
-        //println!("MMU: writing: {:#06x}: {:#04x}", address, value);
         match address {
             BOOT_BEGIN..=BOOT_END => panic!("Trying to write byte to Boot ROM: {:#06x}", address),
             0x0100..=0x7FFF => panic!("Trying to write byte to Cartridge ROM: {:#06x}", address),

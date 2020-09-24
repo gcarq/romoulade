@@ -23,7 +23,7 @@ The code should follow the Rust style guideline.
  - Implement missing instructions
  - Implement tests
  - Finish Pixel Processing Unit
- - Implement sound
+ - Implement Sound Processing Unit
  - Pass [Test ROMs](https://gbdev.gg8.se/files/roms/blargg-gb-tests/)
  - ...
 

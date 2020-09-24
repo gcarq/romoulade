@@ -1,5 +1,6 @@
 use std::{convert, fmt};
 
+/// Holds all CPU registers
 pub struct Registers {
     pub a: u8,
     pub b: u8,
@@ -70,6 +71,16 @@ const NEGATIVE_FLAG_BYTE_POSITION: u8 = 6;
 const HALF_CARRY_FLAG_BYTE_POSITION: u8 = 5;
 const CARRY_FLAG_BYTE_POSITION: u8 = 4;
 
+/// Represents the special purpose "flags" register.
+/// Only the upper 4 bits are used.
+///
+///    ┌-> Carry
+///  ┌-+> Subtraction
+///  | |
+/// 1111 0000
+/// | |
+/// └-+> Zero
+///   └-> Half Carry
 pub struct FlagsRegister {
     pub zero: bool,
     pub negative: bool,

@@ -20,10 +20,6 @@ bitflags! {
 /// TODO: adapt to new memory schema
 pub struct Timer<'a> {
     bus: &'a RefCell<MemoryBus>,
-    //div: u8,  // Counts up at a fixed 16384Hz. Resets to 0 whenever written to
-    //tima: u8, // Counts up at a specified rate. Triggers INT (0x50) when overflows
-    //tma: u8,  // When counter overflows to 8, it's reset to start at modulo
-    //tac: Control,
 }
 
 impl<'a> Timer<'a> {
@@ -32,7 +28,7 @@ impl<'a> Timer<'a> {
     }
 
     pub fn step(&mut self, cycles: u32) {
-        // TODO: do divider register (cycles)
+        // TODO: update DoDividerRegister with passed cycles
 
         // Check if clock is running
         if !self.read_ctrl().contains(Control::RUNNING) {
@@ -61,8 +57,10 @@ impl<'a> AddressSpace for Timer<'a> {
     }
 }
 
+/// Represents the internal Clock which
+/// can be used for each processing unit.
 pub struct Clock {
-    t_cycle: u32, // CPU Cycles
+    t_cycle: u32,
 }
 
 impl Clock {

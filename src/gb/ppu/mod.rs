@@ -10,6 +10,7 @@ use std::cell::RefCell;
 use std::convert;
 
 bitflags! {
+    /// Represents PPU_LCDC at 0xFF40
     struct LCDControl: u8 {
         const BG_EN    = 0b00000001; // BG Enable
         const OBJ_EN   = 0b00000010; // OBJ Enable
@@ -23,6 +24,7 @@ bitflags! {
 }
 
 bitflags! {
+    /// Represents PPU_STAT at 0xFF41
     struct LCDState: u8 {
         const LCD_MODE1   = 0b00000001; // LCD Mode
         const LCD_MODE2   = 0b00000010; // LCD Mode

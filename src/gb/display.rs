@@ -10,7 +10,7 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use std::{process, thread};
 
-const NAME: &'static str = "Romoulade";
+const NAME: &str = "Romoulade";
 
 pub struct Display {
     canvas: Canvas<Window>,
@@ -116,6 +116,7 @@ impl Display {
     }
 }
 
+/// Limits FPS with thread::sleep().
 pub struct FrameLimiter {
     frame_duration: Duration,
     last_call: Instant,

@@ -34,9 +34,8 @@ impl<'a> CPU<'a> {
     }
 
     pub fn step(&mut self) -> u32 {
-        self.clock = Clock::new();
+        self.clock.reset();
         if self.is_halted {
-            //println!("halted");
             return self.clock.ticks();
         }
 
@@ -188,7 +187,7 @@ impl<'a> CPU<'a> {
             _ => unimplemented!(),
         };
 
-        // TODO is this correct?
+        // TODO: is this correct?
         let (new_value, did_overflow) = target_value.overflowing_add(source_value);
         // Half Carry is set if adding the lower nibbles of the value and register A
         // together result in a value bigger than 0xF. If the result is larger than 0xF

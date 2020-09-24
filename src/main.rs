@@ -8,8 +8,7 @@ use clap::{App, Arg, ArgMatches};
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::Read;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
+use std::path::Path;
 use std::{fs, io};
 
 #[macro_use]
@@ -48,7 +47,9 @@ fn main() {
     let matches = parse_args();
     let path = matches.value_of("rom").unwrap();
 
-    let rom = ROMLoader::new(Path::new(&path)).load().unwrap();
+    let rom = ROMLoader::new(Path::new(&path))
+        .load()
+        .expect("Unable to load ROM from path");
     let bus = RefCell::new(MemoryBus::new(rom));
 
     let mut display = Display::new(2);
