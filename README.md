@@ -12,7 +12,7 @@ At this point it is capable of processing the Original Gameboy [Bootstrap ROM](h
 ```sh
 $ git clone https://github.com/gcarq/romoulade
 $ cd romouldate
-$ cargo run -- --rom <path>
+$ cargo run -- <path_to_rom>
 ```
 
 This repository is open to contributions.
