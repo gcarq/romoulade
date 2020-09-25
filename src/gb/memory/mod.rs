@@ -9,7 +9,6 @@ use crate::utils;
 pub struct MemoryBus {
     cartridge: Cartridge,
     vram: [u8; VRAM_SIZE],
-    cram: [u8; CRAM_SIZE],
     wram: [u8; WRAM_SIZE],
     eram: [u8; ERAM_SIZE],
     oam: [u8; OAM_SIZE],
@@ -23,7 +22,6 @@ impl MemoryBus {
         Self {
             cartridge,
             vram: [0u8; VRAM_SIZE],
-            cram: [0u8; CRAM_SIZE],
             wram: [0u8; WRAM_SIZE],
             eram: [0u8; ERAM_SIZE],
             oam: [0u8; OAM_SIZE],
@@ -56,12 +54,12 @@ impl AddressSpace for MemoryBus {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.vram[(address - VRAM_BEGIN) as usize] = value,
-            CRAM_BEGIN..=CRAM_END => self.cram[(address - CRAM_BEGIN) as usize] = value,
+            CRAM_BEGIN..=CRAM_END => self.cartridge.write(address, value),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize] = value,
             ERAM_BEGIN..=ERAM_END => {
                 // Mirrors Working RAM
                 self.eram[(address - ERAM_BEGIN) as usize] = value;
-                self.wram[(address - WRAM_BEGIN) as usize] = value;
+                self.wram[(address - ERAM_SIZE as u16 - WRAM_BEGIN) as usize] = value;
             }
             OAM_BEGIN..=OAM_END => self.oam[(address - OAM_BEGIN) as usize] = value,
             0xFEA0..=0xFEFF => {} // This area is unmapped, writing to it does nothing.
@@ -75,7 +73,7 @@ impl AddressSpace for MemoryBus {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.read_cartridge(address),
             VRAM_BEGIN..=VRAM_END => self.vram[(address - VRAM_BEGIN) as usize],
-            CRAM_BEGIN..=CRAM_END => self.cram[(address - CRAM_BEGIN) as usize],
+            CRAM_BEGIN..=CRAM_END => self.read_cartridge(address),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize],
             ERAM_BEGIN..=ERAM_END => self.eram[(address - ERAM_BEGIN) as usize],
             OAM_BEGIN..=OAM_END => self.oam[(address - OAM_BEGIN) as usize],

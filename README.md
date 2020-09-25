@@ -26,11 +26,12 @@ The code should follow the Rust style guideline.
 
 ### Todos
 
+ - Finish ROM banking
+ - Implement Timer
  - Implement missing instructions
  - Implement missing instruction tests
  - Finish Pixel Processing Unit
  - Implement Sound Processing Unit
- - Implement ROM banking
  - Pass [Test ROMs](https://gbdev.gg8.se/files/roms/blargg-gb-tests/)
  - ...
 
