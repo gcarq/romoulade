@@ -1,15 +1,14 @@
+use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
 use crate::gb::display::Display;
 use crate::gb::interrupt::IRQHandler;
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::PPU;
 use crate::gb::timings::Timer;
+use crate::gb::DISPLAY_REFRESH_RATE;
 use clap::{App, Arg, ArgMatches};
 use std::cell::RefCell;
-use std::fs::File;
-use std::io::Read;
 use std::path::Path;
-use std::{fs, io};
 
 #[macro_use]
 extern crate clap;
@@ -19,40 +18,20 @@ extern crate bitflags;
 mod gb;
 mod utils;
 
-struct ROMLoader<'a> {
-    path: &'a Path,
-}
-
-impl<'a> ROMLoader<'a> {
-    pub fn new(path: &'a Path) -> Self {
-        Self { path }
-    }
-
-    pub fn load(&self) -> io::Result<Vec<u8>> {
-        let mut file = File::open(&self.path)?;
-        let metadata = fs::metadata(&self.path)?;
-        let mut buffer = vec![0; metadata.len() as usize];
-        file.read(&mut buffer)?;
-
-        println!(
-            "Loaded rom '{}' with {} bytes",
-            self.path.display(),
-            buffer.len()
-        );
-        Ok(buffer)
-    }
-}
-
 fn main() {
     let matches = parse_args();
     let path = matches.value_of("rom").unwrap();
 
-    let rom = ROMLoader::new(Path::new(&path))
-        .load()
-        .expect("Unable to load ROM from path");
-    let bus = RefCell::new(MemoryBus::new(rom));
+    let fps_limit = match matches.is_present("no-fps-limit") {
+        true => 0,
+        false => DISPLAY_REFRESH_RATE,
+    };
 
-    let mut display = Display::new(2);
+    let cartridge =
+        Cartridge::from_path(Path::new(&path)).expect("Unable to load cartridge from path");
+    let bus = RefCell::new(MemoryBus::new(cartridge));
+
+    let mut display = Display::new(2, fps_limit);
     let mut timer = Timer::new(&bus);
     let mut ppu = PPU::new(&bus, &mut display);
     let cpu = RefCell::new(CPU::new(&bus));
@@ -78,6 +57,11 @@ fn parse_args() -> ArgMatches<'static> {
                 .required(true)
                 .value_name("ROM")
                 .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("no-fps-limit")
+                .help("Disable fps limit for debugging purposes")
+                .long("no-fps-limit"),
         )
         .get_matches()
 }

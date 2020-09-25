@@ -1,7 +1,7 @@
 use sdl2::video::Window;
 
 use crate::gb::ppu::Color;
-use crate::gb::{DISPLAY_REFRESH_RATE, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use sdl2::pixels;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::Canvas;
@@ -24,7 +24,7 @@ pub struct Display {
 impl Display {
     /// Creates a new display with the given int upscale.
     /// TODO: make upscale float
-    pub fn new(upscale: u8) -> Self {
+    pub fn new(upscale: u8, fps_limit: u32) -> Self {
         let sdl = sdl2::init().unwrap();
         let up = 1 << (upscale as usize);
 
@@ -37,14 +37,20 @@ impl Display {
             .position_centered()
             .build()
             .unwrap();
-        let canvas = window.into_canvas().build().unwrap();
 
+        let canvas = window.into_canvas().build().unwrap();
+        let limiter = if fps_limit > 0 {
+            let strategy = LimitStrategy::Sleep(Duration::from_secs(1) / fps_limit);
+            FrameLimiter::new(strategy)
+        } else {
+            FrameLimiter::new(LimitStrategy::Disabled)
+        };
         Self {
             canvas,
             event_pump: sdl.event_pump().unwrap(),
             upscale,
             last_second_frames: VecDeque::with_capacity(60),
-            limiter: FrameLimiter::new(DISPLAY_REFRESH_RATE),
+            limiter,
         }
     }
 
@@ -121,26 +127,37 @@ impl Display {
     }
 }
 
-/// Limits FPS with thread::sleep().
-pub struct FrameLimiter {
-    frame_duration: Duration,
+/// Defines FrameLimit strategies
+enum LimitStrategy {
+    Disabled,
+    Sleep(Duration),
+}
+
+/// Limits FPS with the configured strategy.
+struct FrameLimiter {
+    strategy: LimitStrategy,
     last_call: Instant,
 }
 
 impl FrameLimiter {
     /// Creates a new frame limiter.
-    pub fn new(fps: u32) -> Self {
+    pub fn new(strategy: LimitStrategy) -> Self {
         Self {
-            frame_duration: Duration::from_secs(1) / fps,
+            strategy,
             last_call: Instant::now(),
         }
     }
 
     /// Blocks the current thread until the allotted frame time has passed.
     pub fn wait(&mut self) {
-        let elapsed = self.last_call.elapsed();
-        if elapsed < self.frame_duration {
-            thread::sleep(self.frame_duration - elapsed);
+        match self.strategy {
+            LimitStrategy::Disabled => return,
+            LimitStrategy::Sleep(frame_duration) => {
+                let elapsed = self.last_call.elapsed();
+                if elapsed < frame_duration {
+                    thread::sleep(frame_duration - elapsed);
+                }
+            }
         }
         self.last_call = Instant::now();
     }

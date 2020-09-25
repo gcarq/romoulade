@@ -54,20 +54,28 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.execute(instruction)
             }
             None => {
-                println!(
-                    "pc: {:<5} sp: {:<5} | {} | op: {:#04x} -> ????",
-                    format!("{:#06x}", self.pc),
-                    format!("{:#06x}", self.sp),
-                    self.r,
-                    opcode,
-                );
-
+                self.print_registers(opcode, None);
                 let description = format!("0x{}{:02x}", if prefixed { "cb" } else { "" }, opcode);
-                panic!("Unkown instruction found for: {}", description)
+                panic!("Unresolved instruction found for: {}", description)
             }
         };
         self.pc = next_pc;
         self.clock.ticks()
+    }
+
+    /// Prints the current registers, pointers with opcode and resolved instruction
+    fn print_registers(&self, opcode: u8, instruction: Option<&Instruction>) {
+        println!(
+            "{} | pc: {:<5} sp: {:<5} | op: {:#04x} -> {}",
+            self.r,
+            format!("{:#06x}", self.pc),
+            format!("{:#06x}", self.sp),
+            opcode,
+            match instruction {
+                Some(i) => format!("{:?}", i),
+                None => "????".to_string(),
+            }
+        );
     }
 
     fn execute(&mut self, instruction: Instruction) -> u16 {
@@ -113,28 +121,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             0x0040 => println!("Setup background tilemap..."),
             0x005d => println!("Turning on LCD and showing Background..."),
             0x0062..=0x00fd => {}
-            0x00fe => {
-                // TODO:
-                // Writing the value of 1 to the address 0xFF50 unmaps the boot ROM,
-                // and the first 256 bytes of the address space, where it effectively was mapped,
-                // now gets mapped to the beginning of the cartridge’s ROM.
-                // Because the instruction at 0x00FE is two bytes long,
-                // the next instruction to get executed is at 0x0100.
-                // This is the first instruction executed that lies in the cartridge;
-                // program execution is indeed now under control of the cartridge.
-                println!("FIN! BOOT ROM loaded. TODO: Switch to Cartridge!");
-                self.is_halted = true;
-            }
-            0x00e8..=0xffff => {
-                println!(
-                    "{} | pc: {:<5} sp: {:<5} | op: {:#04x} -> {:?}",
-                    self.r,
-                    format!("{:#06x}", self.pc),
-                    format!("{:#06x}", self.sp),
-                    opcode,
-                    instruction,
-                );
-            }
+            0x00fe => println!("Done with processing boot ROM. Switching to Cartridge..."),
+            0x0100..=0xffff => self.print_registers(opcode, Some(instruction)),
             _ => {}
         }
     }
