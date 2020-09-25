@@ -4,7 +4,7 @@ pub enum Instruction {
     ADD2(ArithmeticWordTarget, ArithmeticWordSource), // Same as ADD but with words
     ADC(ByteSource),
     AND(BitOperationSource),
-    BIT(u8, BitOperationSource), // Test bit b in register r TODO: only registers allowed
+    BIT(u8, BitOperationSource), // Test bit b in register r
     INC(IncDecTarget),
     CALL(JumpTest),
     CP(ByteSource), // Compare A with source
@@ -25,6 +25,7 @@ pub enum Instruction {
     RLC(PrefixTarget), // Rotate target left
     RRCA,
     RST(ResetCode),
+    SET(u8, BitOperationSource), // Set bit b in register r
     SUB(ArithmeticByteTarget, ArithmeticByteSource),
     STOP,
     SWAP(BitOperationSource),
@@ -48,6 +49,7 @@ impl Instruction {
             0x11 => Some(Instruction::RLC(PrefixTarget::C)),
             0x37 => Some(Instruction::SWAP(BitOperationSource::A)),
             0x7c => Some(Instruction::BIT(7, BitOperationSource::H)),
+            0xfe => Some(Instruction::SET(7, BitOperationSource::HLI)),
             _ => None,
         }
     }
@@ -104,6 +106,7 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::DE,
             ))),
+            0x1c => Some(Instruction::INC(IncDecTarget::E)),
             0x1d => Some(Instruction::DEC(IncDecTarget::E)),
             0x1e => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::E,
@@ -309,10 +312,10 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::L,
             ))),
-            //0x7e => Some(Instruction::LD(FromIndirect(
-            //    LoadByteTarget::A,
-            //    ByteSource::HLI,
-            //))),
+            0x7e => Some(Instruction::LD(LoadType::FromIndirect(
+                LoadByteTarget::A,
+                ByteSource::HLI,
+            ))),
             //0x80 => Some(Instruction::ADD(
             //    ArithmeticByteTarget::A,
             //    ArithmeticByteSource::B,
@@ -377,6 +380,7 @@ impl Instruction {
             0xc1 => Some(Instruction::POP(StackTarget::BC)),
             0xc3 => Some(Instruction::JP(JumpTest::Always, WordSource::D16)),
             0xc9 => Some(Instruction::RET(JumpTest::Always)),
+            0xca => Some(Instruction::JP(JumpTest::Zero, WordSource::D16)),
             0xcd => Some(Instruction::CALL(JumpTest::Always)),
             0xcf => Some(Instruction::RST(ResetCode::RST08)),
             0xc5 => Some(Instruction::PUSH(StackTarget::BC)),

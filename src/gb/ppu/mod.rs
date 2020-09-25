@@ -153,6 +153,7 @@ impl<'a> PPU<'a> {
                 // When we reach line 144, we switch to VBlank state instead.
                 if self.clock.ticks() >= 456 {
                     self.clock.reset();
+                    // TODO: use wrapping_Add
                     self.write(PPU_LY, self.read(PPU_LY) + 1);
                     if self.read(PPU_LY) == SCREEN_HEIGHT {
                         self.display.render_screen();

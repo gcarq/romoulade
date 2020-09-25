@@ -116,7 +116,7 @@ fn test_and_zero() {
 
 #[test]
 fn test_bit_zero() {
-    // BIT 7,H
+    // BIT 7, H
     let bus = RefCell::new(MockBus::new([0xcb, 0x7c].into()));
     let mut cpu = CPU::new(&bus);
     cpu.r.h = 0b01111111;
@@ -128,7 +128,7 @@ fn test_bit_zero() {
 
 #[test]
 fn test_bit_non_zero() {
-    // BIT 7,H
+    // BIT 7, H
     let bus = RefCell::new(MockBus::new([0xcb, 0x7c].into()));
     let mut cpu = CPU::new(&bus);
     cpu.r.h = 0b11010000;
@@ -290,7 +290,7 @@ fn test_jp_always() {
 
 #[test]
 fn test_ld_byte_reg() {
-    // LD C,A
+    // LD C, A
     let bus = RefCell::new(MockBus::new(vec![0x4f; 1]));
     let mut cpu = CPU::new(&bus);
     cpu.r.a = 0x42;
@@ -359,6 +359,18 @@ fn test_or_zero() {
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(cpu.clock.ticks(), 4);
     assert_eq!(cpu.pc, 1);
+}
+
+#[test]
+fn test_set() {
+    // BIT 7, (HL)
+    let bus = RefCell::new(MockBus::new([0xcb, 0xfe, 0b00000010].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.set_hl(0x02);
+    cpu.step();
+    assert_eq!(bus.borrow().read(0x02), 0b10000010);
+    assert_eq!(cpu.clock.ticks(), 16);
+    assert_eq!(cpu.pc, 2);
 }
 
 #[test]

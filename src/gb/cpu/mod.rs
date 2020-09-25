@@ -105,6 +105,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::RLC(target) => self.handle_rlc(target),
             Instruction::RRCA => self.handle_rrca(),
             Instruction::RST(code) => self.handle_rst(code),
+            Instruction::SET(bit, source) => self.handle_set(bit, source),
             Instruction::STOP => self.handle_stop(),
             Instruction::SUB(target, source) => self.handle_sub(target, source),
             Instruction::SWAP(source) => self.handle_swap(source),
@@ -461,6 +462,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.f.negative = false;
                 self.r.f.half_carry = self.r.c & 0xf == 0xf;
             }
+            IncDecTarget::E => {
+                self.r.e = self.r.e.wrapping_add(1);
+                self.r.f.zero = self.r.e == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = self.r.e & 0xf == 0xf;
+            }
             IncDecTarget::H => {
                 self.r.h = self.r.h.wrapping_add(1);
                 self.r.f.zero = self.r.h == 0;
@@ -518,6 +525,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         }
 
         self.clock.advance(12);
+        // TODO: this seems incorrect. Maybe cast with `as *const i8 as i8`?
         let offset = self.consume_byte() as i8;
         let pc = (self.pc as i16).wrapping_add(offset as i16);
         // TODO: is this correct?
@@ -546,6 +554,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 _ => unimplemented!(),
             };
         }
+        self.clock.advance(12);
         // If we don't jump we need to still move the program
         // counter forward by 3 since the jump instruction is
         // 3 bytes wide (1 byte for tag and 2 bytes for jump address)
@@ -825,6 +834,26 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             ResetCode::RST28 => 0x28,
             ResetCode::RST38 => 0x38,
         }
+    }
+
+    /// Handles SET instructions
+    fn handle_set(&mut self, bit: u8, source: BitOperationSource) -> u16 {
+        let value = match source {
+            BitOperationSource::HLI => self.read(self.r.get_hl()),
+            _ => unimplemented!(),
+        };
+
+        let result = utils::set_bit(value, bit, true);
+        match source {
+            BitOperationSource::HLI => self.write(self.r.get_hl(), result),
+            _ => unimplemented!(),
+        }
+
+        match source {
+            BitOperationSource::HLI => self.clock.advance(16),
+            _ => self.clock.advance(8),
+        }
+        self.pc.wrapping_add(2)
     }
 
     /// Handles STOP instruction
