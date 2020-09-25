@@ -10,6 +10,7 @@ use registers::Registers;
 use std::cell::RefCell;
 
 mod registers;
+#[cfg(test)]
 mod tests;
 
 pub struct CPU<'a, T: AddressSpace> {

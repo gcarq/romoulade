@@ -12,6 +12,7 @@ use std::{process, thread};
 
 const NAME: &str = "Romoulade";
 
+/// Display with sdl2 backend to emulate the LCD.
 pub struct Display {
     canvas: Canvas<Window>,
     event_pump: EventPump,
@@ -21,6 +22,8 @@ pub struct Display {
 }
 
 impl Display {
+    /// Creates a new display with the given int upscale.
+    /// TODO: make upscale float
     pub fn new(upscale: u8) -> Self {
         let sdl = sdl2::init().unwrap();
         let up = 1 << (upscale as usize);
@@ -102,6 +105,8 @@ impl Display {
         self.last_second_frames.len()
     }
 
+    /// Renders the canvas to screen and checks
+    /// if there are any events that need to be handled.
     fn update(&mut self) {
         self.canvas.present();
         for event in self.event_pump.poll_iter() {

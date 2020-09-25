@@ -11,12 +11,18 @@ At this point it is capable of processing the Original Gameboy [Bootstrap ROM](h
 
 ```sh
 $ git clone https://github.com/gcarq/romoulade
+$ emerge media-libs/libsdl2 # pacman -S sdl2; apt install libsdl2-dev
 $ cd romouldate
 $ cargo run -- <path_to_rom>
 ```
 
 This repository is open to contributions.
 The code should follow the Rust style guideline.
+
+### Dependencies
+
+* Rust
+* SDL2-2.0
 
 ### Todos
 
