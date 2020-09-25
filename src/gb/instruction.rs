@@ -15,7 +15,7 @@ pub enum Instruction {
     EI, // Enables interrupt handling by setting ime = true
     HALT,
     JR(JumpTest), // Relative jump to given address
-    JP(JumpTest),
+    JP(JumpTest, WordSource),
     LD(LoadType),
     NOP,
     OR(BitOperationSource),
@@ -96,10 +96,10 @@ impl Instruction {
             ))),
             0x17 => Some(Instruction::RLA),
             0x18 => Some(Instruction::JR(JumpTest::Always)),
-            //0x19 => Some(Instruction::ADD2(
-            //    ArithmeticWordTarget::HL,
-            //    ArithmeticWordSource::DE,
-            //)),
+            0x19 => Some(Instruction::ADD2(
+                ArithmeticWordTarget::HL,
+                ArithmeticWordSource::DE,
+            )),
             0x1a => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::DE,
@@ -211,10 +211,10 @@ impl Instruction {
             //    LoadByteTarget::D,
             //    ByteSource::L,
             //))),
-            //0x56 => Some(Instruction::LD(LoadType::Byte(
-            //    LoadByteTarget::D,
-            //    ByteSource::HLI,
-            //))),
+            0x56 => Some(Instruction::LD(LoadType::Byte(
+                LoadByteTarget::D,
+                ByteSource::HLI,
+            ))),
             0x57 => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::D,
                 ByteSource::A,
@@ -223,14 +223,14 @@ impl Instruction {
             //    LoadByteTarget::E,
             //    ByteSource::L,
             //))),
-            //0x5e => Some(Instruction::LD(FromIndirect(
-            //    LoadByteTarget::E,
-            //    ByteSource::HLI,
-            //))),
-            //0x5f => Some(Instruction::LD(LoadType::Byte(
-            //    LoadByteTarget::E,
-            //    ByteSource::A,
-            //))),
+            0x5e => Some(Instruction::LD(LoadType::FromIndirect(
+                LoadByteTarget::E,
+                ByteSource::HLI,
+            ))),
+            0x5f => Some(Instruction::LD(LoadType::Byte(
+                LoadByteTarget::E,
+                ByteSource::A,
+            ))),
             //0x60 => Some(Instruction::LD(LoadType::Byte(
             //    LoadByteTarget::H,
             //    ByteSource::B,
@@ -341,10 +341,10 @@ impl Instruction {
                 ArithmeticByteTarget::A,
                 ArithmeticByteSource::HLI,
             )),
-            //0x87 => Some(Instruction::ADD(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::A,
-            //)),
+            0x87 => Some(Instruction::ADD(
+                ArithmeticByteTarget::A,
+                ArithmeticByteSource::A,
+            )),
             //0x8b => Some(Instruction::ADC(ByteSource::E)),
             //0x8c => Some(Instruction::ADC(ByteSource::H)),
             //0x8d => Some(Instruction::ADC(ByteSource::L)),
@@ -375,7 +375,7 @@ impl Instruction {
             0xbe => Some(Instruction::CP(ByteSource::HLI)),
             0xc0 => Some(Instruction::RET(JumpTest::NotZero)),
             0xc1 => Some(Instruction::POP(StackTarget::BC)),
-            0xc3 => Some(Instruction::JP(JumpTest::Always)),
+            0xc3 => Some(Instruction::JP(JumpTest::Always, WordSource::D16)),
             0xc9 => Some(Instruction::RET(JumpTest::Always)),
             0xcd => Some(Instruction::CALL(JumpTest::Always)),
             0xcf => Some(Instruction::RST(ResetCode::RST08)),
@@ -401,6 +401,7 @@ impl Instruction {
             0xe5 => Some(Instruction::PUSH(StackTarget::HL)),
             0xe6 => Some(Instruction::AND(BitOperationSource::D8)),
             0xef => Some(Instruction::RST(ResetCode::RST28)),
+            0xe9 => Some(Instruction::JP(JumpTest::Always, WordSource::HL)),
             0xf0 => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::D8,
@@ -408,6 +409,7 @@ impl Instruction {
             0xf1 => Some(Instruction::POP(StackTarget::AF)),
             0xf3 => Some(Instruction::DI),
             0xf5 => Some(Instruction::PUSH(StackTarget::AF)),
+            0xf6 => Some(Instruction::OR(BitOperationSource::D8)),
             0xfa => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::D16I,

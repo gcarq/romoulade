@@ -59,6 +59,34 @@ fn test_add_overflow_zero() {
 }
 
 #[test]
+fn test_add2_no_overflow() {
+    // ADD HL, DE
+    let bus = RefCell::new(MockBus::new(vec![0x19; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.set_hl(0x01);
+    cpu.r.set_de(0x03);
+    cpu.step();
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.get_hl(), 0x04);
+    assert_flags(cpu.r.f, false, false, false, false);
+}
+
+#[test]
+fn test_add2_overflow() {
+    // ADD HL, DE
+    let bus = RefCell::new(MockBus::new(vec![0x19; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.set_hl(0xFFFE);
+    cpu.r.set_de(0x03);
+    cpu.step();
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.get_hl(), 0x0001);
+    assert_flags(cpu.r.f, false, false, true, true);
+}
+
+#[test]
 fn test_and_non_zero() {
     // AND A, B
     let bus = RefCell::new(MockBus::new(vec![0xa0; 1]));

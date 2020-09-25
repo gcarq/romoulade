@@ -95,7 +95,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::HALT => self.handle_halt(),
             Instruction::INC(target) => self.handle_inc(target),
             Instruction::JR(test) => self.handle_jr(test),
-            Instruction::JP(test) => self.handle_jp(test),
+            Instruction::JP(test, source) => self.handle_jp(test, source),
             Instruction::LD(load_type) => self.handle_ld(load_type),
             Instruction::NOP => self.handle_nop(),
             Instruction::OR(source) => self.handle_or(source),
@@ -525,7 +525,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles JP instructions
-    fn handle_jp(&mut self, test: JumpTest) -> u16 {
+    fn handle_jp(&mut self, test: JumpTest, source: WordSource) -> u16 {
         let should_jump = match test {
             JumpTest::NotZero => !self.r.f.zero,
             JumpTest::NotCarry => !self.r.f.carry,
@@ -534,18 +534,22 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             JumpTest::Always => true,
         };
         if should_jump {
-            // Gameboy is little endian so read pc + 2 as most significant bit
-            // and pc + 1 as least significant bit
-            self.clock.advance(16);
-            let least_significant_byte = self.read(self.pc + 1) as u16;
-            let most_significant_byte = self.read(self.pc + 2) as u16;
-            (most_significant_byte << 8) | least_significant_byte
-        } else {
-            // If we don't jump we need to still move the program
-            // counter forward by 3 since the jump instruction is
-            // 3 bytes wide (1 byte for tag and 2 bytes for jump address)
-            self.pc.wrapping_add(3)
+            return match source {
+                WordSource::HL => {
+                    self.clock.advance(4);
+                    self.r.get_hl()
+                }
+                WordSource::D16 => {
+                    self.clock.advance(16);
+                    self.consume_word()
+                }
+                _ => unimplemented!(),
+            };
         }
+        // If we don't jump we need to still move the program
+        // counter forward by 3 since the jump instruction is
+        // 3 bytes wide (1 byte for tag and 2 bytes for jump address)
+        self.pc.wrapping_add(3)
     }
 
     /// Handles LD instructions
@@ -706,15 +710,20 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles OR instructions
     fn handle_or(&mut self, source: BitOperationSource) -> u16 {
-        let source = match source {
+        let value = match source {
             BitOperationSource::B => self.r.b,
             BitOperationSource::C => self.r.c,
             BitOperationSource::E => self.r.e,
+            BitOperationSource::D8 => self.consume_byte(),
             _ => unimplemented!(),
         };
-        self.r.a |= source;
+        self.r.a |= value;
         self.r.f.update(self.r.a == 0, false, false, false);
-        self.clock.advance(4);
+
+        match source {
+            BitOperationSource::D8 => self.clock.advance(8),
+            _ => self.clock.advance(4),
+        }
         self.pc.wrapping_add(1)
     }
 
@@ -811,10 +820,10 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.sp = self.sp.wrapping_sub(2);
         self.push(self.pc);
         match code {
-            ResetCode::RST08 => 8,
-            ResetCode::RST18 => 18,
-            ResetCode::RST28 => 28,
-            ResetCode::RST38 => 38,
+            ResetCode::RST08 => 0x08,
+            ResetCode::RST18 => 0x18,
+            ResetCode::RST28 => 0x28,
+            ResetCode::RST38 => 0x38,
         }
     }
 
