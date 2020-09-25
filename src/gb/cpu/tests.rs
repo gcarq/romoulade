@@ -111,6 +111,19 @@ fn test_bit_non_zero() {
 }
 
 #[test]
+fn test_cpl() {
+    // CPL
+    let bus = RefCell::new(MockBus::new(vec![0x2f; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0b11010011;
+    cpu.step();
+    assert_flags(cpu.r.f, false, true, true, false);
+    assert_eq!(cpu.r.a, 0b00101100);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+}
+
+#[test]
 fn test_di() {
     // DI
     let bus = RefCell::new(MockBus::new(vec![0xf3; 1]));
@@ -318,6 +331,32 @@ fn test_or_zero() {
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(cpu.clock.ticks(), 4);
     assert_eq!(cpu.pc, 1);
+}
+
+#[test]
+fn test_swap_non_zero() {
+    // SWAP A
+    let bus = RefCell::new(MockBus::new([0xcb, 0x37].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0b1011_1010;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0b1010_1011);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_flags(cpu.r.f, false, false, false, false);
+}
+
+#[test]
+fn test_swap_zero() {
+    // SWAP A
+    let bus = RefCell::new(MockBus::new([0xcb, 0x37].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_flags(cpu.r.f, true, false, false, false);
 }
 
 #[test]

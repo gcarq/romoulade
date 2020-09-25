@@ -4,10 +4,11 @@ pub enum Instruction {
     ADD2(ArithmeticWordTarget, ArithmeticWordSource), // Same as ADD but with words
     ADC(ByteSource),
     AND(BitOperationSource),
-    BIT(u8, BitOperationSource), // Test bit b in register r. TODO: only registers allowed
+    BIT(u8, BitOperationSource), // Test bit b in register r TODO: only registers allowed
     INC(IncDecTarget),
     CALL(JumpTest),
     CP(ByteSource), // Compare A with source
+    CPL,            // Flips all bits in A register, sets N and H flags
     DAA,            // This instruction is useful when you’re using BCD value
     DI,             // Disables interrupt handling by setting ime = false
     DEC(IncDecTarget),
@@ -19,12 +20,14 @@ pub enum Instruction {
     NOP,
     OR(BitOperationSource),
     RET(JumpTest),
+    RETI,              // Unconditional return which also enables interrupts
     RLA,               // Rotate `A` left through carry
     RLC(PrefixTarget), // Rotate target left
     RRCA,
     RST(ResetCode),
     SUB(ArithmeticByteTarget, ArithmeticByteSource),
     STOP,
+    SWAP(BitOperationSource),
     PUSH(StackTarget), // Push to the stack memory, data from the 16-bit register
     POP(StackTarget),  // Pops to the 16-bit register
     XOR(BitOperationSource),
@@ -43,6 +46,7 @@ impl Instruction {
         match opcode {
             //0x00 => Some(Instruction::RLC(PrefixTarget::B)),
             0x11 => Some(Instruction::RLC(PrefixTarget::C)),
+            0x37 => Some(Instruction::SWAP(BitOperationSource::A)),
             0x7c => Some(Instruction::BIT(7, BitOperationSource::H)),
             _ => None,
         }
@@ -127,6 +131,7 @@ impl Instruction {
                 LoadByteTarget::L,
                 ByteSource::D8,
             ))),
+            0x2f => Some(Instruction::CPL),
             //0x30 => Some(Instruction::JR(JumpTest::NotCarry)),
             0x31 => Some(Instruction::LD(LoadType::Word(
                 LoadWordTarget::SP,
@@ -174,6 +179,10 @@ impl Instruction {
             //    LoadByteTarget::B,
             //    ByteSource::HLI,
             //))),
+            0x47 => Some(Instruction::LD(LoadType::Byte(
+                LoadByteTarget::B,
+                ByteSource::A,
+            ))),
             0x4f => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::C,
                 ByteSource::A,
@@ -280,6 +289,10 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::B,
             ))),
+            0x79 => Some(Instruction::LD(LoadType::Byte(
+                LoadByteTarget::A,
+                ByteSource::C,
+            ))),
             //0x7a => Some(Instruction::LD(LoadType::Byte(
             //    LoadByteTarget::A,
             //    ByteSource::D,
@@ -350,11 +363,13 @@ impl Instruction {
             //    ArithmeticByteSource::HLI,
             //)),
             0xa0 => Some(Instruction::AND(BitOperationSource::B)),
-            //0xa1 => Some(Instruction::AND(BitOperationSource::C)),
+            0xa1 => Some(Instruction::AND(BitOperationSource::C)),
             //0xa2 => Some(Instruction::AND(BitOperationSource::D)),
             //0xa3 => Some(Instruction::AND(BitOperationSource::E)),
             0xa7 => Some(Instruction::AND(BitOperationSource::A)),
+            0xa9 => Some(Instruction::XOR(BitOperationSource::C)),
             0xaf => Some(Instruction::XOR(BitOperationSource::A)),
+            0xb0 => Some(Instruction::OR(BitOperationSource::B)),
             0xb1 => Some(Instruction::OR(BitOperationSource::C)),
             //0xb3 => Some(Instruction::OR(BitOperationSource::E)),
             0xbe => Some(Instruction::CP(ByteSource::HLI)),
@@ -363,12 +378,13 @@ impl Instruction {
             0xc3 => Some(Instruction::JP(JumpTest::Always)),
             0xc9 => Some(Instruction::RET(JumpTest::Always)),
             0xcd => Some(Instruction::CALL(JumpTest::Always)),
-            //0xcf => Some(Instruction::RST(ResetCode::RST08)),
+            0xcf => Some(Instruction::RST(ResetCode::RST08)),
             0xc5 => Some(Instruction::PUSH(StackTarget::BC)),
             0xc8 => Some(Instruction::RET(JumpTest::Zero)),
             0xd1 => Some(Instruction::POP(StackTarget::DE)),
             0xd5 => Some(Instruction::PUSH(StackTarget::DE)),
-            //0xdf => Some(Instruction::RST(ResetCode::RST18)),
+            0xd9 => Some(Instruction::RETI),
+            0xdf => Some(Instruction::RST(ResetCode::RST18)),
             0xe0 => Some(Instruction::LD(LoadType::IndirectFrom(
                 AddressSource::D8,
                 ByteSource::A,
@@ -383,7 +399,8 @@ impl Instruction {
                 ByteSource::A,
             ))),
             0xe5 => Some(Instruction::PUSH(StackTarget::HL)),
-            //0xef => Some(Instruction::RST(ResetCode::RST28)),
+            0xe6 => Some(Instruction::AND(BitOperationSource::D8)),
+            0xef => Some(Instruction::RST(ResetCode::RST28)),
             0xf0 => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::D8,
@@ -397,7 +414,7 @@ impl Instruction {
             ))),
             0xfb => Some(Instruction::EI),
             0xfe => Some(Instruction::CP(ByteSource::D8)),
-            //0xff => Some(Instruction::RST(ResetCode::RST38)),
+            0xff => Some(Instruction::RST(ResetCode::RST38)),
             _ => None,
         }
     }
@@ -443,6 +460,8 @@ pub enum BitOperationSource {
     D,
     E,
     H,
+    D8,
+    HLI,
 }
 
 #[derive(Debug)]
