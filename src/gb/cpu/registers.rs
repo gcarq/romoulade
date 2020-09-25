@@ -23,6 +23,16 @@ impl fmt::Display for Registers {
 }
 
 impl Registers {
+    pub fn get_af(&self) -> u16 {
+        (self.a as u16) << 8 | u8::from(self.f) as u16
+    }
+
+    pub fn set_af(&mut self, value: u16) {
+        self.a = (value >> 8) as u8;
+        // Mask lower 4 bits
+        self.f = FlagsRegister::from(value as u8 & 0xF0);
+    }
+
     pub fn get_bc(&self) -> u16 {
         (self.b as u16) << 8 | self.c as u16
     }
@@ -81,7 +91,7 @@ const CARRY_FLAG_BYTE_POSITION: u8 = 4;
 /// | |
 /// └-+> Zero
 ///   └-> Half Carry
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub struct FlagsRegister {
     pub zero: bool,
     pub negative: bool,

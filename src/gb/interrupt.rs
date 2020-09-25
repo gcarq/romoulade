@@ -3,11 +3,40 @@ use crate::gb::memory::constants::{INTERRUPT_ENABLE, INTERRUPT_FLAG};
 use crate::gb::AddressSpace;
 use crate::utils;
 use bitflags::_core::cell::RefCell;
+use std::convert;
 
-pub const IRQ_VBLANK: u8 = 0b00000001;
-pub const IRQ_LCD: u8 = 0b00000010;
-pub const IRQ_TIMER: u8 = 0b00000100;
-pub const IRQ_JOYPAD: u8 = 0b00010000;
+/// Represents an interrupt request
+#[derive(Debug, Copy, Clone)]
+#[repr(u8)]
+pub enum IRQ {
+    VBLANK = 0,
+    LCD = 1,
+    TIMER = 2,
+    JOYPAD = 4,
+}
+
+impl convert::From<u8> for IRQ {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => IRQ::VBLANK,
+            1 => IRQ::LCD,
+            2 => IRQ::TIMER,
+            4 => IRQ::JOYPAD,
+            _ => unimplemented!(),
+        }
+    }
+}
+
+impl convert::From<IRQ> for u8 {
+    fn from(value: IRQ) -> u8 {
+        match value {
+            IRQ::VBLANK => 0,
+            IRQ::LCD => 1,
+            IRQ::TIMER => 2,
+            IRQ::JOYPAD => 4,
+        }
+    }
+}
 
 pub struct IRQHandler<'a, T: AddressSpace> {
     cpu: &'a RefCell<CPU<'a, T>>,
@@ -32,28 +61,28 @@ impl<'a, T: AddressSpace> IRQHandler<'a, T> {
         let enabled = self.read(INTERRUPT_ENABLE);
         for i in 0..5 {
             if utils::bit_at(requests, i) && utils::bit_at(enabled, i) {
-                self.service_interrupts(i);
+                self.service_interrupts(IRQ::from(i));
             }
         }
     }
 
-    fn service_interrupts(&mut self, interrupt: u8) {
-        println!("Serving interrupt: {}", interrupt);
+    fn service_interrupts(&mut self, interrupt: IRQ) {
+        println!("Serving interrupt: {:?}...", interrupt);
         self.cpu.borrow_mut().ime = false;
 
         // Clear interrupt request
-        let req = utils::set_bit(self.read(INTERRUPT_FLAG), interrupt, false);
+        let req = utils::set_bit(self.read(INTERRUPT_FLAG), u8::from(interrupt), false);
         self.write(INTERRUPT_FLAG, req);
 
         // Save current execution address by pushing it onto the stack
-        self.cpu.borrow_mut().push(self.cpu.borrow_mut().pc);
+        let pc = self.cpu.borrow().pc;
+        self.cpu.borrow_mut().push(pc);
 
         match interrupt {
-            0 => self.cpu.borrow_mut().pc = 0x40, // V-Blank
-            1 => self.cpu.borrow_mut().pc = 0x48, // LCD
-            2 => self.cpu.borrow_mut().pc = 0x50, // Timer
-            4 => self.cpu.borrow_mut().pc = 0x60, // Joypad
-            _ => unimplemented!(),
+            IRQ::VBLANK => self.cpu.borrow_mut().pc = 0x40,
+            IRQ::LCD => self.cpu.borrow_mut().pc = 0x48,
+            IRQ::TIMER => self.cpu.borrow_mut().pc = 0x50,
+            IRQ::JOYPAD => self.cpu.borrow_mut().pc = 0x60,
         }
     }
 

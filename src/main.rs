@@ -20,17 +20,18 @@ mod utils;
 
 fn main() {
     let matches = parse_args();
-    let path = matches.value_of("rom").unwrap();
+    let path = Path::new(matches.value_of("rom").unwrap());
 
     let fps_limit = match matches.is_present("no-fps-limit") {
         true => 0,
         false => DISPLAY_REFRESH_RATE,
     };
 
-    let cartridge =
-        Cartridge::from_path(Path::new(&path)).expect("Unable to load cartridge from path");
-    let bus = RefCell::new(MemoryBus::new(cartridge));
+    println!("Loading cartridge {}...", &path.display());
+    let cartridge = Cartridge::from_path(&path).expect("Unable to load cartridge from path");
+    println!("  -> {}", cartridge);
 
+    let bus = RefCell::new(MemoryBus::new(cartridge));
     let mut display = Display::new(2, fps_limit);
     let mut timer = Timer::new(&bus);
     let mut ppu = PPU::new(&bus, &mut display);

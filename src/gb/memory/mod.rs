@@ -40,18 +40,12 @@ impl MemoryBus {
         self.write(INTERRUPT_FLAG, req);
     }
 
-    fn read_rom_bank(&self, address: u16) -> u8 {
+    /// Reads value from boot ROM or cartridge
+    /// depending on BOOT_ROM_OFF register
+    fn read_cartridge(&self, address: u16) -> u8 {
         match address {
-            BOOT_BEGIN..=BOOT_END => match self.read(BOOT_ROM_OFF) {
-                0 => BOOT_ROM[address as usize],
-                1 => self.cartridge.read(address),
-                _ => unimplemented!(),
-            },
-            ROM_BANK_0_BEGIN..=ROM_BANK_0_END => self.cartridge.read(address),
-            ROM_BANK_N_BEGIN..=ROM_BANK_N_END => {
-                unimplemented!("TODO: Implement ROM bank handling")
-            }
-            _ => panic!("Out of bound read from cartridge: {:#06x}", address),
+            BOOT_BEGIN..=BOOT_END if self.read(BOOT_ROM_OFF) == 0 => BOOT_ROM[address as usize],
+            _ => self.cartridge.read(address),
         }
     }
 }
@@ -60,10 +54,7 @@ impl AddressSpace for MemoryBus {
     fn write(&mut self, address: u16, value: u8) {
         // TODO: Implement DMA Transfer if address == 0xFF46
         match address {
-            ROM_BANK_0_BEGIN..=ROM_BANK_N_END => {
-                // TODO: don't panic, but emit a warning
-                panic!("Trying to write byte to ROM: {:#06x}", address)
-            }
+            ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.vram[(address - VRAM_BEGIN) as usize] = value,
             CRAM_BEGIN..=CRAM_END => self.cram[(address - CRAM_BEGIN) as usize] = value,
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize] = value,
@@ -82,7 +73,7 @@ impl AddressSpace for MemoryBus {
 
     fn read(&self, address: u16) -> u8 {
         match address {
-            ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.read_rom_bank(address),
+            ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.read_cartridge(address),
             VRAM_BEGIN..=VRAM_END => self.vram[(address - VRAM_BEGIN) as usize],
             CRAM_BEGIN..=CRAM_END => self.cram[(address - CRAM_BEGIN) as usize],
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize],

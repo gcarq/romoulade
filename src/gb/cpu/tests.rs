@@ -59,6 +59,34 @@ fn test_add_overflow_zero() {
 }
 
 #[test]
+fn test_and_non_zero() {
+    // AND A, B
+    let bus = RefCell::new(MockBus::new(vec![0xa0; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0x02;
+    cpu.r.b = 0xff;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0x02);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, true, false);
+}
+
+#[test]
+fn test_and_zero() {
+    // AND A, B
+    let bus = RefCell::new(MockBus::new(vec![0xa0; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0x02;
+    cpu.r.b = 0x04;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0x00);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, true, false, true, false);
+}
+
+#[test]
 fn test_bit_zero() {
     // BIT 7,H
     let bus = RefCell::new(MockBus::new([0xcb, 0x7c].into()));
@@ -134,6 +162,18 @@ fn test_dec_zero() {
 }
 
 #[test]
+fn test_dec_word() {
+    // DEC BC
+    let bus = RefCell::new(MockBus::new(vec![0x0b; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.set_bc(0x42);
+    cpu.step();
+    assert_eq!(cpu.r.get_bc(), 0x41);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 1);
+}
+
+#[test]
 fn test_ei() {
     // EI
     let bus = RefCell::new(MockBus::new(vec![0xfb; 1]));
@@ -185,6 +225,19 @@ fn test_inc_half_carry() {
 }
 
 #[test]
+fn test_inc_word() {
+    // INC (HL)
+    let bus = RefCell::new(MockBus::new([0x34, 0x03].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.set_hl(0x01);
+    cpu.step();
+    assert_eq!(bus.borrow().read(0x01), 0x04);
+    assert_eq!(cpu.clock.ticks(), 12);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, false, false);
+}
+
+#[test]
 fn test_jp_always() {
     // JP D16
     let bus = RefCell::new(MockBus::new([0xc3, 0x01, 0x02].into()));
@@ -219,11 +272,64 @@ fn test_ld_byte_io() {
 }
 
 #[test]
+fn test_ld_byte_from_indirect_inc() {
+    // LD A, (HL+)
+    let bus = RefCell::new(MockBus::new([0x2a, 0x00, 0x11].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.set_hl(0x02);
+    cpu.step();
+    assert_eq!(cpu.r.a, 0x11);
+    assert_eq!(cpu.r.get_hl(), 0x03);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 1);
+}
+
+#[test]
 fn test_nop() {
     // NOP
     let bus = RefCell::new(MockBus::new(vec![0x00; 1]));
     let mut cpu = CPU::new(&bus);
     cpu.step();
     assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+}
+
+#[test]
+fn test_or_non_zero() {
+    // OR A, C
+    let bus = RefCell::new(MockBus::new(vec![0xb1; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0x01;
+    cpu.r.c = 0x03;
+    cpu.step();
+    assert_flags(cpu.r.f, false, false, false, false);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+}
+
+#[test]
+fn test_or_zero() {
+    // OR A, C
+    let bus = RefCell::new(MockBus::new(vec![0xb1; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0x00;
+    cpu.r.c = 0x00;
+    cpu.step();
+    assert_flags(cpu.r.f, true, false, false, false);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+}
+
+#[test]
+fn test_push() {
+    // PUSH AF
+    let bus = RefCell::new(MockBus::new([0xf5, 0x00, 0x00, 0x00].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.set_af(0xff);
+    cpu.sp = 0x03;
+    cpu.step();
+    assert_eq!(bus.borrow().read(0x01), 0xf0);
+    assert_eq!(bus.borrow().read(0x02), 0x00);
+    assert_eq!(cpu.clock.ticks(), 16);
     assert_eq!(cpu.pc, 1);
 }

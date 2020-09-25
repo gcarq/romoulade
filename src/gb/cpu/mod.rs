@@ -270,6 +270,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         };
         self.r.a &= value;
         self.r.f.update(self.r.a == 0, false, true, false);
+        self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
 
@@ -459,7 +460,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.f.negative = false;
                 self.r.f.half_carry = self.r.l & 0xf == 0xf;
             }
-
+            IncDecTarget::HLI => {
+                let result = self.read(self.r.get_hl()).wrapping_add(1);
+                self.write(self.r.get_hl(), result);
+                self.r.f.zero = result == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = result & 0xf == 0xf;
+            }
             IncDecTarget::BC => self.r.set_bc(self.r.get_bc().wrapping_add(1)),
             IncDecTarget::DE => self.r.set_de(self.r.get_de().wrapping_add(1)),
             IncDecTarget::HL => self.r.set_hl(self.r.get_hl().wrapping_add(1)),
@@ -649,6 +656,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                     ByteSource::DE => self.r.get_de(),
                     ByteSource::HLI => self.r.get_hl(),
                     ByteSource::D8 => 0xFF00 | self.consume_byte() as u16,
+                    ByteSource::D16I => self.consume_word(),
                     _ => unimplemented!(),
                 };
                 match target {
@@ -657,6 +665,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                     _ => unimplemented!(),
                 }
                 match source {
+                    ByteSource::D16I => self.clock.advance(16),
                     ByteSource::D8 => self.clock.advance(12),
                     _ => self.clock.advance(8),
                 }
@@ -670,6 +679,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 };
                 self.r.a = self.read(addr);
                 self.r.set_hl(self.r.get_hl().wrapping_add(1));
+                self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
         }
@@ -684,11 +694,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles OR instructions
     fn handle_or(&mut self, source: BitOperationSource) -> u16 {
         let source = match source {
+            BitOperationSource::C => self.r.c,
             BitOperationSource::E => self.r.e,
             _ => unimplemented!(),
         };
         self.r.a |= source;
         self.r.f.update(self.r.a == 0, false, false, false);
+        self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
 
@@ -696,9 +708,10 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_pop(&mut self, target: StackTarget) -> u16 {
         let result = self.pop();
         match target {
+            StackTarget::AF => self.r.set_af(result),
             StackTarget::BC => self.r.set_bc(result),
+            StackTarget::DE => self.r.set_de(result),
             StackTarget::HL => self.r.set_hl(result),
-            _ => unimplemented!(),
         };
         self.clock.advance(12);
         self.pc.wrapping_add(1)
@@ -707,9 +720,10 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles PUSH instruction
     fn handle_push(&mut self, target: StackTarget) -> u16 {
         let value = match target {
+            StackTarget::AF => self.r.get_af(),
             StackTarget::BC => self.r.get_bc(),
             StackTarget::DE => self.r.get_de(),
-            _ => unimplemented!(),
+            StackTarget::HL => self.r.get_hl(),
         };
         self.push(value);
         self.clock.advance(16);
@@ -721,6 +735,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         let should_jump = match test {
             JumpTest::Always => true,
             JumpTest::NotZero => !self.r.f.zero,
+            JumpTest::Zero => self.r.f.zero,
             _ => unimplemented!(),
         };
 
