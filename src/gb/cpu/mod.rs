@@ -129,7 +129,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Reads the next byte and increases pc
     fn consume_byte(&mut self) -> u8 {
-        self.pc += 1;
+        self.pc = self.pc.wrapping_add(1);
         self.read(self.pc)
     }
 
@@ -479,6 +479,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles EI and DI instructions
     fn handle_interrupt(&mut self, enable: bool) -> u16 {
         self.ime = enable;
+        self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
 
@@ -515,6 +516,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         if should_jump {
             // Gameboy is little endian so read pc + 2 as most significant bit
             // and pc + 1 as least significant bit
+            self.clock.advance(16);
             let least_significant_byte = self.read(self.pc + 1) as u16;
             let most_significant_byte = self.read(self.pc + 2) as u16;
             (most_significant_byte << 8) | least_significant_byte
@@ -553,8 +555,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                     LoadByteTarget::HLI => self.write(self.r.get_hl(), value),
                 }
 
-                // If IO is involved it consumes 8 cycles otherwise 4.
+                // Each I/O operation takes 4 additional cycles,
+                // that means if both source and target involve I/O
+                // it takes 12 cycles in total.
                 match (source, target) {
+                    (ByteSource::D8, LoadByteTarget::HLI) => self.clock.advance(12),
                     (ByteSource::D8, _) => self.clock.advance(8),
                     (ByteSource::HLI, _) => self.clock.advance(8),
                     (_, LoadByteTarget::HLI) => self.clock.advance(8),
