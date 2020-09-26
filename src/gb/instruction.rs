@@ -6,8 +6,8 @@ pub enum Instruction {
     ADD(ArithmeticByteTarget, ArithmeticByteSource),
     ADD2(ArithmeticWordTarget, ArithmeticWordSource), // Same as ADD but with words
     ADC(ByteSource),                                  // Add n + Carry flag to A
-    AND(BitOperationSource),
-    BIT(u8, BitOperationSource), // Test bit b in register r
+    AND(ByteSource),
+    BIT(u8, ByteSource), // Test bit b in register r
     INC(IncDecTarget),
     CALL(JumpTest),
     CP(ByteSource), // Compare A with source
@@ -21,23 +21,23 @@ pub enum Instruction {
     JP(JumpTest, WordSource),
     LD(LoadType),
     NOP,
-    OR(BitOperationSource),
+    OR(ByteSource),
     RET(JumpTest),
-    RETI,                   // Unconditional return which also enables interrupts
-    RLA,                    // Rotate `A` left through carry
-    RLC(PrefixTarget),      // Rotate target left
-    RR(BitOperationSource), // Rotate n right through Carry flag
-    RRA,                    // Rotate A right through Carry flag
+    RETI,              // Unconditional return which also enables interrupts
+    RLA,               // Rotate `A` left through carry
+    RLC(PrefixTarget), // Rotate target left
+    RR(ByteSource),    // Rotate n right through Carry flag
+    RRA,               // Rotate A right through Carry flag
     RRCA,
     RST(ResetCode),
-    SET(u8, BitOperationSource), // Set bit b in register r
-    SRL(BitOperationSource),     // Shift right into Carry, MSB set to 0
+    SET(u8, ByteSource), // Set bit b in register r
+    SRL(ByteSource),     // Shift right into Carry, MSB set to 0
     SUB(ArithmeticByteTarget, ArithmeticByteSource),
     STOP,
-    SWAP(BitOperationSource),
+    SWAP(ByteSource),
     PUSH(StackTarget), // Push to the stack memory, data from the 16-bit register
     POP(StackTarget),  // Pops to the 16-bit register
-    XOR(BitOperationSource),
+    XOR(ByteSource),
 }
 
 impl Instruction {
@@ -53,13 +53,13 @@ impl Instruction {
         match opcode {
             //0x00 => Some(Instruction::RLC(PrefixTarget::B)),
             0x11 => Some(Instruction::RLC(PrefixTarget::C)),
-            0x19 => Some(Instruction::RR(BitOperationSource::C)),
-            0x1a => Some(Instruction::RR(BitOperationSource::D)),
-            0x37 => Some(Instruction::SWAP(BitOperationSource::A)),
-            0x38 => Some(Instruction::SRL(BitOperationSource::B)),
-            0x3f => Some(Instruction::SRL(BitOperationSource::A)),
-            0x7c => Some(Instruction::BIT(7, BitOperationSource::H)),
-            0xfe => Some(Instruction::SET(7, BitOperationSource::HLI)),
+            0x19 => Some(Instruction::RR(ByteSource::C)),
+            0x1a => Some(Instruction::RR(ByteSource::D)),
+            0x37 => Some(Instruction::SWAP(ByteSource::A)),
+            0x38 => Some(Instruction::SRL(ByteSource::B)),
+            0x3f => Some(Instruction::SRL(ByteSource::A)),
+            0x7c => Some(Instruction::BIT(7, ByteSource::H)),
+            0xfe => Some(Instruction::SET(7, ByteSource::HLI)),
             _ => None,
         }
     }
@@ -114,7 +114,7 @@ impl Instruction {
             )),
             0x1a => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
-                ByteSource::DE,
+                ByteSource::DEI,
             ))),
             0x1c => Some(Instruction::INC(IncDecTarget::E)),
             0x1d => Some(Instruction::DEC(IncDecTarget::E)),
@@ -128,7 +128,9 @@ impl Instruction {
                 LoadWordTarget::HL,
                 WordSource::D16,
             ))),
-            0x22 => Some(Instruction::LD(LoadType::IndirectFromAInc(ByteSource::HLI))),
+            0x22 => Some(Instruction::LD(LoadType::IndirectFromAInc(
+                LoadByteTarget::HLI,
+            ))),
             0x23 => Some(Instruction::INC(IncDecTarget::HL)),
             0x24 => Some(Instruction::INC(IncDecTarget::H)),
             0x25 => Some(Instruction::DEC(IncDecTarget::H)),
@@ -155,7 +157,9 @@ impl Instruction {
                 LoadWordTarget::SP,
                 WordSource::D16,
             ))),
-            0x32 => Some(Instruction::LD(LoadType::IndirectFromADec(ByteSource::HLI))),
+            0x32 => Some(Instruction::LD(LoadType::IndirectFromADec(
+                LoadByteTarget::HLI,
+            ))),
             0x34 => Some(Instruction::INC(IncDecTarget::HLI)),
             0x35 => Some(Instruction::DEC(IncDecTarget::HLI)),
             0x36 => Some(Instruction::LD(LoadType::Byte(
@@ -400,19 +404,19 @@ impl Instruction {
             //    ArithmeticByteTarget::A,
             //    ArithmeticByteSource::HLI,
             //)),
-            0xa0 => Some(Instruction::AND(BitOperationSource::B)),
-            0xa1 => Some(Instruction::AND(BitOperationSource::C)),
-            //0xa2 => Some(Instruction::AND(BitOperationSource::D)),
-            //0xa3 => Some(Instruction::AND(BitOperationSource::E)),
-            0xa7 => Some(Instruction::AND(BitOperationSource::A)),
-            0xa9 => Some(Instruction::XOR(BitOperationSource::C)),
-            0xae => Some(Instruction::XOR(BitOperationSource::HLI)),
-            0xaf => Some(Instruction::XOR(BitOperationSource::A)),
-            0xb0 => Some(Instruction::OR(BitOperationSource::B)),
-            0xb1 => Some(Instruction::OR(BitOperationSource::C)),
-            //0xb3 => Some(Instruction::OR(BitOperationSource::E)),
-            0xb6 => Some(Instruction::OR(BitOperationSource::HLI)),
-            0xb7 => Some(Instruction::OR(BitOperationSource::A)),
+            0xa0 => Some(Instruction::AND(ByteSource::B)),
+            0xa1 => Some(Instruction::AND(ByteSource::C)),
+            //0xa2 => Some(Instruction::AND(ByteSource::D)),
+            //0xa3 => Some(Instruction::AND(ByteSource::E)),
+            0xa7 => Some(Instruction::AND(ByteSource::A)),
+            0xa9 => Some(Instruction::XOR(ByteSource::C)),
+            0xae => Some(Instruction::XOR(ByteSource::HLI)),
+            0xaf => Some(Instruction::XOR(ByteSource::A)),
+            0xb0 => Some(Instruction::OR(ByteSource::B)),
+            0xb1 => Some(Instruction::OR(ByteSource::C)),
+            //0xb3 => Some(Instruction::OR(ByteSource::E)),
+            0xb6 => Some(Instruction::OR(ByteSource::HLI)),
+            0xb7 => Some(Instruction::OR(ByteSource::A)),
             0xbe => Some(Instruction::CP(ByteSource::HLI)),
             0xc0 => Some(Instruction::RET(JumpTest::NotZero)),
             0xc1 => Some(Instruction::POP(StackTarget::BC)),
@@ -449,22 +453,22 @@ impl Instruction {
                 ByteSource::A,
             ))),
             0xe5 => Some(Instruction::PUSH(StackTarget::HL)),
-            0xe6 => Some(Instruction::AND(BitOperationSource::D8)),
+            0xe6 => Some(Instruction::AND(ByteSource::D8)),
             0xef => Some(Instruction::RST(ResetCode::RST28)),
             0xe9 => Some(Instruction::JP(JumpTest::Always, WordSource::HL)),
             0xf0 => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
-                ByteSource::D8,
+                ByteSource::D8I,
             ))),
             0xea => Some(Instruction::LD(LoadType::IndirectFrom(
                 AddressSource::D16,
                 ByteSource::A,
             ))),
-            0xee => Some(Instruction::XOR(BitOperationSource::D8)),
+            0xee => Some(Instruction::XOR(ByteSource::D8)),
             0xf1 => Some(Instruction::POP(StackTarget::AF)),
             0xf3 => Some(Instruction::DI),
             0xf5 => Some(Instruction::PUSH(StackTarget::AF)),
-            0xf6 => Some(Instruction::OR(BitOperationSource::D8)),
+            0xf6 => Some(Instruction::OR(ByteSource::D8)),
             0xfa => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::D16I,
@@ -510,34 +514,6 @@ pub enum ArithmeticWordSource {
 }
 
 #[derive(Debug)]
-pub enum BitOperationSource {
-    A,
-    B,
-    C,
-    D,
-    E,
-    H,
-    D8,
-    HLI,
-}
-
-impl BitOperationSource {
-    /// Resolves the referring value
-    pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
-        match *self {
-            BitOperationSource::A => cpu.r.a,
-            BitOperationSource::B => cpu.r.b,
-            BitOperationSource::C => cpu.r.c,
-            BitOperationSource::D => cpu.r.d,
-            BitOperationSource::E => cpu.r.e,
-            BitOperationSource::H => cpu.r.h,
-            BitOperationSource::D8 => cpu.consume_byte(),
-            BitOperationSource::HLI => cpu.read(cpu.r.get_hl()),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub enum IncDecTarget {
     A,
     B,
@@ -580,8 +556,7 @@ pub enum LoadByteTarget {
     HLI, // value refers to address stored in HL register
 }
 
-#[derive(Debug)]
-/// TODO: move D16 to own struct?
+#[derive(Debug, PartialEq)]
 pub enum ByteSource {
     A,
     B,
@@ -590,11 +565,39 @@ pub enum ByteSource {
     E,
     H,
     L,
-    D8,   // direct 8 bit value
+    D8,  // direct 8 bit value
+    D8I, // value refers to address stored in next 8 bits | 0xFF00
+    BCI,
+    DEI,
+    HLI,  // value refers to address stored in HL register
     D16I, // value refers to address stored in next 16 bits
-    BC,
-    DE,
-    HLI, // value refers to address stored in HL register
+}
+
+impl ByteSource {
+    /// Resolves the referring value
+    pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
+        match *self {
+            ByteSource::A => cpu.r.a,
+            ByteSource::B => cpu.r.b,
+            ByteSource::C => cpu.r.c,
+            ByteSource::D => cpu.r.d,
+            ByteSource::E => cpu.r.e,
+            ByteSource::H => cpu.r.h,
+            ByteSource::L => cpu.r.l,
+            ByteSource::D8 => cpu.consume_byte(),
+            ByteSource::D8I => {
+                let address = cpu.consume_byte() as u16;
+                cpu.read(0xFF00 | address)
+            }
+            ByteSource::BCI => cpu.read(cpu.r.get_bc()),
+            ByteSource::DEI => cpu.read(cpu.r.get_de()),
+            ByteSource::HLI => cpu.read(cpu.r.get_hl()),
+            ByteSource::D16I => {
+                let address = cpu.consume_word();
+                cpu.read(address)
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -625,8 +628,8 @@ pub enum LoadType {
     Byte(LoadByteTarget, ByteSource),
     Word(LoadWordTarget, WordSource), // just like the Byte type except with 16-bit values
     IndirectFrom(AddressSource, ByteSource), // load a memory location whose address is stored in AddressSource with the contents of the register ByteSource
-    IndirectFromAInc(ByteSource),
-    IndirectFromADec(ByteSource), // Same as IndirectFromA, source value is decremented afterwards
+    IndirectFromAInc(LoadByteTarget),
+    IndirectFromADec(LoadByteTarget), // Same as IndirectFromA, source value is decremented afterwards
     FromIndirect(LoadByteTarget, ByteSource), // load the A register with the contents from a value from a memory location whose address is stored in some location
     FromIndirectAInc(ByteSource),
     IndirectFromWord(AddressSource, WordSource),

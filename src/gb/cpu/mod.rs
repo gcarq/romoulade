@@ -1,7 +1,7 @@
 use crate::gb::instruction::{
     AddressSource, ArithmeticByteSource, ArithmeticByteTarget, ArithmeticWordSource,
-    ArithmeticWordTarget, BitOperationSource, ByteSource, IncDecTarget, Instruction, JumpTest,
-    LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget, ResetCode, StackTarget, WordSource,
+    ArithmeticWordTarget, ByteSource, IncDecTarget, Instruction, JumpTest, LoadByteTarget,
+    LoadType, LoadWordTarget, PrefixTarget, ResetCode, StackTarget, WordSource,
 };
 use crate::gb::timings::Clock;
 use crate::gb::AddressSpace;
@@ -255,15 +255,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles ADC instructions
     fn handle_adc(&mut self, source: ByteSource) -> u16 {
-        let value = match source {
-            ByteSource::A => self.r.a,
-            ByteSource::E => self.r.e,
-            ByteSource::H => self.r.h,
-            ByteSource::L => self.r.l,
-            ByteSource::HLI => self.read(self.r.get_hl()),
-            ByteSource::D8 => self.consume_byte(),
-            _ => unimplemented!(),
-        } as u32;
+        let value = source.resolve_value(self) as u32;
 
         // Check for carry using 32bit arithmetic
         // TODO: can be improved
@@ -284,7 +276,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles AND instructions
-    fn handle_and(&mut self, source: BitOperationSource) -> u16 {
+    fn handle_and(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
         self.r.a &= value;
         self.r.f.update(self.r.a == 0, false, true, false);
@@ -293,12 +285,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles BIT instructions
-    fn handle_bit(&mut self, bit: u8, source: BitOperationSource) -> u16 {
-        let value = match source {
-            BitOperationSource::H => self.r.h,
-            _ => unimplemented!(),
-        };
-
+    fn handle_bit(&mut self, bit: u8, source: ByteSource) -> u16 {
+        let value = source.resolve_value(self);
         self.r.f.zero = !utils::bit_at(value, bit);
         self.r.f.negative = false;
         self.r.f.half_carry = true;
@@ -327,11 +315,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles CP instructions
     fn handle_cp(&mut self, source: ByteSource) -> u16 {
-        let value = match source {
-            ByteSource::D8 => self.consume_byte(),
-            ByteSource::HLI => self.read(self.r.get_hl()),
-            _ => unimplemented!(),
-        };
+        let value = source.resolve_value(self);
         let result = u32::from(self.r.a).wrapping_sub(u32::from(value));
 
         self.r.f.zero = result as u8 == 0;
@@ -587,18 +571,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_ld(&mut self, load_type: LoadType) -> u16 {
         match load_type {
             LoadType::Byte(target, source) => {
-                let value = match source {
-                    ByteSource::A => self.r.a,
-                    ByteSource::B => self.r.b,
-                    ByteSource::C => self.r.c,
-                    ByteSource::D => self.r.d,
-                    ByteSource::E => self.r.e,
-                    ByteSource::H => self.r.h,
-                    ByteSource::L => self.r.l,
-                    ByteSource::D8 => self.consume_byte(),
-                    ByteSource::HLI => self.read(self.r.get_hl()),
-                    _ => unimplemented!(),
-                };
+                let value = source.resolve_value(self);
                 match target {
                     LoadByteTarget::A => self.r.a = value,
                     LoadByteTarget::B => self.r.b = value,
@@ -659,28 +632,28 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 }
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFromAInc(source) => {
-                let addr = match source {
-                    ByteSource::HLI => self.r.get_hl(),
+            LoadType::IndirectFromAInc(target) => {
+                let addr = match target {
+                    LoadByteTarget::HLI => self.r.get_hl(),
                     _ => unimplemented!(),
                 };
                 self.write(addr, self.r.a);
-                match source {
-                    ByteSource::HLI => self.r.set_hl(addr.wrapping_add(1)),
+                match target {
+                    LoadByteTarget::HLI => self.r.set_hl(addr.wrapping_add(1)),
                     _ => unimplemented!(),
                 }
 
                 self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFromADec(source) => {
-                let addr = match source {
-                    ByteSource::HLI => self.r.get_hl(),
+            LoadType::IndirectFromADec(target) => {
+                let addr = match target {
+                    LoadByteTarget::HLI => self.r.get_hl(),
                     _ => unimplemented!(),
                 };
                 self.write(addr, self.r.a);
-                match source {
-                    ByteSource::HLI => self.r.set_hl(addr.wrapping_sub(1)),
+                match target {
+                    LoadByteTarget::HLI => self.r.set_hl(addr.wrapping_sub(1)),
                     _ => unimplemented!(),
                 }
                 self.clock.advance(8);
@@ -700,34 +673,28 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             LoadType::FromIndirect(target, source) => {
-                let addr = match source {
-                    ByteSource::BC => self.r.get_bc(),
-                    ByteSource::DE => self.r.get_de(),
-                    ByteSource::HLI => self.r.get_hl(),
-                    ByteSource::D8 => 0xFF00 | self.consume_byte() as u16,
-                    ByteSource::D16I => self.consume_word(),
-                    _ => unimplemented!(),
-                };
+                let value = source.resolve_value(self);
                 match target {
-                    LoadByteTarget::A => self.r.a = self.read(addr),
-                    LoadByteTarget::E => self.r.e = self.read(addr),
+                    LoadByteTarget::A => self.r.a = value,
+                    LoadByteTarget::E => self.r.e = value,
                     _ => unimplemented!(),
                 }
                 match source {
                     ByteSource::D16I => self.clock.advance(16),
-                    ByteSource::D8 => self.clock.advance(12),
+                    ByteSource::D8I => self.clock.advance(12),
                     _ => self.clock.advance(8),
                 }
 
                 self.pc.wrapping_add(1)
             }
             LoadType::FromIndirectAInc(source) => {
-                let addr = match source {
-                    ByteSource::HLI => self.r.get_hl(),
+                let value = source.resolve_value(self);
+                self.r.a = value;
+                match source {
+                    ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_add(1)),
                     _ => unimplemented!(),
-                };
-                self.r.a = self.read(addr);
-                self.r.set_hl(self.r.get_hl().wrapping_add(1));
+                }
+
                 self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
@@ -741,14 +708,14 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles OR instructions
-    fn handle_or(&mut self, source: BitOperationSource) -> u16 {
+    fn handle_or(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
         self.r.a |= value;
         self.r.f.update(self.r.a == 0, false, false, false);
 
         match source {
-            BitOperationSource::D8 => self.clock.advance(8),
-            BitOperationSource::HLI => self.clock.advance(8),
+            ByteSource::D8 => self.clock.advance(8),
+            ByteSource::HLI => self.clock.advance(8),
             _ => self.clock.advance(4),
         }
         self.pc.wrapping_add(1)
@@ -835,21 +802,21 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles RR instructions
-    fn handle_rr(&mut self, source: BitOperationSource) -> u16 {
+    fn handle_rr(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
         let carry = value & 0x01 != 0;
         let result = (value >> 1) | ((self.r.f.carry as u8) << 7);
 
         match source {
-            BitOperationSource::B => self.r.b = result,
-            BitOperationSource::C => self.r.c = result,
-            BitOperationSource::D => self.r.d = result,
+            ByteSource::B => self.r.b = result,
+            ByteSource::C => self.r.c = result,
+            ByteSource::D => self.r.d = result,
             _ => unimplemented!(),
         }
         self.r.f.update(result == 0, false, false, carry);
 
         match source {
-            BitOperationSource::HLI => self.clock.advance(16),
+            ByteSource::HLI => self.clock.advance(16),
             _ => self.clock.advance(8),
         }
         self.pc.wrapping_add(2)
@@ -887,39 +854,35 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles SET instructions
-    fn handle_set(&mut self, bit: u8, source: BitOperationSource) -> u16 {
-        let value = match source {
-            BitOperationSource::HLI => self.read(self.r.get_hl()),
-            _ => unimplemented!(),
-        };
-
+    fn handle_set(&mut self, bit: u8, source: ByteSource) -> u16 {
+        let value = source.resolve_value(self);
         let result = utils::set_bit(value, bit, true);
         match source {
-            BitOperationSource::HLI => self.write(self.r.get_hl(), result),
+            ByteSource::HLI => self.write(self.r.get_hl(), result),
             _ => unimplemented!(),
         }
 
         match source {
-            BitOperationSource::HLI => self.clock.advance(16),
+            ByteSource::HLI => self.clock.advance(16),
             _ => self.clock.advance(8),
         }
         self.pc.wrapping_add(2)
     }
 
     /// Handles SRL instructions
-    fn handle_srl(&mut self, source: BitOperationSource) -> u16 {
+    fn handle_srl(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
         let carry = value & 0x01 != 0;
         let result = value >> 1;
         match source {
-            BitOperationSource::A => self.r.a = result,
-            BitOperationSource::B => self.r.b = result,
+            ByteSource::A => self.r.a = result,
+            ByteSource::B => self.r.b = result,
             _ => unimplemented!(),
         }
         self.r.f.update(result == 0, false, false, carry);
 
         match source {
-            BitOperationSource::HLI => self.clock.advance(16),
+            ByteSource::HLI => self.clock.advance(16),
             _ => self.clock.advance(8),
         }
         self.pc.wrapping_add(2)
@@ -973,13 +936,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles SWAP instructions
-    fn handle_swap(&mut self, source: BitOperationSource) -> u16 {
+    fn handle_swap(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
         let result = (value & 0x0F) << 4 | (value & 0xF0) >> 4;
         self.r.f.update(result == 0, false, false, false);
 
         match source {
-            BitOperationSource::A => self.r.a = result,
+            ByteSource::A => self.r.a = result,
             _ => unimplemented!(),
         }
 
@@ -988,13 +951,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles XOR instructions
-    fn handle_xor(&mut self, source: BitOperationSource) -> u16 {
+    fn handle_xor(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
         self.r.a ^= value;
         self.r.f.update(self.r.a == 0, false, false, false);
         match source {
-            BitOperationSource::D8 => self.clock.advance(8),
-            BitOperationSource::HLI => self.clock.advance(8),
+            ByteSource::D8 => self.clock.advance(8),
+            ByteSource::HLI => self.clock.advance(8),
             _ => self.clock.advance(4),
         }
 
