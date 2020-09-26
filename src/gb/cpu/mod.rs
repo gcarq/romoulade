@@ -291,12 +291,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handle CALL function
     fn handle_call(&mut self, test: JumpTest) -> u16 {
-        let should_jump = match test {
-            JumpTest::Always => true,
-            JumpTest::NotZero => !self.r.f.zero,
-            _ => unimplemented!(),
-        };
-
+        let should_jump = test.resolve_value(self);
         let next_pc = self.pc.wrapping_add(3);
         if should_jump {
             self.clock.advance(24);
@@ -463,6 +458,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.f.negative = false;
                 self.r.f.half_carry = self.r.c & 0xf == 0xf;
             }
+            IncDecTarget::D => {
+                self.r.d = self.r.d.wrapping_add(1);
+                self.r.f.zero = self.r.d == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = self.r.d & 0xf == 0xf;
+            }
             IncDecTarget::E => {
                 self.r.e = self.r.e.wrapping_add(1);
                 self.r.f.zero = self.r.e == 0;
@@ -513,13 +514,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles JR instructions
     fn handle_jr(&mut self, test: JumpTest) -> u16 {
-        let should_jump = match test {
-            JumpTest::NotZero => !self.r.f.zero,
-            JumpTest::NotCarry => !self.r.f.carry,
-            JumpTest::Zero => self.r.f.zero,
-            JumpTest::Carry => self.r.f.carry,
-            JumpTest::Always => true,
-        };
+        let should_jump = test.resolve_value(self);
         if !should_jump {
             self.clock.advance(8);
             return self.pc.wrapping_add(2);
@@ -535,13 +530,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles JP instructions
     fn handle_jp(&mut self, test: JumpTest, source: WordSource) -> u16 {
-        let should_jump = match test {
-            JumpTest::NotZero => !self.r.f.zero,
-            JumpTest::NotCarry => !self.r.f.carry,
-            JumpTest::Zero => self.r.f.zero,
-            JumpTest::Carry => self.r.f.carry,
-            JumpTest::Always => true,
-        };
+        let should_jump = test.resolve_value(self);
         if should_jump {
             return match source {
                 WordSource::HL => {
@@ -576,6 +565,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                     LoadByteTarget::H => self.r.h = value,
                     LoadByteTarget::L => self.r.l = value,
                     LoadByteTarget::HLI => self.write(self.r.get_hl(), value),
+                    _ => unimplemented!(),
                 }
 
                 // Each I/O operation takes 4 additional cycles,
@@ -605,24 +595,20 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.clock.advance(12);
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFrom(address, source) => {
-                let addr = match address {
-                    AddressSource::C => 0xFF00 | u16::from(self.r.c),
-                    AddressSource::D8 => 0xFF00 | u16::from(self.consume_byte()),
-                    AddressSource::D16 => self.consume_word(),
-                    AddressSource::HLI => self.r.get_hl(),
-                };
-                let value = match source {
-                    ByteSource::A => self.r.a,
-                    ByteSource::C => self.r.c,
-                    ByteSource::D => self.r.d,
-                    ByteSource::L => self.r.l,
+            LoadType::IndirectFrom(target, source) => {
+                let addr = match target {
+                    LoadByteTarget::C => 0xFF00 | u16::from(self.r.c),
+                    LoadByteTarget::DEI => self.r.get_de(),
+                    LoadByteTarget::D8I => 0xFF00 | u16::from(self.consume_byte()),
+                    LoadByteTarget::D16I => self.consume_word(),
+                    LoadByteTarget::HLI => self.r.get_hl(),
                     _ => unimplemented!(),
                 };
+                let value = source.resolve_value(self);
                 self.write(addr, value);
-                match address {
-                    AddressSource::D16 => self.clock.advance(16),
-                    AddressSource::D8 => self.clock.advance(12),
+                match target {
+                    LoadByteTarget::D16I => self.clock.advance(16),
+                    LoadByteTarget::D8I => self.clock.advance(12),
                     _ => self.clock.advance(8),
                 }
                 self.pc.wrapping_add(1)
@@ -744,14 +730,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles RET instruction
     fn handle_ret(&mut self, test: JumpTest) -> u16 {
-        let should_jump = match test {
-            JumpTest::Always => true,
-            JumpTest::NotZero => !self.r.f.zero,
-            JumpTest::Zero => self.r.f.zero,
-            JumpTest::NotCarry => !self.r.f.carry,
-            _ => unimplemented!(),
-        };
-
+        let should_jump = test.resolve_value(self);
         if should_jump {
             self.clock.advance(20);
             self.pop()
@@ -803,9 +782,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         let result = (value >> 1) | ((self.r.f.carry as u8) << 7);
 
         match source {
+            ByteSource::A => self.r.a = result,
             ByteSource::B => self.r.b = result,
             ByteSource::C => self.r.c = result,
             ByteSource::D => self.r.d = result,
+            ByteSource::E => self.r.e = result,
             _ => unimplemented!(),
         }
         self.r.f.update(result == 0, false, false, carry);
