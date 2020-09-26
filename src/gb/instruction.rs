@@ -57,6 +57,7 @@ impl Instruction {
             0x1a => Some(Instruction::RR(BitOperationSource::D)),
             0x37 => Some(Instruction::SWAP(BitOperationSource::A)),
             0x38 => Some(Instruction::SRL(BitOperationSource::B)),
+            0x3f => Some(Instruction::SRL(BitOperationSource::A)),
             0x7c => Some(Instruction::BIT(7, BitOperationSource::H)),
             0xfe => Some(Instruction::SET(7, BitOperationSource::HLI)),
             _ => None,
@@ -350,10 +351,10 @@ impl Instruction {
             //    ArithmeticByteTarget::A,
             //    ArithmeticByteSource::B,
             //)),
-            //0x81 => Some(Instruction::ADD(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::C,
-            //)),
+            0x81 => Some(Instruction::ADD(
+                ArithmeticByteTarget::A,
+                ArithmeticByteSource::C,
+            )),
             //0x82 => Some(Instruction::ADD(
             //    ArithmeticByteTarget::A,
             //    ArithmeticByteSource::D,
@@ -386,6 +387,10 @@ impl Instruction {
             0x90 => Some(Instruction::SUB(
                 ArithmeticByteTarget::A,
                 ArithmeticByteSource::B,
+            )),
+            0x91 => Some(Instruction::SUB(
+                ArithmeticByteTarget::A,
+                ArithmeticByteSource::C,
             )),
             //0x92 => Some(Instruction::SUB(
             //    ArithmeticByteTarget::A,
@@ -422,6 +427,7 @@ impl Instruction {
             0xcd => Some(Instruction::CALL(JumpTest::Always)),
             0xce => Some(Instruction::ADC(ByteSource::D8)),
             0xcf => Some(Instruction::RST(ResetCode::RST08)),
+            0xc2 => Some(Instruction::JP(JumpTest::NotZero, WordSource::D16)),
             0xc5 => Some(Instruction::PUSH(StackTarget::BC)),
             0xc8 => Some(Instruction::RET(JumpTest::Zero)),
             0xd0 => Some(Instruction::RET(JumpTest::NotCarry)),

@@ -912,6 +912,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         let carry = value & 0x01 != 0;
         let result = value >> 1;
         match source {
+            BitOperationSource::A => self.r.a = result,
             BitOperationSource::B => self.r.b = result,
             _ => unimplemented!(),
         }
@@ -935,6 +936,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_sub(&mut self, target: ArithmeticByteTarget, source: ArithmeticByteSource) -> u16 {
         let source_value = match source {
             ArithmeticByteSource::B => self.r.b,
+            ArithmeticByteSource::C => self.r.c,
             ArithmeticByteSource::D => self.r.d,
             ArithmeticByteSource::HLI => self.read(self.r.get_hl()),
             ArithmeticByteSource::D8 => self.consume_byte(),
