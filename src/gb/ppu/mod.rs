@@ -117,7 +117,7 @@ impl<'a> PPU<'a> {
                     // each tile, we can tell which 8-pixel line to fetch by computing
                     // Y modulo 8.
                     self.x = 0;
-                    let y = self.read(PPU_SCY) + self.read(PPU_LY);
+                    let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
                     let tile_line = y % 8;
                     let tile_map_row_addr = 0x9800 + u16::from(y / 8) * 32;
                     self.fetcher.start(tile_map_row_addr, tile_line);

@@ -8,13 +8,15 @@ use crate::gb::AddressSpace;
 use crate::utils;
 use registers::Registers;
 use std::cell::RefCell;
+use std::thread;
+use std::time::Duration;
 
 mod registers;
 #[cfg(test)]
 mod tests;
 
 pub struct CPU<'a, T: AddressSpace> {
-    r: Registers,
+    pub r: Registers,
     pub pc: u16,   // Program counter
     sp: u16,       // Stack Pointer
     pub ime: bool, // Interrupt Master Enable
@@ -56,7 +58,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             None => {
                 self.print_registers(opcode, None);
                 let description = format!("0x{}{:02x}", if prefixed { "cb" } else { "" }, opcode);
-                panic!("Unresolved instruction found for: {}", description)
+                println!(
+                    "Unresolved instruction found for: {}.\nHALTED!",
+                    description
+                );
+                loop {
+                    thread::sleep(Duration::from_millis(10));
+                }
             }
         };
         self.pc = next_pc;
@@ -102,10 +110,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::RET(test) => self.handle_ret(test),
             Instruction::RETI => self.handle_reti(),
             Instruction::RLA => self.handle_rla(),
+            Instruction::RR(source) => self.handle_rr(source),
+            Instruction::RRA => self.handle_rra(),
             Instruction::RLC(target) => self.handle_rlc(target),
             Instruction::RRCA => self.handle_rrca(),
             Instruction::RST(code) => self.handle_rst(code),
             Instruction::SET(bit, source) => self.handle_set(bit, source),
+            Instruction::SRL(source) => self.handle_srl(source),
             Instruction::STOP => self.handle_stop(),
             Instruction::SUB(target, source) => self.handle_sub(target, source),
             Instruction::SWAP(source) => self.handle_swap(source),
@@ -132,13 +143,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Reads the next byte and increases pc
-    fn consume_byte(&mut self) -> u8 {
+    pub fn consume_byte(&mut self) -> u8 {
         self.pc = self.pc.wrapping_add(1);
         self.read(self.pc)
     }
 
     /// Reads the next word and increases pc
-    fn consume_word(&mut self) -> u16 {
+    pub fn consume_word(&mut self) -> u16 {
         u16::from(self.consume_byte()) | u16::from(self.consume_byte()) << 8
     }
 
@@ -175,6 +186,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             ArithmeticByteSource::H => self.r.h,
             ArithmeticByteSource::L => self.r.l,
             ArithmeticByteSource::HLI => self.read(self.r.get_hl()),
+            ArithmeticByteSource::D8 => self.consume_byte(),
             _ => unimplemented!(),
         };
         let target_value = match target {
@@ -182,7 +194,6 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             _ => unimplemented!(),
         };
 
-        // TODO: is this correct?
         let (new_value, did_overflow) = target_value.overflowing_add(source_value);
         // Half Carry is set if adding the lower nibbles of the value and register A
         // together result in a value bigger than 0xF. If the result is larger than 0xF
@@ -243,7 +254,6 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles ADC instructions
-    /// TODO: might be buggy
     fn handle_adc(&mut self, source: ByteSource) -> u16 {
         let value = match source {
             ByteSource::A => self.r.a,
@@ -251,28 +261,31 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             ByteSource::H => self.r.h,
             ByteSource::L => self.r.l,
             ByteSource::HLI => self.read(self.r.get_hl()),
+            ByteSource::D8 => self.consume_byte(),
             _ => unimplemented!(),
-        };
-        self.r.a = self.r.a.wrapping_add(value);
-        self.r.a = self.r.a.wrapping_add(if self.r.f.carry { 1 } else { 0 });
+        } as u32;
 
-        self.r.f.zero = self.r.a == 0;
-        self.r.f.negative = false;
-        self.r.f.half_carry = (self.r.a & 0xF) + (self.r.a & 0xF) > 0xF;
+        // Check for carry using 32bit arithmetic
+        // TODO: can be improved
+        let a = self.r.a as u32;
+        let carry = self.r.f.carry as u32;
+
+        let result = a.wrapping_add(value).wrapping_add(carry);
+        self.r.a = result as u8;
+
+        let half_carry = (a ^ value ^ result) & 0x10 != 0;
+        let carry = result & 0x100 != 0;
+        self.r.f.update(result as u8 == 0, false, half_carry, carry);
+        match source {
+            ByteSource::D8 => self.clock.advance(8),
+            _ => self.clock.advance(4),
+        }
         self.pc.wrapping_add(1)
     }
 
     /// Handles AND instructions
     fn handle_and(&mut self, source: BitOperationSource) -> u16 {
-        let value = match source {
-            BitOperationSource::A => self.r.a,
-            BitOperationSource::B => self.r.b,
-            BitOperationSource::C => self.r.c,
-            BitOperationSource::D => self.r.d,
-            BitOperationSource::E => self.r.e,
-            BitOperationSource::D8 => self.consume_byte(),
-            _ => unimplemented!(),
-        };
+        let value = source.resolve_value(self);
         self.r.a &= value;
         self.r.f.update(self.r.a == 0, false, true, false);
         self.clock.advance(4);
@@ -307,7 +320,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             self.push(next_pc);
             self.consume_word()
         } else {
-            // TODO: advance clock?
+            self.clock.advance(12);
             next_pc
         }
     }
@@ -370,6 +383,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles DEC instructions
+    /// TODO: refactor me
     fn handle_dec(&mut self, target: IncDecTarget) -> u16 {
         match target {
             IncDecTarget::A => {
@@ -417,6 +431,14 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             }
             IncDecTarget::BC => {
                 self.r.set_bc(self.r.get_bc().wrapping_sub(1));
+            }
+            IncDecTarget::HLI => {
+                let value = self.read(self.r.get_hl());
+                self.r.f.half_carry = value & 0xF == 0;
+                let value = value.wrapping_sub(1);
+                self.r.f.zero = value == 0;
+                self.r.f.negative = true;
+                self.write(self.r.get_hl(), value);
             }
             IncDecTarget::SP => {
                 self.sp = self.sp.wrapping_sub(1);
@@ -624,6 +646,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 };
                 let value = match source {
                     ByteSource::A => self.r.a,
+                    ByteSource::C => self.r.c,
                     ByteSource::D => self.r.d,
                     ByteSource::L => self.r.l,
                     _ => unimplemented!(),
@@ -719,18 +742,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles OR instructions
     fn handle_or(&mut self, source: BitOperationSource) -> u16 {
-        let value = match source {
-            BitOperationSource::B => self.r.b,
-            BitOperationSource::C => self.r.c,
-            BitOperationSource::E => self.r.e,
-            BitOperationSource::D8 => self.consume_byte(),
-            _ => unimplemented!(),
-        };
+        let value = source.resolve_value(self);
         self.r.a |= value;
         self.r.f.update(self.r.a == 0, false, false, false);
 
         match source {
             BitOperationSource::D8 => self.clock.advance(8),
+            BitOperationSource::HLI => self.clock.advance(8),
             _ => self.clock.advance(4),
         }
         self.pc.wrapping_add(1)
@@ -768,6 +786,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             JumpTest::Always => true,
             JumpTest::NotZero => !self.r.f.zero,
             JumpTest::Zero => self.r.f.zero,
+            JumpTest::NotCarry => !self.r.f.carry,
             _ => unimplemented!(),
         };
 
@@ -815,6 +834,37 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.pc.wrapping_add(2)
     }
 
+    /// Handles RR instructions
+    fn handle_rr(&mut self, source: BitOperationSource) -> u16 {
+        let value = source.resolve_value(self);
+        let carry = value & 0x01 != 0;
+        let result = (value >> 1) | ((self.r.f.carry as u8) << 7);
+
+        match source {
+            BitOperationSource::B => self.r.b = result,
+            BitOperationSource::C => self.r.c = result,
+            BitOperationSource::D => self.r.d = result,
+            _ => unimplemented!(),
+        }
+        self.r.f.update(result == 0, false, false, carry);
+
+        match source {
+            BitOperationSource::HLI => self.clock.advance(16),
+            _ => self.clock.advance(8),
+        }
+        self.pc.wrapping_add(2)
+    }
+
+    /// Handles RRA instruction
+    fn handle_rra(&mut self) -> u16 {
+        let carry = self.r.a & 0x01 != 0;
+        let result = (self.r.a >> 1) | ((self.r.f.carry as u8) << 7);
+        self.r.a = result;
+        self.r.f.update(false, false, false, carry);
+        self.clock.advance(4);
+        self.pc.wrapping_add(1)
+    }
+
     /// Handles RCAA instruction
     fn handle_rrca(&mut self) -> u16 {
         let bit = self.r.a & 1;
@@ -856,6 +906,24 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.pc.wrapping_add(2)
     }
 
+    /// Handles SRL instructions
+    fn handle_srl(&mut self, source: BitOperationSource) -> u16 {
+        let value = source.resolve_value(self);
+        let carry = value & 0x01 != 0;
+        let result = value >> 1;
+        match source {
+            BitOperationSource::B => self.r.b = result,
+            _ => unimplemented!(),
+        }
+        self.r.f.update(result == 0, false, false, carry);
+
+        match source {
+            BitOperationSource::HLI => self.clock.advance(16),
+            _ => self.clock.advance(8),
+        }
+        self.pc.wrapping_add(2)
+    }
+
     /// Handles STOP instruction
     fn handle_stop(&mut self) -> u16 {
         // TODO: set correct flag
@@ -869,6 +937,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             ArithmeticByteSource::B => self.r.b,
             ArithmeticByteSource::D => self.r.d,
             ArithmeticByteSource::HLI => self.read(self.r.get_hl()),
+            ArithmeticByteSource::D8 => self.consume_byte(),
             _ => unimplemented!(),
         };
         let target_value = match target {
@@ -893,7 +962,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         }
 
         match source {
-            ArithmeticByteSource::HLI | ArithmeticByteSource::D8 => self.clock.advance(8),
+            ArithmeticByteSource::HLI => self.clock.advance(8),
+            ArithmeticByteSource::D8 => self.clock.advance(8),
             _ => self.clock.advance(4),
         }
 
@@ -902,16 +972,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles SWAP instructions
     fn handle_swap(&mut self, source: BitOperationSource) -> u16 {
-        let value = match source {
-            BitOperationSource::A => self.r.a,
-            _ => unimplemented!(),
-        };
-
-        let value = (value & 0x0F) << 4 | (value & 0xF0) >> 4;
-        self.r.f.update(value == 0, false, false, false);
+        let value = source.resolve_value(self);
+        let result = (value & 0x0F) << 4 | (value & 0xF0) >> 4;
+        self.r.f.update(result == 0, false, false, false);
 
         match source {
-            BitOperationSource::A => self.r.a = value,
+            BitOperationSource::A => self.r.a = result,
             _ => unimplemented!(),
         }
 
@@ -921,15 +987,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles XOR instructions
     fn handle_xor(&mut self, source: BitOperationSource) -> u16 {
-        let value = match source {
-            BitOperationSource::A => self.r.a,
-            BitOperationSource::C => self.r.c,
-            _ => unimplemented!(),
-        };
+        let value = source.resolve_value(self);
         self.r.a ^= value;
         self.r.f.update(self.r.a == 0, false, false, false);
         match source {
-            BitOperationSource::D8 | BitOperationSource::HLI => self.clock.advance(8),
+            BitOperationSource::D8 => self.clock.advance(8),
+            BitOperationSource::HLI => self.clock.advance(8),
             _ => self.clock.advance(4),
         }
 

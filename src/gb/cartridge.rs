@@ -104,7 +104,7 @@ impl Cartridge {
         match address {
             // Do RAM enable
             0x0000..=0x1FFF => {
-                if self.meta.banking == BankingMode::MBC1 || self.meta.banking == BankingMode::MBC1
+                if self.meta.banking == BankingMode::MBC1 || self.meta.banking == BankingMode::MBC2
                 {
                     self.toggle_ram_banking(address, value);
                 }

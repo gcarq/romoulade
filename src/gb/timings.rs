@@ -17,7 +17,6 @@ bitflags! {
 }
 
 /// TODO: handle interrupt on overflow
-/// TODO: adapt to new memory schema
 pub struct Timer<'a> {
     bus: &'a RefCell<MemoryBus>,
 }

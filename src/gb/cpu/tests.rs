@@ -87,6 +87,19 @@ fn test_add2_overflow() {
 }
 
 #[test]
+fn test_adc_non_zero() {
+    // ADC A, D8
+    let bus = RefCell::new(MockBus::new([0xce, 0x01].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0b1111_0001;
+    cpu.step();
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.a, 0b1111_0010);
+    assert_flags(cpu.r.f, false, false, false, false);
+}
+
+#[test]
 fn test_and_non_zero() {
     // AND A, B
     let bus = RefCell::new(MockBus::new(vec![0xa0; 1]));
@@ -362,6 +375,47 @@ fn test_or_zero() {
 }
 
 #[test]
+fn test_rr_non_zero() {
+    // SRL B
+    let bus = RefCell::new(MockBus::new([0xcb, 0x19].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.c = 0b0110_0011;
+    cpu.r.f.carry = true;
+    cpu.step();
+    assert_eq!(cpu.r.c, 0b1011_0001);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_flags(cpu.r.f, false, false, false, true);
+}
+
+#[test]
+fn test_rr_zero() {
+    // SRL B
+    let bus = RefCell::new(MockBus::new([0xcb, 0x19].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.c = 0x00;
+    cpu.r.f.carry = false;
+    cpu.step();
+    assert_eq!(cpu.r.c, 0x00);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_flags(cpu.r.f, true, false, false, false);
+}
+
+#[test]
+fn test_rra() {
+    // RRA
+    let bus = RefCell::new(MockBus::new(vec![0x1F; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0b0110_0011;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0b0011_0001);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, false, true);
+}
+
+#[test]
 fn test_set() {
     // BIT 7, (HL)
     let bus = RefCell::new(MockBus::new([0xcb, 0xfe, 0b00000010].into()));
@@ -371,6 +425,32 @@ fn test_set() {
     assert_eq!(bus.borrow().read(0x02), 0b10000010);
     assert_eq!(cpu.clock.ticks(), 16);
     assert_eq!(cpu.pc, 2);
+}
+
+#[test]
+fn test_srl_non_zero() {
+    // SRL B
+    let bus = RefCell::new(MockBus::new([0xcb, 0x38].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.b = 0b0110_0011;
+    cpu.step();
+    assert_eq!(cpu.r.b, 0b0011_0001);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_flags(cpu.r.f, false, false, false, true);
+}
+
+#[test]
+fn test_srl_zero() {
+    // SRL B
+    let bus = RefCell::new(MockBus::new([0xcb, 0x38].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.b = 0x00;
+    cpu.step();
+    assert_eq!(cpu.r.b, 0x00);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_flags(cpu.r.f, true, false, false, false);
 }
 
 #[test]
