@@ -3,7 +3,7 @@ use crate::gb::AddressSpace;
 
 #[derive(Debug)]
 pub enum Instruction {
-    ADD(ArithmeticByteTarget, ArithmeticByteSource),
+    ADD(ArithmeticByteTarget, ByteSource),
     ADD2(ArithmeticWordTarget, ArithmeticWordSource), // Same as ADD but with words
     ADC(ByteSource),                                  // Add n + Carry flag to A
     AND(ByteSource),
@@ -32,7 +32,7 @@ pub enum Instruction {
     RST(ResetCode),
     SET(u8, ByteSource), // Set bit b in register r
     SRL(ByteSource),     // Shift right into Carry, MSB set to 0
-    SUB(ArithmeticByteTarget, ArithmeticByteSource),
+    SUB(ArithmeticByteTarget, ByteSource),
     STOP,
     SWAP(ByteSource),
     PUSH(StackTarget), // Push to the stack memory, data from the 16-bit register
@@ -355,10 +355,7 @@ impl Instruction {
             //    ArithmeticByteTarget::A,
             //    ArithmeticByteSource::B,
             //)),
-            0x81 => Some(Instruction::ADD(
-                ArithmeticByteTarget::A,
-                ArithmeticByteSource::C,
-            )),
+            0x81 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::C)),
             //0x82 => Some(Instruction::ADD(
             //    ArithmeticByteTarget::A,
             //    ArithmeticByteSource::D,
@@ -375,27 +372,15 @@ impl Instruction {
             //    ArithmeticByteTarget::A,
             //    ArithmeticByteSource::L,
             //)),
-            0x86 => Some(Instruction::ADD(
-                ArithmeticByteTarget::A,
-                ArithmeticByteSource::HLI,
-            )),
-            0x87 => Some(Instruction::ADD(
-                ArithmeticByteTarget::A,
-                ArithmeticByteSource::A,
-            )),
+            0x86 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::HLI)),
+            0x87 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::A)),
             //0x8b => Some(Instruction::ADC(ByteSource::E)),
             //0x8c => Some(Instruction::ADC(ByteSource::H)),
             //0x8d => Some(Instruction::ADC(ByteSource::L)),
             //0x8e => Some(Instruction::ADC(ByteSource::HLI)),
             //0x8f => Some(Instruction::ADC(ByteSource::A)),
-            0x90 => Some(Instruction::SUB(
-                ArithmeticByteTarget::A,
-                ArithmeticByteSource::B,
-            )),
-            0x91 => Some(Instruction::SUB(
-                ArithmeticByteTarget::A,
-                ArithmeticByteSource::C,
-            )),
+            0x90 => Some(Instruction::SUB(ArithmeticByteTarget::A, ByteSource::B)),
+            0x91 => Some(Instruction::SUB(ArithmeticByteTarget::A, ByteSource::C)),
             //0x92 => Some(Instruction::SUB(
             //    ArithmeticByteTarget::A,
             //    ArithmeticByteSource::D,
@@ -422,10 +407,7 @@ impl Instruction {
             0xc1 => Some(Instruction::POP(StackTarget::BC)),
             0xc3 => Some(Instruction::JP(JumpTest::Always, WordSource::D16)),
             0xc4 => Some(Instruction::CALL(JumpTest::NotZero)),
-            0xc6 => Some(Instruction::ADD(
-                ArithmeticByteTarget::A,
-                ArithmeticByteSource::D8,
-            )),
+            0xc6 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::D8)),
             0xc9 => Some(Instruction::RET(JumpTest::Always)),
             0xca => Some(Instruction::JP(JumpTest::Zero, WordSource::D16)),
             0xcd => Some(Instruction::CALL(JumpTest::Always)),
@@ -437,10 +419,7 @@ impl Instruction {
             0xd0 => Some(Instruction::RET(JumpTest::NotCarry)),
             0xd1 => Some(Instruction::POP(StackTarget::DE)),
             0xd5 => Some(Instruction::PUSH(StackTarget::DE)),
-            0xd6 => Some(Instruction::SUB(
-                ArithmeticByteTarget::A,
-                ArithmeticByteSource::D8,
-            )),
+            0xd6 => Some(Instruction::SUB(ArithmeticByteTarget::A, ByteSource::D8)),
             0xd9 => Some(Instruction::RETI),
             0xdf => Some(Instruction::RST(ResetCode::RST18)),
             0xe0 => Some(Instruction::LD(LoadType::IndirectFrom(
@@ -485,20 +464,6 @@ impl Instruction {
 pub enum ArithmeticByteTarget {
     A,
     HL,
-}
-
-#[derive(Debug)]
-pub enum ArithmeticByteSource {
-    A,
-    B,
-    C,
-    D,
-    E,
-    H,
-    L,
-    DEI,
-    HLI,
-    D8,
 }
 
 #[derive(Debug)]

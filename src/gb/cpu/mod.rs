@@ -1,7 +1,7 @@
 use crate::gb::instruction::{
-    AddressSource, ArithmeticByteSource, ArithmeticByteTarget, ArithmeticWordSource,
-    ArithmeticWordTarget, ByteSource, IncDecTarget, Instruction, JumpTest, LoadByteTarget,
-    LoadType, LoadWordTarget, PrefixTarget, ResetCode, StackTarget, WordSource,
+    AddressSource, ArithmeticByteTarget, ArithmeticWordSource, ArithmeticWordTarget, ByteSource,
+    IncDecTarget, Instruction, JumpTest, LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget,
+    ResetCode, StackTarget, WordSource,
 };
 use crate::gb::timings::Clock;
 use crate::gb::AddressSpace;
@@ -15,6 +15,8 @@ mod registers;
 #[cfg(test)]
 mod tests;
 
+/// Implements the CPU for the GB (DMG-01),
+/// the CPU is LR35902 which is a subset of i8080 & Z80.
 pub struct CPU<'a, T: AddressSpace> {
     pub r: Registers,
     pub pc: u16,   // Program counter
@@ -38,6 +40,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         }
     }
 
+    /// Makes one CPU step, this consumes one or more bytes depending on the
+    /// next instruction and current CPU state (halted, stopped, etc.).
     pub fn step(&mut self) -> u32 {
         self.clock.reset();
         if self.is_halted {
@@ -86,6 +90,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         );
     }
 
+    /// Executes the given instruction, advances the internal clock
+    /// and returns the updated program counter.
     fn execute(&mut self, instruction: Instruction) -> u16 {
         match instruction {
             Instruction::ADD(target, source) => self.handle_add(target, source),
@@ -176,19 +182,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles ADD instructions
-    fn handle_add(&mut self, target: ArithmeticByteTarget, source: ArithmeticByteSource) -> u16 {
-        let source_value = match source {
-            ArithmeticByteSource::A => self.r.a,
-            ArithmeticByteSource::B => self.r.b,
-            ArithmeticByteSource::C => self.r.c,
-            ArithmeticByteSource::D => self.r.d,
-            ArithmeticByteSource::E => self.r.e,
-            ArithmeticByteSource::H => self.r.h,
-            ArithmeticByteSource::L => self.r.l,
-            ArithmeticByteSource::HLI => self.read(self.r.get_hl()),
-            ArithmeticByteSource::D8 => self.consume_byte(),
-            _ => unimplemented!(),
-        };
+    fn handle_add(&mut self, target: ArithmeticByteTarget, source: ByteSource) -> u16 {
+        let source_value = source.resolve_value(self);
         let target_value = match target {
             ArithmeticByteTarget::A => self.r.a,
             _ => unimplemented!(),
@@ -211,8 +206,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         }
 
         match source {
-            ArithmeticByteSource::HLI => self.clock.advance(8),
-            ArithmeticByteSource::D8 => self.clock.advance(8),
+            ByteSource::HLI => self.clock.advance(8),
+            ByteSource::D8 => self.clock.advance(8),
             _ => self.clock.advance(4),
         }
 
@@ -896,15 +891,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles SUB instructions
-    fn handle_sub(&mut self, target: ArithmeticByteTarget, source: ArithmeticByteSource) -> u16 {
-        let source_value = match source {
-            ArithmeticByteSource::B => self.r.b,
-            ArithmeticByteSource::C => self.r.c,
-            ArithmeticByteSource::D => self.r.d,
-            ArithmeticByteSource::HLI => self.read(self.r.get_hl()),
-            ArithmeticByteSource::D8 => self.consume_byte(),
-            _ => unimplemented!(),
-        };
+    fn handle_sub(&mut self, target: ArithmeticByteTarget, source: ByteSource) -> u16 {
+        let source_value = source.resolve_value(self);
         let target_value = match target {
             ArithmeticByteTarget::A => self.r.a,
             _ => unimplemented!(),
@@ -927,8 +915,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         }
 
         match source {
-            ArithmeticByteSource::HLI => self.clock.advance(8),
-            ArithmeticByteSource::D8 => self.clock.advance(8),
+            ByteSource::HLI => self.clock.advance(8),
+            ByteSource::D8 => self.clock.advance(8),
             _ => self.clock.advance(4),
         }
 
