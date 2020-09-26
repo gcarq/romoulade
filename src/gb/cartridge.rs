@@ -138,7 +138,7 @@ impl Cartridge {
     }
 
     /// Enables or disables RAM banking.
-    fn toggle_ram_banking(&mut self, address: u16, value: u8) {
+    fn toggle_ram_banking(&mut self, _address: u16, value: u8) {
         // If MBC2 is enabled, bit 4 of the address must be zero.
         if self.meta.banking == MBC2
         /*&& utils::bit_at(address as u8, 4)*/

@@ -361,44 +361,44 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_dec(&mut self, target: IncDecTarget) -> u16 {
         match target {
             IncDecTarget::A => {
-                self.r.f.half_carry = self.r.a & 0xF == 0;
+                self.r.f.half_carry = self.r.a.trailing_zeros() >= 4;
                 self.r.a = self.r.a.wrapping_sub(1);
                 self.r.f.zero = self.r.a == 0;
                 self.r.f.negative = true;
             }
             IncDecTarget::B => {
-                self.r.f.half_carry = self.r.b & 0xF == 0;
+                self.r.f.half_carry = self.r.b.trailing_zeros() >= 4;
                 self.r.b = self.r.b.wrapping_sub(1);
                 self.r.f.zero = self.r.b == 0;
                 self.r.f.negative = true;
             }
             IncDecTarget::C => {
-                self.r.f.half_carry = self.r.c & 0xF == 0;
+                self.r.f.half_carry = self.r.c.trailing_zeros() >= 4;
                 self.r.c = self.r.c.wrapping_sub(1);
 
                 self.r.f.zero = self.r.c == 0;
                 self.r.f.negative = true;
             }
             IncDecTarget::D => {
-                self.r.f.half_carry = self.r.d & 0xF == 0;
+                self.r.f.half_carry = self.r.d.trailing_zeros() >= 4;
                 self.r.d = self.r.d.wrapping_sub(1);
                 self.r.f.zero = self.r.d == 0;
                 self.r.f.negative = true;
             }
             IncDecTarget::E => {
-                self.r.f.half_carry = self.r.e & 0xF == 0;
+                self.r.f.half_carry = self.r.e.trailing_zeros() >= 4;
                 self.r.e = self.r.e.wrapping_sub(1);
                 self.r.f.zero = self.r.e == 0;
                 self.r.f.negative = true;
             }
             IncDecTarget::H => {
-                self.r.f.half_carry = self.r.h & 0xF == 0;
+                self.r.f.half_carry = self.r.h.trailing_zeros() >= 4;
                 self.r.h = self.r.h.wrapping_sub(1);
                 self.r.f.zero = self.r.h == 0;
                 self.r.f.negative = true;
             }
             IncDecTarget::L => {
-                self.r.f.half_carry = self.r.l & 0xF == 0;
+                self.r.f.half_carry = self.r.l.trailing_zeros() >= 4;
                 self.r.l = self.r.l.wrapping_sub(1);
                 self.r.f.zero = self.r.l == 0;
                 self.r.f.negative = true;
@@ -408,7 +408,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             }
             IncDecTarget::HLI => {
                 let value = self.read(self.r.get_hl());
-                self.r.f.half_carry = value & 0xF == 0;
+                self.r.f.half_carry = value.trailing_zeros() >= 4;
                 let value = value.wrapping_sub(1);
                 self.r.f.zero = value == 0;
                 self.r.f.negative = true;

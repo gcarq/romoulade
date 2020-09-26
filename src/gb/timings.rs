@@ -26,7 +26,7 @@ impl<'a> Timer<'a> {
         Self { bus }
     }
 
-    pub fn step(&mut self, cycles: u32) {
+    pub fn step(&mut self, _cycles: u32) {
         // TODO: update DoDividerRegister with passed cycles
 
         // Check if clock is running
