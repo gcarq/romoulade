@@ -1,7 +1,6 @@
 use crate::gb::instruction::{
-    ArithmeticByteTarget, ArithmeticWordSource, ArithmeticWordTarget, ByteSource, IncDecTarget,
-    Instruction, JumpTest, LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget, ResetCode,
-    StackTarget, WordSource,
+    ArithmeticByteTarget, ArithmeticWordTarget, ByteSource, IncDecTarget, Instruction, JumpTest,
+    LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget, ResetCode, StackTarget, WordSource,
 };
 use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
@@ -217,11 +216,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles ADD instructions with words
-    fn handle_add2(&mut self, target: ArithmeticWordTarget, source: ArithmeticWordSource) -> u16 {
-        let source_value = match source {
-            ArithmeticWordSource::DE => self.r.get_de(),
-            ArithmeticWordSource::HL => self.r.get_hl(),
-        };
+    fn handle_add2(&mut self, target: ArithmeticWordTarget, source: WordSource) -> u16 {
+        let source_value = source.resolve_value(self);
         let target_value = match target {
             ArithmeticWordTarget::HL => self.r.get_hl(),
             _ => unimplemented!(),

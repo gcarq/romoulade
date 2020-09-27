@@ -4,8 +4,8 @@ use crate::gb::AddressSpace;
 #[derive(Debug)]
 pub enum Instruction {
     ADD(ArithmeticByteTarget, ByteSource),
-    ADD2(ArithmeticWordTarget, ArithmeticWordSource), // Same as ADD but with words
-    ADC(ByteSource),                                  // Add n + Carry flag to A
+    ADD2(ArithmeticWordTarget, WordSource), // Same as ADD but with words
+    ADC(ByteSource),                        // Add n + Carry flag to A
     AND(ByteSource),
     BIT(u8, ByteSource), // Test bit b in register r
     INC(IncDecTarget),
@@ -114,10 +114,7 @@ impl Instruction {
             ))),
             0x17 => Some(Instruction::RLA),
             0x18 => Some(Instruction::JR(JumpTest::Always)),
-            0x19 => Some(Instruction::ADD2(
-                ArithmeticWordTarget::HL,
-                ArithmeticWordSource::DE,
-            )),
+            0x19 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::DE)),
             0x1a => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::DEI,
@@ -146,10 +143,7 @@ impl Instruction {
             ))),
             0x27 => Some(Instruction::DAA),
             0x28 => Some(Instruction::JR(JumpTest::Zero)),
-            0x29 => Some(Instruction::ADD2(
-                ArithmeticWordTarget::HL,
-                ArithmeticWordSource::HL,
-            )),
+            0x29 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::HL)),
             0x2a => Some(Instruction::LD(LoadType::FromIndirectAInc(ByteSource::HLI))),
             0x2c => Some(Instruction::INC(IncDecTarget::L)),
             0x2d => Some(Instruction::DEC(IncDecTarget::L)),
@@ -574,12 +568,6 @@ pub enum ArithmeticWordTarget {
 }
 
 #[derive(Debug)]
-pub enum ArithmeticWordSource {
-    DE,
-    HL,
-}
-
-#[derive(Debug)]
 pub enum IncDecTarget {
     A,
     B,
@@ -647,10 +635,10 @@ pub enum ByteSource {
     E,
     H,
     L,
-    D8,  // direct 8 bit value
-    D8I, // value refers to address stored in next 8 bits | 0xFF00
-    BCI,
-    DEI,
+    D8,   // direct 8 bit value
+    D8I,  // value refers to address stored in next 8 bits | 0xFF00
+    BCI,  // value refers to address stored in BC register
+    DEI,  // value refers to address stored in DE register
     HLI,  // value refers to address stored in HL register
     D16I, // value refers to address stored in next 16 bits
 }
@@ -688,11 +676,12 @@ pub enum LoadWordTarget {
     DE,
     HL,
     SP,
-    D16I,
+    D16I, // value refers to address stored in next 16 bits
 }
 
 #[derive(Debug)]
 pub enum WordSource {
+    DE,
     HL,
     D16, // direct 16 bit value
     SP,
@@ -702,6 +691,7 @@ impl WordSource {
     /// Resolves the referring value
     pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u16 {
         match *self {
+            WordSource::DE => cpu.r.get_de(),
             WordSource::HL => cpu.r.get_hl(),
             WordSource::D16 => cpu.consume_word(),
             WordSource::SP => cpu.sp,
