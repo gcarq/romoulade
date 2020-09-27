@@ -405,6 +405,19 @@ fn test_or_zero() {
 }
 
 #[test]
+fn test_rlca() {
+    // RLCA
+    let bus = RefCell::new(MockBus::new(vec![0x07; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0b1011_0110;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0b0110_1101);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, false, true);
+}
+
+#[test]
 fn test_rr_non_zero() {
     // SRL B
     let bus = RefCell::new(MockBus::new([0xcb, 0x19].into()));

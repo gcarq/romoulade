@@ -120,6 +120,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::RR(source) => self.handle_rr(source),
             Instruction::RRA => self.handle_rra(),
             Instruction::RLC(target) => self.handle_rlc(target),
+            Instruction::RLCA => self.handle_rlca(),
             Instruction::RRCA => self.handle_rrca(),
             Instruction::RST(code) => self.handle_rst(code),
             Instruction::SET(bit, source) => self.handle_set(bit, source),
@@ -804,6 +805,15 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         }
         self.clock.advance(8);
         self.pc.wrapping_add(2)
+    }
+
+    /// Handles RLCA instruction
+    fn handle_rlca(&mut self) -> u16 {
+        let carry = self.r.a >> 7;
+        self.r.a = self.r.a << 1 | carry;
+        self.r.f.update(false, false, false, carry != 0);
+        self.clock.advance(4);
+        self.pc.wrapping_add(1)
     }
 
     /// Handles RR instructions

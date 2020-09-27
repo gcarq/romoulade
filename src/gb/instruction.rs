@@ -26,6 +26,7 @@ pub enum Instruction {
     RETI,              // Unconditional return which also enables interrupts
     RLA,               // Rotate `A` left through carry
     RLC(PrefixTarget), // Rotate target left
+    RLCA,              // Rotate A left. Old bit 7 to Carry flag
     RR(ByteSource),    // Rotate n right through Carry flag
     RRA,               // Rotate A right through Carry flag
     RRCA,
@@ -80,6 +81,7 @@ impl Instruction {
                 LoadByteTarget::B,
                 ByteSource::D8,
             ))),
+            0x07 => Some(Instruction::RLCA),
             0x08 => Some(Instruction::LD(LoadType::IndirectFromWord(
                 LoadWordTarget::D16I,
                 WordSource::SP,
