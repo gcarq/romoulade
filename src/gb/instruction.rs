@@ -542,6 +542,9 @@ impl Instruction {
             0xf3 => Some(Instruction::DI),
             0xf5 => Some(Instruction::PUSH(StackTarget::AF)),
             0xf6 => Some(Instruction::OR(ByteSource::D8)),
+            0xf8 => Some(Instruction::LD(LoadType::IndirectFromSPi8(
+                LoadWordTarget::HL,
+            ))),
             0xf9 => Some(Instruction::LD(LoadType::IndirectFromWord(
                 LoadWordTarget::SP,
                 WordSource::HL,
@@ -716,8 +719,7 @@ pub enum LoadType {
     FromIndirect(LoadByteTarget, ByteSource), // load the A register with the contents from a value from a memory location whose address is stored in some location
     FromIndirectAInc(ByteSource),
     IndirectFromWord(LoadWordTarget, WordSource),
-    // AFromByteAddress: Just like AFromIndirect except the memory address is some address in the very last byte of memory.
-    // ByteAddressFromA: Just like IndirectFromA except the memory address is some address in the very last byte of memory.
+    IndirectFromSPi8(LoadWordTarget), // Put SP plus 8 bit immediate value into target.
 }
 
 #[derive(Debug)]

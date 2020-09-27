@@ -332,27 +332,40 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles DAA instruction
     fn handle_daa(&mut self) -> u16 {
-        // From https://forums.nesdev.com/viewtopic.php?t=15944
-        if !self.r.f.negative {
-            // After an addition, adjust if (half-)carry occurred or if result is out of bounds
-            if self.r.f.carry || self.r.a > 0x99 {
-                self.r.a = self.r.a.wrapping_add(0x60);
-                self.r.f.carry = true;
-            }
-            if self.r.f.half_carry || (self.r.a & 0x0f) > 0x09 {
-                self.r.a = self.r.a.wrapping_add(0x06);
-            }
-        } else {
-            // after a subtraction, only adjust if (half-)carry occurred
-            if self.r.f.carry {
-                self.r.a = self.r.a.wrapping_sub(0x60);
-            }
-            if self.r.f.half_carry {
-                self.r.a = self.r.a.wrapping_sub(0x06);
-            }
+        let mut adjust = 0;
+        // See if we had a carry/borrow for the high nibble in the last
+        // operation
+        if self.r.f.carry {
+            adjust |= 0b0110_0000;
         }
-        self.r.f.zero = self.r.a == 0;
+        // See if we had a carry/borrow for the low nibble in the last
+        // operation
+        if self.r.f.half_carry {
+            adjust |= 0b0000_0110
+        }
+
+        let result = if self.r.f.negative {
+            // If the operation was a subtraction we're done since we
+            // can never end up in the A-F range by subtracting
+            // without generating a (half)carry.
+            self.r.a.wrapping_sub(adjust)
+        } else {
+            // Additions are a bit more tricky because we might have
+            // to adjust even if we haven't overflowed (and no carry
+            // is present). For instance: 0x08 + 0x04 -> 0x0c.
+            if self.r.a & 0b0000_1111 > 0x09 {
+                adjust |= 0b0000_0110;
+            }
+            if self.r.a > 0x99 {
+                adjust |= 0b0110_0000;
+            }
+            self.r.a.wrapping_add(adjust)
+        };
+
+        self.r.a = result;
+        self.r.f.zero = result == 0;
         self.r.f.half_carry = false;
+        self.r.f.carry = adjust & 0x60 != 0;
         self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
@@ -680,6 +693,24 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 }
 
                 self.clock.advance(8);
+                self.pc.wrapping_add(1)
+            }
+            LoadType::IndirectFromSPi8(target) => {
+                // TODO: generalize this
+                let sp = self.sp as i32;
+                let n = self.consume_byte() as i8;
+
+                let nn = n as i32;
+
+                let result = sp.wrapping_add(nn);
+                let carry = (sp ^ nn ^ result) & 0x100 != 0;
+                let half_carry = (sp ^ nn ^ result) & 0x10 != 0;
+                self.r.f.update(false, false, half_carry, carry);
+                match target {
+                    LoadWordTarget::HL => self.r.set_hl(result as u16),
+                    _ => unimplemented!(),
+                };
+                self.clock.advance(12);
                 self.pc.wrapping_add(1)
             }
         }
