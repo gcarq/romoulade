@@ -8,7 +8,7 @@ use sdl2::render::Canvas;
 use sdl2::EventPump;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
-use std::{process, thread};
+use std::{error, process, thread};
 
 const NAME: &str = "Romoulade";
 
@@ -24,34 +24,31 @@ pub struct Display {
 impl Display {
     /// Creates a new display with the given int upscale.
     /// TODO: make upscale float
-    pub fn new(upscale: u8, fps_limit: u32) -> Self {
-        let sdl = sdl2::init().unwrap();
+    pub fn new(upscale: u8, fps_limit: u32) -> Result<Self, Box<dyn error::Error>> {
+        let sdl = sdl2::init()?;
         let up = 1 << (upscale as usize);
 
-        let xres = SCREEN_WIDTH as u32 * up;
-        let yres = SCREEN_HEIGHT as u32 * up;
+        let x_res = SCREEN_WIDTH as u32 * up;
+        let y_res = SCREEN_HEIGHT as u32 * up;
 
-        let video_subsystem = sdl.video().unwrap();
+        let video_subsystem = sdl.video()?;
         let window = video_subsystem
-            .window(NAME, xres, yres)
+            .window(NAME, x_res, y_res)
             .position_centered()
-            .build()
-            .unwrap();
+            .build()?;
 
-        let canvas = window.into_canvas().build().unwrap();
-        let limiter = if fps_limit > 0 {
-            let strategy = LimitStrategy::Sleep(Duration::from_secs(1) / fps_limit);
-            FrameLimiter::new(strategy)
-        } else {
-            FrameLimiter::new(LimitStrategy::Disabled)
+        let canvas = window.into_canvas().build()?;
+        let limiter = match fps_limit {
+            0 => FrameLimiter::new(LimitStrategy::Disabled),
+            _ => FrameLimiter::new(LimitStrategy::Sleep(Duration::from_secs(1) / fps_limit)),
         };
-        Self {
+        Ok(Self {
             canvas,
-            event_pump: sdl.event_pump().unwrap(),
+            event_pump: sdl.event_pump()?,
             upscale,
             last_second_frames: VecDeque::with_capacity(60),
             limiter,
-        }
+        })
     }
 
     /// Renders the current canvas to screen
@@ -68,29 +65,32 @@ impl Display {
 
     /// Writes a pixel to the given coordinates
     pub fn write_pixel(&mut self, x: u8, y: u8, value: Color) {
-        let color = match value {
-            Color::White => pixels::Color::RGB(0xff, 0xff, 0xff),
-            Color::LightGrey => pixels::Color::RGB(0xab, 0xab, 0xab),
-            Color::DarkGrey => pixels::Color::RGB(0x55, 0x55, 0x55),
-            Color::Black => pixels::Color::RGB(0x00, 0x00, 0x00),
-        };
-
+        let color = self.translate_color(value);
         self.canvas.set_draw_color(color);
-
         if self.upscale == 0 {
             self.canvas
                 .draw_point(Point::new(x as i32, y as i32))
                 .unwrap();
-        } else {
-            let up = 1 << (self.upscale as usize);
+            return;
+        }
 
-            // Translate coordinates
-            let x = x as i32 * up;
-            let y = y as i32 * up;
+        // Translate coordinates
+        let up = 1 << (self.upscale as usize);
+        let x = x as i32 * up;
+        let y = y as i32 * up;
 
-            self.canvas
-                .fill_rect(Rect::new(x, y, up as u32, up as u32))
-                .unwrap();
+        self.canvas
+            .fill_rect(Rect::new(x, y, up as u32, up as u32))
+            .unwrap();
+    }
+
+    /// Translates given color to sdl2::pixels::Color
+    fn translate_color(&self, color: Color) -> pixels::Color {
+        match color {
+            Color::White => pixels::Color::RGB(0xff, 0xff, 0xff),
+            Color::LightGrey => pixels::Color::RGB(0xab, 0xab, 0xab),
+            Color::DarkGrey => pixels::Color::RGB(0x55, 0x55, 0x55),
+            Color::Black => pixels::Color::RGB(0x00, 0x00, 0x00),
         }
     }
 

@@ -426,9 +426,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.f.negative = true;
                 self.write(self.r.get_hl(), value);
             }
-            IncDecTarget::SP => {
-                self.sp = self.sp.wrapping_sub(1);
-            }
+            IncDecTarget::SP => self.sp = self.sp.wrapping_sub(1),
             _ => unimplemented!(),
         }
         match target {
@@ -505,7 +503,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             IncDecTarget::BC => self.r.set_bc(self.r.get_bc().wrapping_add(1)),
             IncDecTarget::DE => self.r.set_de(self.r.get_de().wrapping_add(1)),
             IncDecTarget::HL => self.r.set_hl(self.r.get_hl().wrapping_add(1)),
-            _ => unimplemented!(),
+            IncDecTarget::SP => self.sp = self.sp.wrapping_add(1),
         }
 
         match target {

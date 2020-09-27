@@ -32,7 +32,7 @@ fn main() {
     println!("  -> {}", cartridge);
 
     let bus = RefCell::new(MemoryBus::new(cartridge));
-    let mut display = Display::new(2, fps_limit);
+    let mut display = Display::new(2, fps_limit).expect("Unable to create sdl2 Display");
     let mut ppu = PPU::new(&bus, &mut display);
     let cpu = RefCell::new(CPU::new(&bus));
     let mut irq_handler = IRQHandler::new(&cpu);

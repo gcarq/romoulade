@@ -160,6 +160,7 @@ impl Instruction {
             0x32 => Some(Instruction::LD(LoadType::IndirectFromADec(
                 LoadByteTarget::HLI,
             ))),
+            0x33 => Some(Instruction::INC(IncDecTarget::SP)),
             0x34 => Some(Instruction::INC(IncDecTarget::HLI)),
             0x35 => Some(Instruction::DEC(IncDecTarget::HLI)),
             0x36 => Some(Instruction::LD(LoadType::Byte(
@@ -167,7 +168,8 @@ impl Instruction {
                 ByteSource::D8,
             ))),
             0x38 => Some(Instruction::JR(JumpTest::Carry)),
-            //0x3b => Some(Instruction::DEC(IncDecTarget::SP)),
+            0x39 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::SP)),
+            0x3b => Some(Instruction::DEC(IncDecTarget::SP)),
             0x3c => Some(Instruction::INC(IncDecTarget::A)),
             0x3d => Some(Instruction::DEC(IncDecTarget::A)),
             0x3e => Some(Instruction::LD(LoadType::Byte(
