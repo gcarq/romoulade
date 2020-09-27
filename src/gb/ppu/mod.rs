@@ -119,7 +119,7 @@ impl<'a> PPU<'a> {
                     self.x = 0;
                     // TODO: add case for drawing windows
                     let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
-                    let x = self.x.wrapping_add(self.read(PPU_SCX));
+                    let x = self.read(PPU_SCX).wrapping_add(self.x);
 
                     let tile_row = u16::from(y / 8) * 32;
                     let tile_column = u16::from(x / 8);

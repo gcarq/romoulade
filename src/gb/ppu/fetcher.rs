@@ -150,8 +150,8 @@ impl<'a> Fetcher<'a> {
                     // We stored pixel bits from least significant (rightmost) to most
                     // (leftmost) in the data array, so we must push them in reverse
                     // order.
-                    for i in 0..8 {
-                        self.fifo.push_front(palette.colorize(self.tile_data[i]));
+                    for i in (0..8).rev() {
+                        self.fifo.push_back(palette.colorize(self.tile_data[i]));
                     }
                     // Advance to the next tile in the map's row.
                     self.tile_index += 1;
