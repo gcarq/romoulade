@@ -165,6 +165,36 @@ fn test_cpl() {
 }
 
 #[test]
+fn test_daa_negative_carry() {
+    // DAA
+    let bus = RefCell::new(MockBus::new(vec![0x27; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0x44;
+    cpu.r.f.negative = true;
+    cpu.r.f.carry = true;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0xe4);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, true, false, true);
+}
+
+#[test]
+fn test_daa_non_negative_carry() {
+    // DAA
+    let bus = RefCell::new(MockBus::new(vec![0x27; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0x44;
+    cpu.r.f.negative = false;
+    cpu.r.f.carry = true;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0xa4);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, false, true);
+}
+
+#[test]
 fn test_di() {
     // DI
     let bus = RefCell::new(MockBus::new(vec![0xf3; 1]));

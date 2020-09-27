@@ -80,10 +80,10 @@ impl Instruction {
                 LoadByteTarget::B,
                 ByteSource::D8,
             ))),
-            //0x08 => Some(Instruction::LD(LoadType::IndirectFromWord(
-            //    AddressSource::D16,
-            //    WordSource::SP,
-            //))),
+            0x08 => Some(Instruction::LD(LoadType::IndirectFromWord(
+                LoadWordTarget::D16I,
+                WordSource::SP,
+            ))),
             //0x0a => Some(Instruction::LD(LoadType::FromIndirect(
             //    LoadByteTarget::A,
             //    ByteSource::BC,
@@ -144,7 +144,7 @@ impl Instruction {
                 LoadByteTarget::H,
                 ByteSource::D8,
             ))),
-            //0x27 => Some(Instruction::DAA),
+            0x27 => Some(Instruction::DAA),
             0x28 => Some(Instruction::JR(JumpTest::Zero)),
             0x29 => Some(Instruction::ADD2(
                 ArithmeticWordTarget::HL,
@@ -341,7 +341,7 @@ impl Instruction {
                 ByteSource::A,
             ))),
             0x68 => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::H,
+                LoadByteTarget::L,
                 ByteSource::B,
             ))),
             0x69 => Some(Instruction::LD(LoadType::Byte(
@@ -485,14 +485,20 @@ impl Instruction {
             //0xb3 => Some(Instruction::OR(ByteSource::E)),
             0xb6 => Some(Instruction::OR(ByteSource::HLI)),
             0xb7 => Some(Instruction::OR(ByteSource::A)),
+            0xb8 => Some(Instruction::OR(ByteSource::B)),
+            0xb9 => Some(Instruction::OR(ByteSource::C)),
+            0xba => Some(Instruction::CP(ByteSource::D)),
+            0xbb => Some(Instruction::CP(ByteSource::E)),
             0xbe => Some(Instruction::CP(ByteSource::HLI)),
             0xc0 => Some(Instruction::RET(JumpTest::NotZero)),
             0xc1 => Some(Instruction::POP(StackTarget::BC)),
             0xc3 => Some(Instruction::JP(JumpTest::Always, WordSource::D16)),
             0xc4 => Some(Instruction::CALL(JumpTest::NotZero)),
             0xc6 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::D8)),
+            0xc7 => Some(Instruction::RST(ResetCode::RST00)),
             0xc9 => Some(Instruction::RET(JumpTest::Always)),
             0xca => Some(Instruction::JP(JumpTest::Zero, WordSource::D16)),
+            0xcc => Some(Instruction::CALL(JumpTest::Zero)),
             0xcd => Some(Instruction::CALL(JumpTest::Always)),
             0xce => Some(Instruction::ADC(ByteSource::D8)),
             0xcf => Some(Instruction::RST(ResetCode::RST08)),
@@ -501,10 +507,14 @@ impl Instruction {
             0xc8 => Some(Instruction::RET(JumpTest::Zero)),
             0xd0 => Some(Instruction::RET(JumpTest::NotCarry)),
             0xd1 => Some(Instruction::POP(StackTarget::DE)),
+            0xd2 => Some(Instruction::JP(JumpTest::NotCarry, WordSource::D16)),
+            0xd4 => Some(Instruction::CALL(JumpTest::NotCarry)),
             0xd5 => Some(Instruction::PUSH(StackTarget::DE)),
             0xd6 => Some(Instruction::SUB(ArithmeticByteTarget::A, ByteSource::D8)),
             0xd8 => Some(Instruction::RET(JumpTest::Carry)),
             0xd9 => Some(Instruction::RETI),
+            0xda => Some(Instruction::JP(JumpTest::Carry, WordSource::D16)),
+            0xdc => Some(Instruction::CALL(JumpTest::Carry)),
             0xdf => Some(Instruction::RST(ResetCode::RST18)),
             0xe0 => Some(Instruction::LD(LoadType::IndirectFrom(
                 LoadByteTarget::D8I,
@@ -519,19 +529,23 @@ impl Instruction {
             0xe6 => Some(Instruction::AND(ByteSource::D8)),
             0xef => Some(Instruction::RST(ResetCode::RST28)),
             0xe9 => Some(Instruction::JP(JumpTest::Always, WordSource::HL)),
-            0xf0 => Some(Instruction::LD(LoadType::FromIndirect(
-                LoadByteTarget::A,
-                ByteSource::D8I,
-            ))),
             0xea => Some(Instruction::LD(LoadType::IndirectFrom(
                 LoadByteTarget::D16I,
                 ByteSource::A,
             ))),
             0xee => Some(Instruction::XOR(ByteSource::D8)),
+            0xf0 => Some(Instruction::LD(LoadType::FromIndirect(
+                LoadByteTarget::A,
+                ByteSource::D8I,
+            ))),
             0xf1 => Some(Instruction::POP(StackTarget::AF)),
             0xf3 => Some(Instruction::DI),
             0xf5 => Some(Instruction::PUSH(StackTarget::AF)),
             0xf6 => Some(Instruction::OR(ByteSource::D8)),
+            0xf9 => Some(Instruction::LD(LoadType::IndirectFromWord(
+                LoadWordTarget::SP,
+                WordSource::HL,
+            ))),
             0xfa => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::D16I,
@@ -665,21 +679,13 @@ impl ByteSource {
     }
 }
 
-// TODO: remove me
-#[derive(Debug)]
-pub enum AddressSource {
-    C,
-    D8,  // direct 8 bit value
-    D16, // direct 16 bit value
-    HLI,
-}
-
 #[derive(Debug)]
 pub enum LoadWordTarget {
     BC,
     DE,
     HL,
     SP,
+    D16I,
 }
 
 #[derive(Debug)]
@@ -687,6 +693,17 @@ pub enum WordSource {
     HL,
     D16, // direct 16 bit value
     SP,
+}
+
+impl WordSource {
+    /// Resolves the referring value
+    pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u16 {
+        match *self {
+            WordSource::HL => cpu.r.get_hl(),
+            WordSource::D16 => cpu.consume_word(),
+            WordSource::SP => cpu.sp,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -698,8 +715,7 @@ pub enum LoadType {
     IndirectFromADec(LoadByteTarget), // Same as IndirectFromA, source value is decremented afterwards
     FromIndirect(LoadByteTarget, ByteSource), // load the A register with the contents from a value from a memory location whose address is stored in some location
     FromIndirectAInc(ByteSource),
-    // TODO: AddressSource should be LoadByteTarget
-    IndirectFromWord(AddressSource, WordSource),
+    IndirectFromWord(LoadWordTarget, WordSource),
     // AFromByteAddress: Just like AFromIndirect except the memory address is some address in the very last byte of memory.
     // ByteAddressFromA: Just like IndirectFromA except the memory address is some address in the very last byte of memory.
 }
@@ -714,6 +730,7 @@ pub enum StackTarget {
 
 #[derive(Debug)]
 pub enum ResetCode {
+    RST00,
     RST08,
     RST18,
     RST28,

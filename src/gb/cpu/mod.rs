@@ -1,7 +1,7 @@
 use crate::gb::instruction::{
-    AddressSource, ArithmeticByteTarget, ArithmeticWordSource, ArithmeticWordTarget, ByteSource,
-    IncDecTarget, Instruction, JumpTest, LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget,
-    ResetCode, StackTarget, WordSource,
+    ArithmeticByteTarget, ArithmeticWordSource, ArithmeticWordTarget, ByteSource, IncDecTarget,
+    Instruction, JumpTest, LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget, ResetCode,
+    StackTarget, WordSource,
 };
 use crate::gb::timings::Clock;
 use crate::gb::AddressSpace;
@@ -20,7 +20,7 @@ mod tests;
 pub struct CPU<'a, T: AddressSpace> {
     pub r: Registers,
     pub pc: u16,   // Program counter
-    sp: u16,       // Stack Pointer
+    pub sp: u16,   // Stack Pointer
     pub ime: bool, // Interrupt Master Enable
     is_halted: bool,
     pub bus: &'a RefCell<T>, // TODO: make me private
@@ -335,7 +335,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         // From https://forums.nesdev.com/viewtopic.php?t=15944
         if !self.r.f.negative {
             // After an addition, adjust if (half-)carry occurred or if result is out of bounds
-            if self.r.f.carry || self.r.a > 0x90 {
+            if self.r.f.carry || self.r.a > 0x99 {
                 self.r.a = self.r.a.wrapping_add(0x60);
                 self.r.f.carry = true;
             }
@@ -353,6 +353,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         }
         self.r.f.zero = self.r.a == 0;
         self.r.f.half_carry = false;
+        self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
 
@@ -582,15 +583,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             LoadType::Word(target, source) => {
-                let value = match source {
-                    WordSource::D16 => self.consume_word(),
-                    _ => unimplemented!(),
-                };
+                let value = source.resolve_value(self);
                 match target {
                     LoadWordTarget::BC => self.r.set_bc(value),
                     LoadWordTarget::DE => self.r.set_de(value),
                     LoadWordTarget::HL => self.r.set_hl(value),
                     LoadWordTarget::SP => self.sp = value,
+                    _ => unimplemented!(),
                 }
                 self.clock.advance(12);
                 self.pc.wrapping_add(1)
@@ -640,17 +639,21 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFromWord(address, source) => {
-                let address = match address {
-                    AddressSource::D16 => self.consume_word(),
+            LoadType::IndirectFromWord(target, source) => {
+                let value = source.resolve_value(self);
+                match target {
+                    LoadWordTarget::SP => self.sp = value,
+                    LoadWordTarget::D16I => {
+                        let address = self.consume_word();
+                        self.write(address, value as u8);
+                        self.write(address + 1, (value >> 8) as u8);
+                    }
                     _ => unimplemented!(),
                 };
-                let value = match source {
-                    WordSource::SP => self.sp,
-                    _ => unimplemented!(),
-                };
-                self.write(address, value as u8);
-                self.write(address + 1, (value >> 8) as u8);
+                match target {
+                    LoadWordTarget::D16I => self.clock.advance(20),
+                    _ => self.clock.advance(8),
+                }
                 self.pc.wrapping_add(1)
             }
             LoadType::FromIndirect(target, source) => {
@@ -822,6 +825,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.sp = self.sp.wrapping_sub(2);
         self.push(self.pc);
         match code {
+            ResetCode::RST00 => 0x00,
             ResetCode::RST08 => 0x08,
             ResetCode::RST18 => 0x18,
             ResetCode::RST28 => 0x28,

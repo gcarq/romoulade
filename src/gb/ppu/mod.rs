@@ -1,7 +1,7 @@
 mod fetcher;
 
 use crate::gb::display::Display;
-use crate::gb::memory::constants::{PPU_LCDC, PPU_LY, PPU_SCY, PPU_STAT};
+use crate::gb::memory::constants::{PPU_LCDC, PPU_LY, PPU_SCX, PPU_SCY, PPU_STAT};
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timings::Clock;
@@ -117,9 +117,15 @@ impl<'a> PPU<'a> {
                     // each tile, we can tell which 8-pixel line to fetch by computing
                     // Y modulo 8.
                     self.x = 0;
+                    // TODO: add case for drawing windows
                     let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
+                    let x = self.x.wrapping_add(self.read(PPU_SCX));
+
+                    let tile_row = u16::from(y / 8) * 32;
+                    let tile_column = u16::from(x / 8);
+                    let tile_map_row_addr = 0x9800 + tile_row + tile_column;
+
                     let tile_line = y % 8;
-                    let tile_map_row_addr = 0x9800 + u16::from(y / 8) * 32;
                     self.fetcher.start(tile_map_row_addr, tile_line);
                     self.set_lcd_mode(LCDMode::PixelTransfer);
                 }
