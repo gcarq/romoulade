@@ -1,6 +1,7 @@
 pub mod constants;
 
 use crate::gb::cartridge::Cartridge;
+use crate::gb::interrupt::IRQ;
 use crate::gb::memory::constants::*;
 use crate::gb::AddressSpace;
 use crate::utils;
@@ -32,10 +33,18 @@ impl MemoryBus {
     }
 
     /// Requests an interrupt for the given id
-    /// TODO: create enum? See interrupt.rs
-    pub fn irq(&mut self, id: u8) {
-        let req = utils::set_bit(self.read(INTERRUPT_FLAG), id, true);
+    pub fn irq(&mut self, id: IRQ) {
+        let req = utils::set_bit(self.read(INTERRUPT_FLAG), u8::from(id), true);
         self.write(INTERRUPT_FLAG, req);
+    }
+
+    /// Unchecked write to avoid memory traps.
+    /// This function should only be used in emulator internals!
+    pub fn write_unchecked(&mut self, address: u16, value: u8) {
+        match address {
+            TIMER_DIVIDER => self.io[(address - IO_BEGIN) as usize] = value,
+            _ => unimplemented!("unchecked_write() for address {:#06x}", address),
+        }
     }
 
     /// Reads value from boot ROM or cartridge
@@ -44,6 +53,15 @@ impl MemoryBus {
         match address {
             BOOT_BEGIN..=BOOT_END if self.read(BOOT_ROM_OFF) == 0 => BOOT_ROM[address as usize],
             _ => self.cartridge.read(address),
+        }
+    }
+
+    fn write_io(&mut self, address: u16, value: u8) {
+        match address {
+            // Trap the diver register, whenever a ROM writes tries to write
+            // to it it will reset to 0
+            TIMER_DIVIDER => self.io[(address - IO_BEGIN) as usize] = 0,
+            _ => self.io[(address - IO_BEGIN) as usize] = value,
         }
     }
 }
@@ -63,7 +81,7 @@ impl AddressSpace for MemoryBus {
             }
             OAM_BEGIN..=OAM_END => self.oam[(address - OAM_BEGIN) as usize] = value,
             0xFEA0..=0xFEFF => {} // This area is unmapped, writing to it does nothing.
-            IO_BEGIN..=IO_END => self.io[(address - IO_BEGIN) as usize] = value,
+            IO_BEGIN..=IO_END => self.write_io(address, value),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize] = value,
             INTERRUPT_ENABLE => self.ie = value,
         }

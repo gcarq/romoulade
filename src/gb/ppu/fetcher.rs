@@ -1,7 +1,7 @@
 use crate::gb::memory::constants::{PPU_BGP, VRAM_BEGIN};
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::Color;
-use crate::gb::timings::Clock;
+use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
 use std::cell::RefCell;
 use std::collections::VecDeque;

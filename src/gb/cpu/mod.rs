@@ -3,7 +3,7 @@ use crate::gb::instruction::{
     Instruction, JumpTest, LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget, ResetCode,
     StackTarget, WordSource,
 };
-use crate::gb::timings::Clock;
+use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
 use crate::utils;
 use registers::Registers;

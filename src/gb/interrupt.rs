@@ -9,20 +9,20 @@ use std::convert;
 #[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum IRQ {
-    VBLANK = 0,
+    VBlank = 0,
     LCD = 1,
-    TIMER = 2,
-    JOYPAD = 4,
+    Timer = 2,
+    Joypad = 4,
 }
 
 impl convert::From<u8> for IRQ {
     fn from(value: u8) -> Self {
         match value {
-            0 => IRQ::VBLANK,
+            0 => IRQ::VBlank,
             1 => IRQ::LCD,
-            2 => IRQ::TIMER,
-            4 => IRQ::JOYPAD,
-            _ => unimplemented!(),
+            2 => IRQ::Timer,
+            4 => IRQ::Joypad,
+            _ => panic!(),
         }
     }
 }
@@ -30,10 +30,10 @@ impl convert::From<u8> for IRQ {
 impl convert::From<IRQ> for u8 {
     fn from(value: IRQ) -> u8 {
         match value {
-            IRQ::VBLANK => 0,
+            IRQ::VBlank => 0,
             IRQ::LCD => 1,
-            IRQ::TIMER => 2,
-            IRQ::JOYPAD => 4,
+            IRQ::Timer => 2,
+            IRQ::Joypad => 4,
         }
     }
 }
@@ -79,10 +79,10 @@ impl<'a, T: AddressSpace> IRQHandler<'a, T> {
         self.cpu.borrow_mut().push(pc);
 
         match interrupt {
-            IRQ::VBLANK => self.cpu.borrow_mut().pc = 0x40,
+            IRQ::VBlank => self.cpu.borrow_mut().pc = 0x40,
             IRQ::LCD => self.cpu.borrow_mut().pc = 0x48,
-            IRQ::TIMER => self.cpu.borrow_mut().pc = 0x50,
-            IRQ::JOYPAD => self.cpu.borrow_mut().pc = 0x60,
+            IRQ::Timer => self.cpu.borrow_mut().pc = 0x50,
+            IRQ::Joypad => self.cpu.borrow_mut().pc = 0x60,
         }
     }
 

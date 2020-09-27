@@ -4,7 +4,7 @@ use crate::gb::display::Display;
 use crate::gb::interrupt::IRQHandler;
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::PPU;
-use crate::gb::timings::Timer;
+use crate::gb::timer::Timer;
 use crate::gb::DISPLAY_REFRESH_RATE;
 use clap::{App, Arg, ArgMatches};
 use std::cell::RefCell;
@@ -33,10 +33,10 @@ fn main() {
 
     let bus = RefCell::new(MemoryBus::new(cartridge));
     let mut display = Display::new(2, fps_limit);
-    let mut timer = Timer::new(&bus);
     let mut ppu = PPU::new(&bus, &mut display);
     let cpu = RefCell::new(CPU::new(&bus));
     let mut irq_handler = IRQHandler::new(&cpu);
+    let mut timer = Timer::new(&bus);
 
     loop {
         let cycles = cpu.borrow_mut().step();

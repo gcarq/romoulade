@@ -27,7 +27,6 @@ The code should follow the Rust style guideline.
 ### Todos
 
  - Finish ROM banking
- - Implement Timer
  - Implement missing instructions
  - Implement missing instruction tests
  - Finish Pixel Processing Unit

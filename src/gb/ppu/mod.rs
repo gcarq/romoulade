@@ -4,7 +4,7 @@ use crate::gb::display::Display;
 use crate::gb::memory::constants::{PPU_LCDC, PPU_LY, PPU_SCX, PPU_SCY, PPU_STAT};
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::fetcher::Fetcher;
-use crate::gb::timings::Clock;
+use crate::gb::timer::Clock;
 use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH};
 use std::cell::RefCell;
 use std::convert;
