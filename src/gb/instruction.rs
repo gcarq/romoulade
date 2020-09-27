@@ -15,8 +15,8 @@ pub enum Instruction {
     DAA,            // This instruction is useful when you’re using BCD value
     DI,             // Disables interrupt handling by setting ime = false
     DEC(IncDecTarget),
-    EI, // Enables interrupt handling by setting ime = true
-    HALT,
+    EI,           // Enables interrupt handling by setting ime = true
+    HALT,         // Halts and wait for interrupt
     JR(JumpTest), // Relative jump to given address
     JP(JumpTest, WordSource),
     LD(LoadType),
@@ -396,7 +396,7 @@ impl Instruction {
                 LoadByteTarget::HLI,
                 ByteSource::L,
             ))),
-            //0x76 => Some(Instruction::HALT),
+            0x76 => Some(Instruction::HALT),
             0x77 => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::HLI,
                 ByteSource::A,

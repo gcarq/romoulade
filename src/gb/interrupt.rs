@@ -49,10 +49,6 @@ impl<'a, T: AddressSpace> IRQHandler<'a, T> {
 
     /// Handles pending interrupt requests
     pub fn handle(&mut self) {
-        if !self.cpu.borrow().ime {
-            return;
-        }
-
         let requests = self.read(INTERRUPT_FLAG);
         if requests == 0 {
             return;
@@ -61,7 +57,12 @@ impl<'a, T: AddressSpace> IRQHandler<'a, T> {
         let enabled = self.read(INTERRUPT_ENABLE);
         for i in 0..5 {
             if utils::bit_at(requests, i) && utils::bit_at(enabled, i) {
-                self.service_interrupts(IRQ::from(i));
+                // Only serve interrupt if IME is enabled
+                if self.cpu.borrow().ime {
+                    self.service_interrupts(IRQ::from(i));
+                }
+                // CPU should be always woken up from HALT
+                self.cpu.borrow_mut().is_halted = false;
             }
         }
     }

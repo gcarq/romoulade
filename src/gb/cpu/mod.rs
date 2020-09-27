@@ -22,7 +22,7 @@ pub struct CPU<'a, T: AddressSpace> {
     pub pc: u16,   // Program counter
     pub sp: u16,   // Stack Pointer
     pub ime: bool, // Interrupt Master Enable
-    is_halted: bool,
+    pub is_halted: bool,
     pub bus: &'a RefCell<T>, // TODO: make me private
     clock: Clock,
 }
@@ -44,7 +44,9 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// next instruction and current CPU state (halted, stopped, etc.).
     pub fn step(&mut self) -> u32 {
         self.clock.reset();
+
         if self.is_halted {
+            self.clock.advance(4);
             return self.clock.ticks();
         }
 
@@ -447,6 +449,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles HALT instruction
     fn handle_halt(&mut self) -> u16 {
         self.is_halted = true;
+        self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
 
