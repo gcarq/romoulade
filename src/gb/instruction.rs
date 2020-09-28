@@ -29,20 +29,20 @@ pub enum Instruction {
     RES(u8, ByteSource), // Reset bit b in register r
     RET(JumpTest),  // Pop two bytes from stack & jump to that address
     RETI,           // Unconditional return which also enables interrupts
-    RL(PrefixTarget), // Rotate n left through Carry flag
+    RL(ByteSource), // Rotate n left through Carry flag
     RLA,            // Rotate `A` left through carry
-    RLC(PrefixTarget), // Rotate target left
+    RLC(ByteSource), // Rotate target left
     RLCA,           // Rotate A left. Old bit 7 to Carry flag
-    RR(PrefixTarget), // Rotate n right through Carry flag
+    RR(ByteSource), // Rotate n right through Carry flag
     RRA,            // Rotate A right through Carry flag
-    RRC(PrefixTarget), // Rotate n right. Old bit 0 to Carry flag
+    RRC(ByteSource), // Rotate n right. Old bit 0 to Carry flag
     RRCA,           // Rotate A right. Old bit 0 to Carry flag
     RST(ResetCode), // Push present address onto stack.  Jump to address 0x0000 + n
     SBC(ByteSource), // Subtract n + Carry flag from A
     SCF,            // Set carry flag
     SET(u8, ByteSource), // Set bit b in register r
-    SLA(PrefixTarget), // Shift n left into Carry. LSB of n set to 0
-    SRA(PrefixTarget), // Shift n right into Carry. MSB doesn't change
+    SLA(ByteSource), // Shift n left into Carry. LSB of n set to 0
+    SRA(ByteSource), // Shift n right into Carry. MSB doesn't change
     SRL(ByteSource), // Shift right into Carry, MSB set to 0
     SUB(ByteSource), // Subtract n from A
     STOP,           // Halt CPU & LCD display until button pressed
@@ -61,56 +61,56 @@ impl Instruction {
     /// Maps 0xCB prefixed opcodes to Instructions
     fn from_byte_prefixed(opcode: u8) -> Option<Instruction> {
         match opcode {
-            0x00 => Some(Instruction::RLC(PrefixTarget::B)),
-            0x01 => Some(Instruction::RLC(PrefixTarget::C)),
-            0x02 => Some(Instruction::RLC(PrefixTarget::D)),
-            0x03 => Some(Instruction::RLC(PrefixTarget::E)),
-            0x04 => Some(Instruction::RLC(PrefixTarget::H)),
-            0x05 => Some(Instruction::RLC(PrefixTarget::L)),
-            0x06 => Some(Instruction::RLC(PrefixTarget::HLI)),
-            0x07 => Some(Instruction::RLC(PrefixTarget::A)),
-            0x08 => Some(Instruction::RRC(PrefixTarget::B)),
-            0x09 => Some(Instruction::RRC(PrefixTarget::C)),
-            0x0a => Some(Instruction::RRC(PrefixTarget::D)),
-            0x0b => Some(Instruction::RRC(PrefixTarget::E)),
-            0x0c => Some(Instruction::RRC(PrefixTarget::H)),
-            0x0d => Some(Instruction::RRC(PrefixTarget::L)),
-            0x0e => Some(Instruction::RRC(PrefixTarget::HLI)),
-            0x0f => Some(Instruction::RRC(PrefixTarget::A)),
+            0x00 => Some(Instruction::RLC(ByteSource::B)),
+            0x01 => Some(Instruction::RLC(ByteSource::C)),
+            0x02 => Some(Instruction::RLC(ByteSource::D)),
+            0x03 => Some(Instruction::RLC(ByteSource::E)),
+            0x04 => Some(Instruction::RLC(ByteSource::H)),
+            0x05 => Some(Instruction::RLC(ByteSource::L)),
+            0x06 => Some(Instruction::RLC(ByteSource::HLI)),
+            0x07 => Some(Instruction::RLC(ByteSource::A)),
+            0x08 => Some(Instruction::RRC(ByteSource::B)),
+            0x09 => Some(Instruction::RRC(ByteSource::C)),
+            0x0a => Some(Instruction::RRC(ByteSource::D)),
+            0x0b => Some(Instruction::RRC(ByteSource::E)),
+            0x0c => Some(Instruction::RRC(ByteSource::H)),
+            0x0d => Some(Instruction::RRC(ByteSource::L)),
+            0x0e => Some(Instruction::RRC(ByteSource::HLI)),
+            0x0f => Some(Instruction::RRC(ByteSource::A)),
 
-            0x10 => Some(Instruction::RL(PrefixTarget::B)),
-            0x11 => Some(Instruction::RL(PrefixTarget::C)),
-            0x12 => Some(Instruction::RL(PrefixTarget::D)),
-            0x13 => Some(Instruction::RL(PrefixTarget::E)),
-            0x14 => Some(Instruction::RL(PrefixTarget::H)),
-            0x15 => Some(Instruction::RL(PrefixTarget::L)),
-            0x16 => Some(Instruction::RL(PrefixTarget::HLI)),
-            0x17 => Some(Instruction::RL(PrefixTarget::A)),
-            0x18 => Some(Instruction::RR(PrefixTarget::B)),
-            0x19 => Some(Instruction::RR(PrefixTarget::C)),
-            0x1a => Some(Instruction::RR(PrefixTarget::D)),
-            0x1b => Some(Instruction::RR(PrefixTarget::E)),
-            0x1c => Some(Instruction::RR(PrefixTarget::H)),
-            0x1d => Some(Instruction::RR(PrefixTarget::L)),
-            0x1e => Some(Instruction::RR(PrefixTarget::HLI)),
-            0x1f => Some(Instruction::RR(PrefixTarget::A)),
+            0x10 => Some(Instruction::RL(ByteSource::B)),
+            0x11 => Some(Instruction::RL(ByteSource::C)),
+            0x12 => Some(Instruction::RL(ByteSource::D)),
+            0x13 => Some(Instruction::RL(ByteSource::E)),
+            0x14 => Some(Instruction::RL(ByteSource::H)),
+            0x15 => Some(Instruction::RL(ByteSource::L)),
+            0x16 => Some(Instruction::RL(ByteSource::HLI)),
+            0x17 => Some(Instruction::RL(ByteSource::A)),
+            0x18 => Some(Instruction::RR(ByteSource::B)),
+            0x19 => Some(Instruction::RR(ByteSource::C)),
+            0x1a => Some(Instruction::RR(ByteSource::D)),
+            0x1b => Some(Instruction::RR(ByteSource::E)),
+            0x1c => Some(Instruction::RR(ByteSource::H)),
+            0x1d => Some(Instruction::RR(ByteSource::L)),
+            0x1e => Some(Instruction::RR(ByteSource::HLI)),
+            0x1f => Some(Instruction::RR(ByteSource::A)),
 
-            0x20 => Some(Instruction::SLA(PrefixTarget::B)),
-            0x21 => Some(Instruction::SLA(PrefixTarget::C)),
-            0x22 => Some(Instruction::SLA(PrefixTarget::D)),
-            0x23 => Some(Instruction::SLA(PrefixTarget::E)),
-            0x24 => Some(Instruction::SLA(PrefixTarget::H)),
-            0x25 => Some(Instruction::SLA(PrefixTarget::L)),
-            0x26 => Some(Instruction::SLA(PrefixTarget::HLI)),
-            0x27 => Some(Instruction::SLA(PrefixTarget::A)),
-            0x28 => Some(Instruction::SRA(PrefixTarget::B)),
-            0x29 => Some(Instruction::SRA(PrefixTarget::C)),
-            0x2a => Some(Instruction::SRA(PrefixTarget::D)),
-            0x2b => Some(Instruction::SRA(PrefixTarget::E)),
-            0x2c => Some(Instruction::SRA(PrefixTarget::H)),
-            0x2d => Some(Instruction::SRA(PrefixTarget::L)),
-            0x2e => Some(Instruction::SRA(PrefixTarget::HLI)),
-            0x2f => Some(Instruction::SRA(PrefixTarget::A)),
+            0x20 => Some(Instruction::SLA(ByteSource::B)),
+            0x21 => Some(Instruction::SLA(ByteSource::C)),
+            0x22 => Some(Instruction::SLA(ByteSource::D)),
+            0x23 => Some(Instruction::SLA(ByteSource::E)),
+            0x24 => Some(Instruction::SLA(ByteSource::H)),
+            0x25 => Some(Instruction::SLA(ByteSource::L)),
+            0x26 => Some(Instruction::SLA(ByteSource::HLI)),
+            0x27 => Some(Instruction::SLA(ByteSource::A)),
+            0x28 => Some(Instruction::SRA(ByteSource::B)),
+            0x29 => Some(Instruction::SRA(ByteSource::C)),
+            0x2a => Some(Instruction::SRA(ByteSource::D)),
+            0x2b => Some(Instruction::SRA(ByteSource::E)),
+            0x2c => Some(Instruction::SRA(ByteSource::H)),
+            0x2d => Some(Instruction::SRA(ByteSource::L)),
+            0x2e => Some(Instruction::SRA(ByteSource::HLI)),
+            0x2f => Some(Instruction::SRA(ByteSource::A)),
 
             0x30 => Some(Instruction::SWAP(ByteSource::B)),
             0x31 => Some(Instruction::SWAP(ByteSource::C)),
@@ -889,34 +889,6 @@ pub enum IncDecTarget {
 }
 
 #[derive(Debug)]
-pub enum PrefixTarget {
-    A,
-    B,
-    C,
-    D,
-    E,
-    H,
-    L,
-    HLI,
-}
-
-impl PrefixTarget {
-    /// Resolves the referring value
-    pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
-        match *self {
-            PrefixTarget::A => cpu.r.a,
-            PrefixTarget::B => cpu.r.b,
-            PrefixTarget::C => cpu.r.c,
-            PrefixTarget::D => cpu.r.d,
-            PrefixTarget::E => cpu.r.e,
-            PrefixTarget::H => cpu.r.h,
-            PrefixTarget::L => cpu.r.l,
-            PrefixTarget::HLI => cpu.read(cpu.r.get_hl()),
-        }
-    }
-}
-
-#[derive(Debug)]
 pub enum JumpTest {
     NotZero,
     Zero,
@@ -996,6 +968,23 @@ impl ByteSource {
                 let address = u16::from(cpu.consume_byte()).wrapping_add(0xFF00);
                 cpu.read(address)
             }
+        }
+    }
+
+    /// Writes value to a register or an address referred by a register
+    pub fn write_direct<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u8) {
+        match *self {
+            ByteSource::A => cpu.r.a = value,
+            ByteSource::B => cpu.r.b = value,
+            ByteSource::C => cpu.r.c = value,
+            ByteSource::D => cpu.r.d = value,
+            ByteSource::E => cpu.r.e = value,
+            ByteSource::H => cpu.r.h = value,
+            ByteSource::L => cpu.r.l = value,
+            ByteSource::BCI => cpu.write(cpu.r.get_bc(), value),
+            ByteSource::DEI => cpu.write(cpu.r.get_de(), value),
+            ByteSource::HLI => cpu.write(cpu.r.get_hl(), value),
+            _ => unimplemented!(),
         }
     }
 }
