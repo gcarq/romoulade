@@ -5,6 +5,7 @@ use crate::gb::AddressSpace;
 pub enum Instruction {
     ADD(ByteSource),                        // Add n to target
     ADD2(ArithmeticWordTarget, WordSource), // Same as ADD but with words
+    ADDSP,                                  // Add signed immediate 8 bit value to Stack Pointer
     ADC(ByteSource),                        // Add n + Carry flag to A
     AND(ByteSource),                        // Logically AND n with A, result in A
     BIT(u8, ByteSource),                    // Test bit b in register r
@@ -544,7 +545,7 @@ impl Instruction {
             ))),
             0xe5 => Some(Instruction::PUSH(StackTarget::HL)),
             0xe6 => Some(Instruction::AND(ByteSource::D8)),
-            0xe8 => Some(Instruction::ADD2(ArithmeticWordTarget::SP, WordSource::I8)),
+            0xe8 => Some(Instruction::ADDSP),
             0xe9 => Some(Instruction::JP(JumpTest::Always, WordSource::HL)),
             0xea => Some(Instruction::LD(LoadType::IndirectFrom(
                 LoadByteTarget::D16I,
@@ -586,7 +587,6 @@ impl Instruction {
 #[derive(Debug)]
 pub enum ArithmeticWordTarget {
     HL,
-    SP,
 }
 
 #[derive(Debug)]
@@ -710,7 +710,6 @@ pub enum WordSource {
     HL,
     SP,
     D16, // direct 16 bit value
-    I8,  // direct 8 signed bit value casted to 16 bit
 }
 
 impl WordSource {
@@ -722,7 +721,6 @@ impl WordSource {
             WordSource::HL => cpu.r.get_hl(),
             WordSource::SP => cpu.sp,
             WordSource::D16 => cpu.consume_word(),
-            WordSource::I8 => cpu.consume_byte() as i8 as u16,
         }
     }
 }

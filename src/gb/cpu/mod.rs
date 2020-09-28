@@ -97,6 +97,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         match instruction {
             Instruction::ADD(source) => self.handle_add(source),
             Instruction::ADD2(target, source) => self.handle_add2(target, source),
+            Instruction::ADDSP => self.handle_add_sp(),
             Instruction::ADC(source) => self.handle_adc(source),
             Instruction::AND(source) => self.handle_and(source),
             Instruction::BIT(bit, source) => self.handle_bit(bit, source),
@@ -216,7 +217,6 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         let source_value = source.resolve_value(self);
         let target_value = match target {
             ArithmeticWordTarget::HL => self.r.get_hl(),
-            ArithmeticWordTarget::SP => self.sp,
         };
 
         let (new_value, overflow) = target_value.overflowing_add(source_value);
@@ -228,20 +228,28 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.f.carry = overflow;
                 self.r.set_hl(new_value);
             }
-            ArithmeticWordTarget::SP => {
-                self.r.f.zero = false;
-                self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u16(target_value, source_value);
-                self.r.f.carry = overflow;
-                self.sp = new_value;
-            }
         }
 
         match target {
-            ArithmeticWordTarget::SP => self.clock.advance(16),
             ArithmeticWordTarget::HL => self.clock.advance(8),
         }
 
+        self.pc.wrapping_add(1)
+    }
+
+    /// Handles ADD SP, i8 instruction
+    fn handle_add_sp(&mut self) -> u16 {
+        let sp = self.sp as i32;
+        let byte = self.consume_byte() as i8 as i32;
+        let result = sp.wrapping_add(byte as i32);
+
+        // Carry and half carry are for the low byte
+        let half_carry = (sp ^ byte as i32 ^ result) & 0x10 != 0;
+        let carry = (sp ^ byte as i32 ^ result) & 0x100 != 0;
+        self.r.f.update(false, false, half_carry, carry);
+
+        self.sp = result as u16;
+        self.clock.advance(16);
         self.pc.wrapping_add(1)
     }
 
