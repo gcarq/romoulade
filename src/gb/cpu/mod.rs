@@ -101,6 +101,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::AND(source) => self.handle_and(source),
             Instruction::BIT(bit, source) => self.handle_bit(bit, source),
             Instruction::CALL(test) => self.handle_call(test),
+            Instruction::CCF => self.handle_ccf(),
             Instruction::CP(source) => self.handle_cp(source),
             Instruction::CPL => self.handle_cpl(),
             Instruction::DAA => self.handle_daa(),
@@ -123,10 +124,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::RLCA => self.handle_rlca(),
             Instruction::RRCA => self.handle_rrca(),
             Instruction::RST(code) => self.handle_rst(code),
+            Instruction::SBC(source) => self.handle_sbc(source),
+            Instruction::SCF => self.handle_scf(),
             Instruction::SET(bit, source) => self.handle_set(bit, source),
             Instruction::SRL(source) => self.handle_srl(source),
             Instruction::STOP => self.handle_stop(),
-            Instruction::SUB(target, source) => self.handle_sub(target, source),
+            Instruction::SUB(source) => self.handle_sub(source),
             Instruction::SWAP(source) => self.handle_swap(source),
             Instruction::PUSH(target) => self.handle_push(target),
             Instruction::POP(target) => self.handle_pop(target),
@@ -198,7 +201,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.r.f.update(
             new_value == 0,
             false,
-            (target_value ^ source_value ^ new_value) & 0x10 != 0,
+            utils::half_carry_u8(target_value, source_value),
             did_overflow,
         );
 
@@ -217,26 +220,30 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles ADD instructions with words
+    /// TODO: refactor me
     fn handle_add2(&mut self, target: ArithmeticWordTarget, source: WordSource) -> u16 {
         let source_value = source.resolve_value(self);
         let target_value = match target {
             ArithmeticWordTarget::HL => self.r.get_hl(),
-            _ => unimplemented!(),
+            ArithmeticWordTarget::SP => self.sp,
         };
 
-        let (new_value, did_overflow) = target_value.overflowing_add(source_value);
-        // Half Carry is set if adding the lower nibbles of the value and register A
-        // together result in a value bigger than 0xF. If the result is larger than 0xF
-        // than the addition caused a carry from the lower nibble to the upper nibble.
-        self.r.f.update(
-            new_value == 0,
-            false,
-            (target_value & 0xF) + (source_value & 0xF) > 0xF,
-            did_overflow,
-        );
+        let (new_value, overflow) = target_value.overflowing_add(source_value);
+
         match target {
-            ArithmeticWordTarget::HL => self.r.set_hl(new_value),
-            _ => unimplemented!(),
+            ArithmeticWordTarget::HL => {
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u16(target_value, source_value);
+                self.r.f.carry = overflow;
+                self.r.set_hl(new_value);
+            }
+            ArithmeticWordTarget::SP => {
+                self.r.f.zero = false;
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u16(target_value, source_value);
+                self.r.f.carry = overflow;
+                self.sp = new_value;
+            }
         }
 
         match target {
@@ -284,11 +291,14 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.r.f.zero = !utils::bit_at(value, bit);
         self.r.f.negative = false;
         self.r.f.half_carry = true;
-        self.clock.advance(8);
+        match source {
+            ByteSource::HLI => self.clock.advance(12),
+            _ => self.clock.advance(8),
+        }
         self.pc.wrapping_add(2)
     }
 
-    /// Handle CALL function
+    /// Handle CALL instructions
     fn handle_call(&mut self, test: JumpTest) -> u16 {
         let should_jump = test.resolve_value(self);
         let next_pc = self.pc.wrapping_add(3);
@@ -300,6 +310,15 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             self.clock.advance(12);
             next_pc
         }
+    }
+
+    /// Handle CCF instruction
+    fn handle_ccf(&mut self) -> u16 {
+        self.r.f.negative = false;
+        self.r.f.half_carry = false;
+        self.r.f.carry = !self.r.f.carry;
+        self.clock.advance(4);
+        self.pc.wrapping_add(1)
     }
 
     /// Handles CP instructions
@@ -416,9 +435,6 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.f.zero = self.r.l == 0;
                 self.r.f.negative = true;
             }
-            IncDecTarget::BC => {
-                self.r.set_bc(self.r.get_bc().wrapping_sub(1));
-            }
             IncDecTarget::HLI => {
                 let value = self.read(self.r.get_hl());
                 self.r.f.half_carry = value.trailing_zeros() >= 4;
@@ -427,8 +443,10 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.f.negative = true;
                 self.write(self.r.get_hl(), value);
             }
+            IncDecTarget::BC => self.r.set_bc(self.r.get_bc().wrapping_sub(1)),
+            IncDecTarget::DE => self.r.set_de(self.r.get_de().wrapping_sub(1)),
+            IncDecTarget::HL => self.r.set_hl(self.r.get_hl().wrapping_sub(1)),
             IncDecTarget::SP => self.sp = self.sp.wrapping_sub(1),
-            _ => unimplemented!(),
         }
         match target {
             IncDecTarget::HLI => self.clock.advance(12),
@@ -453,53 +471,61 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_inc(&mut self, target: IncDecTarget) -> u16 {
         match target {
             IncDecTarget::A => {
-                self.r.a = self.r.a.wrapping_add(1);
-                self.r.f.zero = self.r.a == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.a & 0xf == 0xf;
-            }
-            IncDecTarget::B => {
-                self.r.b = self.r.b.wrapping_add(1);
-                self.r.f.zero = self.r.b == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.b & 0xf == 0xf;
-            }
-            IncDecTarget::C => {
-                self.r.c = self.r.c.wrapping_add(1);
-                self.r.f.zero = self.r.c == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.c & 0xf == 0xf;
-            }
-            IncDecTarget::D => {
-                self.r.d = self.r.d.wrapping_add(1);
-                self.r.f.zero = self.r.d == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.d & 0xf == 0xf;
-            }
-            IncDecTarget::E => {
-                self.r.e = self.r.e.wrapping_add(1);
-                self.r.f.zero = self.r.e == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.e & 0xf == 0xf;
-            }
-            IncDecTarget::H => {
-                self.r.h = self.r.h.wrapping_add(1);
-                self.r.f.zero = self.r.h == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.h & 0xf == 0xf;
-            }
-            IncDecTarget::L => {
-                self.r.l = self.r.l.wrapping_add(1);
-                self.r.f.zero = self.r.l == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.l & 0xf == 0xf;
-            }
-            IncDecTarget::HLI => {
-                let result = self.read(self.r.get_hl()).wrapping_add(1);
-                self.write(self.r.get_hl(), result);
+                let result = self.r.a.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = result & 0xf == 0xf;
+                self.r.f.half_carry = utils::half_carry_u8(self.r.a, 1);
+                self.r.a = result;
+            }
+            IncDecTarget::B => {
+                let result = self.r.b.wrapping_add(1);
+                self.r.f.zero = result == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u8(self.r.b, 1);
+                self.r.b = result;
+            }
+            IncDecTarget::C => {
+                let result = self.r.c.wrapping_add(1);
+                self.r.f.zero = result == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u8(self.r.c, 1);
+                self.r.c = result;
+            }
+            IncDecTarget::D => {
+                let result = self.r.d.wrapping_add(1);
+                self.r.f.zero = result == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u8(self.r.d, 1);
+                self.r.d = result;
+            }
+            IncDecTarget::E => {
+                let result = self.r.e.wrapping_add(1);
+                self.r.f.zero = result == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u8(self.r.e, 1);
+                self.r.e = result;
+            }
+            IncDecTarget::H => {
+                let result = self.r.h.wrapping_add(1);
+                self.r.f.zero = result == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u8(self.r.h, 1);
+                self.r.h = result;
+            }
+            IncDecTarget::L => {
+                let result = self.r.l.wrapping_add(1);
+                self.r.f.zero = result == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u8(self.r.l, 1);
+                self.r.l = result;
+            }
+            IncDecTarget::HLI => {
+                let value = self.read(self.r.get_hl());
+                let result = value.wrapping_add(1);
+                self.r.f.zero = result == 0;
+                self.r.f.negative = false;
+                self.r.f.half_carry = utils::half_carry_u8(value, 1);
+                self.write(self.r.get_hl(), result);
             }
             IncDecTarget::BC => self.r.set_bc(self.r.get_bc().wrapping_add(1)),
             IncDecTarget::DE => self.r.set_de(self.r.get_de().wrapping_add(1)),
@@ -571,7 +597,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 match target {
                     LoadByteTarget::A => self.r.a = value,
                     LoadByteTarget::B => self.r.b = value,
-                    LoadByteTarget::C => self.r.c = value,
+                    LoadByteTarget::CIFF00 => self.r.c = value,
                     LoadByteTarget::D => self.r.d = value,
                     LoadByteTarget::E => self.r.e = value,
                     LoadByteTarget::H => self.r.h = value,
@@ -607,18 +633,18 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             }
             LoadType::IndirectFrom(target, source) => {
                 let addr = match target {
-                    LoadByteTarget::C => 0xFF00 | u16::from(self.r.c),
                     LoadByteTarget::DEI => self.r.get_de(),
-                    LoadByteTarget::D8I => 0xFF00 | u16::from(self.consume_byte()),
                     LoadByteTarget::D16I => self.consume_word(),
                     LoadByteTarget::HLI => self.r.get_hl(),
+                    LoadByteTarget::CIFF00 => u16::from(self.r.c).wrapping_add(0xFF00),
+                    LoadByteTarget::D8IFF00 => u16::from(self.consume_byte()).wrapping_add(0xFF00),
                     _ => unimplemented!(),
                 };
                 let value = source.resolve_value(self);
                 self.write(addr, value);
                 match target {
                     LoadByteTarget::D16I => self.clock.advance(16),
-                    LoadByteTarget::D8I => self.clock.advance(12),
+                    LoadByteTarget::D8IFF00 => self.clock.advance(12),
                     _ => self.clock.advance(8),
                 }
                 self.pc.wrapping_add(1)
@@ -676,7 +702,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 }
                 match source {
                     ByteSource::D16I => self.clock.advance(16),
-                    ByteSource::D8I => self.clock.advance(12),
+                    ByteSource::D8IFF00 => self.clock.advance(12),
                     _ => self.clock.advance(8),
                 }
 
@@ -854,6 +880,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         let bit = self.r.a & 1;
         self.r.a >>= 1;
         self.r.f.update(self.r.a == 0, false, false, bit == 1);
+        self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
 
@@ -869,6 +896,35 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             ResetCode::RST28 => 0x28,
             ResetCode::RST38 => 0x38,
         }
+    }
+
+    /// Handles SBC instructions
+    fn handle_sbc(&mut self, source: ByteSource) -> u16 {
+        let source_value = source.resolve_value(self);
+        let y = source_value.wrapping_sub(self.r.f.carry as u8);
+        let (result, overflow) = self.r.a.overflowing_sub(y);
+        self.r.f.update(
+            result == 0,
+            true,
+            // FIXME: blargg tests fail
+            utils::half_carry_u8(source_value, self.r.a),
+            overflow,
+        );
+        self.r.a = result;
+        match source {
+            ByteSource::D8 => self.clock.advance(8),
+            _ => self.clock.advance(4),
+        }
+        self.pc.wrapping_add(1)
+    }
+
+    /// Handles SCF instruction
+    fn handle_scf(&mut self) -> u16 {
+        self.r.f.negative = false;
+        self.r.f.half_carry = false;
+        self.r.f.carry = true;
+        self.clock.advance(4);
+        self.pc.wrapping_add(1)
     }
 
     /// Handles SET instructions
@@ -908,35 +964,26 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles STOP instruction
     fn handle_stop(&mut self) -> u16 {
-        // TODO: set correct flag
-        self.is_halted = true;
-        self.pc.wrapping_add(1)
+        // TODO: implement me
+        self.clock.advance(4);
+        self.pc.wrapping_add(2)
     }
 
     /// Handles SUB instructions
-    fn handle_sub(&mut self, target: ArithmeticByteTarget, source: ByteSource) -> u16 {
+    fn handle_sub(&mut self, source: ByteSource) -> u16 {
         let source_value = source.resolve_value(self);
-        let target_value = match target {
-            ArithmeticByteTarget::A => self.r.a,
-            _ => unimplemented!(),
-        };
-
-        let (new_value, did_overflow) = target_value.overflowing_sub(source_value);
+        let (new_value, did_overflow) = self.r.a.overflowing_sub(source_value);
         // Half Carry is set if adding the lower nibbles of the value and register A
         // together result in a value bigger than 0xF. If the result is larger than 0xF
         // than the addition caused a carry from the lower nibble to the upper nibble.
         self.r.f.update(
             new_value == 0,
             true,
-            (target_value ^ source_value ^ new_value) & 0x10 != 0,
+            // TODO: verify me
+            (self.r.a ^ source_value ^ new_value) & 0x10 != 0,
             did_overflow,
         );
-
-        match target {
-            ArithmeticByteTarget::A => self.r.a = new_value,
-            _ => unimplemented!(),
-        }
-
+        self.r.a = new_value;
         match source {
             ByteSource::HLI => self.clock.advance(8),
             ByteSource::D8 => self.clock.advance(8),

@@ -25,10 +25,10 @@ impl AddressSpace for MockBus {
 }
 
 fn assert_flags(r: FlagsRegister, zero: bool, negative: bool, half_carry: bool, carry: bool) {
-    assert_eq!(r.zero, zero);
-    assert_eq!(r.negative, negative);
-    assert_eq!(r.half_carry, half_carry);
-    assert_eq!(r.carry, carry);
+    assert_eq!(r.zero, zero, "zero");
+    assert_eq!(r.negative, negative, "negative");
+    assert_eq!(r.half_carry, half_carry, "half_carry");
+    assert_eq!(r.carry, carry, "carry");
 }
 
 #[test]
@@ -149,6 +149,17 @@ fn test_bit_non_zero() {
     assert_eq!(cpu.clock.ticks(), 8);
     assert_eq!(cpu.pc, 2);
     assert_flags(cpu.r.f, false, false, true, false);
+}
+
+#[test]
+fn test_ccf() {
+    // CCF
+    let bus = RefCell::new(MockBus::new(vec![0x3f; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.step();
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, false, true);
 }
 
 #[test]
@@ -287,12 +298,12 @@ fn test_inc_overflow() {
     // INC B
     let bus = RefCell::new(MockBus::new(vec![0x04; 1]));
     let mut cpu = CPU::new(&bus);
-    cpu.r.b = 0xff;
+    cpu.r.b = 0b1111_1111;
     cpu.step();
     assert_eq!(cpu.clock.ticks(), 4);
     assert_eq!(cpu.pc, 1);
-    assert_eq!(cpu.r.b, 0x00);
-    assert_flags(cpu.r.f, true, false, false, false);
+    assert_eq!(cpu.r.b, 0b0000_0000);
+    assert_flags(cpu.r.f, true, false, true, false);
 }
 
 #[test]
@@ -300,11 +311,11 @@ fn test_inc_half_carry() {
     // INC B
     let bus = RefCell::new(MockBus::new(vec![0x04; 1]));
     let mut cpu = CPU::new(&bus);
-    cpu.r.b = 0x0e;
+    cpu.r.b = 0b0000_1111;
     cpu.step();
     assert_eq!(cpu.clock.ticks(), 4);
     assert_eq!(cpu.pc, 1);
-    assert_eq!(cpu.r.b, 0x0f);
+    assert_eq!(cpu.r.b, 0b0001_0000);
     assert_flags(cpu.r.f, false, false, true, false);
 }
 
@@ -453,6 +464,44 @@ fn test_rra() {
     cpu.r.a = 0b0110_0011;
     cpu.step();
     assert_eq!(cpu.r.a, 0b0011_0001);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, false, true);
+}
+
+#[test]
+fn test_sbc_carry() {
+    // SBC A, D8
+    let bus = RefCell::new(MockBus::new([0xde, 0x04].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0b0000_0001;
+    cpu.r.f.carry = true;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0b1111_1110);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_flags(cpu.r.f, false, true, false, true);
+}
+
+#[test]
+fn test_sbc_no_carry() {
+    // SBC A, D8
+    let bus = RefCell::new(MockBus::new([0xde, 0x04].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0b0001_0000;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0b0000_1100);
+    assert_eq!(cpu.clock.ticks(), 8);
+    assert_eq!(cpu.pc, 2);
+    assert_flags(cpu.r.f, false, true, false, false);
+}
+
+#[test]
+fn test_scf() {
+    // SCF
+    let bus = RefCell::new(MockBus::new(vec![0x37; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.step();
     assert_eq!(cpu.clock.ticks(), 4);
     assert_eq!(cpu.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);

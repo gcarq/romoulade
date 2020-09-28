@@ -16,6 +16,16 @@ pub fn set_bit(input: u8, n: u8, state: bool) -> u8 {
     }
 }
 
+/// Checks if half carry from bit 3 to bit 4 occurred.
+pub fn half_carry_u8(x: u8, y: u8) -> bool {
+    ((x & 0x0F) + (y & 0x0F)) & 0x10 == 0x10
+}
+
+/// Checks if half carry from bit 11 to bit 12 occurred.
+pub fn half_carry_u16(x: u16, y: u16) -> bool {
+    ((x & 0x7FF) + (y & 0x7FF)) & 0x800 == 0x800
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -34,5 +44,19 @@ mod tests {
         assert_eq!(set_bit(x, 1, true), 0b11110010u8);
         assert_eq!(set_bit(x, 0, false), 0b11110000u8);
         assert_eq!(set_bit(x, 7, false), 0b01110000u8);
+    }
+
+    #[test]
+    fn test_half_carry_u8_true() {
+        let x = 62;
+        let y = 34;
+        assert!(half_carry_u8(x, y));
+    }
+
+    #[test]
+    fn test_half_carry_u8_false() {
+        let x = 34;
+        let y = 34;
+        assert!(!half_carry_u8(x, y));
     }
 }

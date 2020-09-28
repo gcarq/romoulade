@@ -3,42 +3,45 @@ use crate::gb::AddressSpace;
 
 #[derive(Debug)]
 pub enum Instruction {
-    ADD(ArithmeticByteTarget, ByteSource),
+    ADD(ArithmeticByteTarget, ByteSource),  // Add n to target
     ADD2(ArithmeticWordTarget, WordSource), // Same as ADD but with words
     ADC(ByteSource),                        // Add n + Carry flag to A
-    AND(ByteSource),
-    BIT(u8, ByteSource), // Test bit b in register r
-    INC(IncDecTarget),
-    CALL(JumpTest),
+    AND(ByteSource),                        // Logically AND n with A, result in A
+    BIT(u8, ByteSource),                    // Test bit b in register r
+    INC(IncDecTarget),                      // Increment register n
+    CALL(JumpTest), // Push address of next instruction onto stack and then  jump to address nn
+    CCF,            // Complement carry flag
     CP(ByteSource), // Compare A with source
     CPL,            // Flips all bits in A register, sets N and H flags
     DAA,            // This instruction is useful when you’re using BCD value
     DI,             // Disables interrupt handling by setting ime = false
-    DEC(IncDecTarget),
-    EI,           // Enables interrupt handling by setting ime = true
-    HALT,         // Halts and wait for interrupt
-    JR(JumpTest), // Relative jump to given address
-    JP(JumpTest, WordSource),
-    LD(LoadType),
-    NOP,
-    OR(ByteSource),
-    RET(JumpTest),
-    RETI,              // Unconditional return which also enables interrupts
-    RLA,               // Rotate `A` left through carry
+    DEC(IncDecTarget), // Decrement register n
+    EI,             // Enables interrupt handling by setting ime = true
+    HALT,           // Halts and wait for interrupt
+    JR(JumpTest),   // Relative jump to given address
+    JP(JumpTest, WordSource), // Jump to address nn
+    LD(LoadType),   // Put value into n
+    NOP,            // No operation
+    OR(ByteSource), // Logical OR n with register A, result in A.
+    RET(JumpTest),  // Pop two bytes from stack & jump to that address
+    RETI,           // Unconditional return which also enables interrupts
+    RLA,            // Rotate `A` left through carry
     RLC(PrefixTarget), // Rotate target left
-    RLCA,              // Rotate A left. Old bit 7 to Carry flag
-    RR(ByteSource),    // Rotate n right through Carry flag
-    RRA,               // Rotate A right through Carry flag
-    RRCA,
-    RST(ResetCode),
+    RLCA,           // Rotate A left. Old bit 7 to Carry flag
+    RR(ByteSource), // Rotate n right through Carry flag
+    RRA,            // Rotate A right through Carry flag
+    RRCA,           // Rotate A right. Old bit 0 to Carry flag
+    RST(ResetCode), // Push present address onto stack.  Jump to address 0x0000 + n
+    SBC(ByteSource), // Subtract n + Carry flag from A
+    SCF,            // Set carry flag
     SET(u8, ByteSource), // Set bit b in register r
-    SRL(ByteSource),     // Shift right into Carry, MSB set to 0
-    SUB(ArithmeticByteTarget, ByteSource),
-    STOP,
-    SWAP(ByteSource),
+    SRL(ByteSource), // Shift right into Carry, MSB set to 0
+    SUB(ByteSource), // Subtract n from A
+    STOP,           // Halt CPU & LCD display until button pressed
+    SWAP(ByteSource), // Swap upper & lower nibbles of n
     PUSH(StackTarget), // Push to the stack memory, data from the 16-bit register
-    POP(StackTarget),  // Pops to the 16-bit register
-    XOR(ByteSource),
+    POP(StackTarget), // Pops to the 16-bit register
+    XOR(ByteSource), // Logical exclusive OR n with register A, result in A
 }
 
 impl Instruction {
@@ -52,14 +55,17 @@ impl Instruction {
     /// Maps 0xCB prefixed opcodes to Instructions
     fn from_byte_prefixed(opcode: u8) -> Option<Instruction> {
         match opcode {
-            //0x00 => Some(Instruction::RLC(PrefixTarget::B)),
+            0x00 => Some(Instruction::RLC(PrefixTarget::B)),
             0x11 => Some(Instruction::RLC(PrefixTarget::C)),
+            0x18 => Some(Instruction::RR(ByteSource::B)),
             0x19 => Some(Instruction::RR(ByteSource::C)),
             0x1a => Some(Instruction::RR(ByteSource::D)),
             0x1b => Some(Instruction::RR(ByteSource::E)),
             0x37 => Some(Instruction::SWAP(ByteSource::A)),
             0x38 => Some(Instruction::SRL(ByteSource::B)),
             0x3f => Some(Instruction::SRL(ByteSource::A)),
+            0x6b => Some(Instruction::BIT(5, ByteSource::E)),
+            0x6e => Some(Instruction::BIT(5, ByteSource::HLI)),
             0x7c => Some(Instruction::BIT(7, ByteSource::H)),
             0xfe => Some(Instruction::SET(7, ByteSource::HLI)),
             _ => None,
@@ -86,6 +92,7 @@ impl Instruction {
                 LoadWordTarget::D16I,
                 WordSource::SP,
             ))),
+            0x09 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::BC)),
             //0x0a => Some(Instruction::LD(LoadType::FromIndirect(
             //    LoadByteTarget::A,
             //    ByteSource::BC,
@@ -94,11 +101,11 @@ impl Instruction {
             0x0c => Some(Instruction::INC(IncDecTarget::C)),
             0x0d => Some(Instruction::DEC(IncDecTarget::C)),
             0x0e => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::D8,
             ))),
-            //0x0f => Some(Instruction::RRCA),
-            //0x10 => Some(Instruction::STOP),
+            0x0f => Some(Instruction::RRCA),
+            0x10 => Some(Instruction::STOP),
             0x11 => Some(Instruction::LD(LoadType::Word(
                 LoadWordTarget::DE,
                 WordSource::D16,
@@ -121,6 +128,7 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::DEI,
             ))),
+            0x1b => Some(Instruction::DEC(IncDecTarget::DE)),
             0x1c => Some(Instruction::INC(IncDecTarget::E)),
             0x1d => Some(Instruction::DEC(IncDecTarget::E)),
             0x1e => Some(Instruction::LD(LoadType::Byte(
@@ -147,6 +155,7 @@ impl Instruction {
             0x28 => Some(Instruction::JR(JumpTest::Zero)),
             0x29 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::HL)),
             0x2a => Some(Instruction::LD(LoadType::FromIndirectAInc(ByteSource::HLI))),
+            0x2b => Some(Instruction::DEC(IncDecTarget::HL)),
             0x2c => Some(Instruction::INC(IncDecTarget::L)),
             0x2d => Some(Instruction::DEC(IncDecTarget::L)),
             0x2e => Some(Instruction::LD(LoadType::Byte(
@@ -169,6 +178,7 @@ impl Instruction {
                 LoadByteTarget::HLI,
                 ByteSource::D8,
             ))),
+            0x37 => Some(Instruction::SCF),
             0x38 => Some(Instruction::JR(JumpTest::Carry)),
             0x39 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::SP)),
             0x3b => Some(Instruction::DEC(IncDecTarget::SP)),
@@ -178,6 +188,7 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::D8,
             ))),
+            0x3f => Some(Instruction::CCF),
             0x40 => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::B,
                 ByteSource::B,
@@ -211,35 +222,35 @@ impl Instruction {
                 ByteSource::A,
             ))),
             0x48 => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::B,
             ))),
             0x49 => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::C,
             ))),
             0x4a => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::D,
             ))),
             0x4b => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::E,
             ))),
             0x4c => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::H,
             ))),
             0x4d => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::L,
             ))),
             0x4e => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::HLI,
             ))),
             0x4f => Some(Instruction::LD(LoadType::Byte(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::A,
             ))),
             0x50 => Some(Instruction::LD(LoadType::Byte(
@@ -431,63 +442,70 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::A,
             ))),
-            //0x80 => Some(Instruction::ADD(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::B,
-            //)),
+            0x80 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::B)),
             0x81 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::C)),
-            //0x82 => Some(Instruction::ADD(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::D,
-            //)),
-            //0x83 => Some(Instruction::ADD(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::E,
-            //)),
-            //0x84 => Some(Instruction::ADD(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::H,
-            //)),
-            //0x85 => Some(Instruction::ADD(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::L,
-            //)),
+            0x82 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::D)),
+            0x83 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::E)),
+            0x84 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::H)),
+            0x85 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::L)),
             0x86 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::HLI)),
             0x87 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::A)),
-            //0x8b => Some(Instruction::ADC(ByteSource::E)),
-            //0x8c => Some(Instruction::ADC(ByteSource::H)),
-            //0x8d => Some(Instruction::ADC(ByteSource::L)),
-            //0x8e => Some(Instruction::ADC(ByteSource::HLI)),
-            //0x8f => Some(Instruction::ADC(ByteSource::A)),
-            0x90 => Some(Instruction::SUB(ArithmeticByteTarget::A, ByteSource::B)),
-            0x91 => Some(Instruction::SUB(ArithmeticByteTarget::A, ByteSource::C)),
-            //0x92 => Some(Instruction::SUB(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::D,
-            //)),
-            //0x96 => Some(Instruction::SUB(
-            //    ArithmeticByteTarget::A,
-            //    ArithmeticByteSource::HLI,
-            //)),
+            0x88 => Some(Instruction::ADC(ByteSource::B)),
+            0x89 => Some(Instruction::ADC(ByteSource::C)),
+            0x8a => Some(Instruction::ADC(ByteSource::D)),
+            0x8b => Some(Instruction::ADC(ByteSource::E)),
+            0x8c => Some(Instruction::ADC(ByteSource::H)),
+            0x8d => Some(Instruction::ADC(ByteSource::L)),
+            0x8e => Some(Instruction::ADC(ByteSource::HLI)),
+            0x8f => Some(Instruction::ADC(ByteSource::A)),
+            0x90 => Some(Instruction::SUB(ByteSource::B)),
+            0x91 => Some(Instruction::SUB(ByteSource::C)),
+            0x92 => Some(Instruction::SUB(ByteSource::D)),
+            0x93 => Some(Instruction::SUB(ByteSource::E)),
+            0x94 => Some(Instruction::SUB(ByteSource::H)),
+            0x95 => Some(Instruction::SUB(ByteSource::L)),
+            0x96 => Some(Instruction::SUB(ByteSource::HLI)),
+            0x97 => Some(Instruction::SUB(ByteSource::A)),
+            0x98 => Some(Instruction::SBC(ByteSource::B)),
+            0x99 => Some(Instruction::SBC(ByteSource::C)),
+            0x9a => Some(Instruction::SBC(ByteSource::D)),
+            0x9b => Some(Instruction::SBC(ByteSource::E)),
+            0x9c => Some(Instruction::SBC(ByteSource::H)),
+            0x9d => Some(Instruction::SBC(ByteSource::L)),
+            0x9e => Some(Instruction::SBC(ByteSource::HLI)),
+            0x9f => Some(Instruction::SBC(ByteSource::A)),
             0xa0 => Some(Instruction::AND(ByteSource::B)),
             0xa1 => Some(Instruction::AND(ByteSource::C)),
-            //0xa2 => Some(Instruction::AND(ByteSource::D)),
-            //0xa3 => Some(Instruction::AND(ByteSource::E)),
+            0xa2 => Some(Instruction::AND(ByteSource::D)),
+            0xa3 => Some(Instruction::AND(ByteSource::E)),
+            0xa4 => Some(Instruction::AND(ByteSource::H)),
+            0xa5 => Some(Instruction::AND(ByteSource::L)),
+            0xa6 => Some(Instruction::AND(ByteSource::HLI)),
             0xa7 => Some(Instruction::AND(ByteSource::A)),
+            0xa8 => Some(Instruction::XOR(ByteSource::B)),
             0xa9 => Some(Instruction::XOR(ByteSource::C)),
+            0xaa => Some(Instruction::XOR(ByteSource::D)),
+            0xab => Some(Instruction::XOR(ByteSource::E)),
+            0xac => Some(Instruction::XOR(ByteSource::H)),
             0xad => Some(Instruction::XOR(ByteSource::L)),
             0xae => Some(Instruction::XOR(ByteSource::HLI)),
             0xaf => Some(Instruction::XOR(ByteSource::A)),
             0xb0 => Some(Instruction::OR(ByteSource::B)),
             0xb1 => Some(Instruction::OR(ByteSource::C)),
-            //0xb3 => Some(Instruction::OR(ByteSource::E)),
+            0xb2 => Some(Instruction::OR(ByteSource::D)),
+            0xb3 => Some(Instruction::OR(ByteSource::E)),
+            0xb4 => Some(Instruction::OR(ByteSource::H)),
+            0xb5 => Some(Instruction::OR(ByteSource::L)),
             0xb6 => Some(Instruction::OR(ByteSource::HLI)),
             0xb7 => Some(Instruction::OR(ByteSource::A)),
-            0xb8 => Some(Instruction::OR(ByteSource::B)),
-            0xb9 => Some(Instruction::OR(ByteSource::C)),
+            0xb8 => Some(Instruction::CP(ByteSource::B)),
+            0xb9 => Some(Instruction::CP(ByteSource::C)),
             0xba => Some(Instruction::CP(ByteSource::D)),
             0xbb => Some(Instruction::CP(ByteSource::E)),
+            0xbc => Some(Instruction::CP(ByteSource::H)),
+            0xbd => Some(Instruction::CP(ByteSource::L)),
             0xbe => Some(Instruction::CP(ByteSource::HLI)),
+            0xbf => Some(Instruction::CP(ByteSource::A)),
             0xc0 => Some(Instruction::RET(JumpTest::NotZero)),
             0xc1 => Some(Instruction::POP(StackTarget::BC)),
             0xc3 => Some(Instruction::JP(JumpTest::Always, WordSource::D16)),
@@ -508,35 +526,41 @@ impl Instruction {
             0xd2 => Some(Instruction::JP(JumpTest::NotCarry, WordSource::D16)),
             0xd4 => Some(Instruction::CALL(JumpTest::NotCarry)),
             0xd5 => Some(Instruction::PUSH(StackTarget::DE)),
-            0xd6 => Some(Instruction::SUB(ArithmeticByteTarget::A, ByteSource::D8)),
+            0xd6 => Some(Instruction::SUB(ByteSource::D8)),
             0xd8 => Some(Instruction::RET(JumpTest::Carry)),
             0xd9 => Some(Instruction::RETI),
             0xda => Some(Instruction::JP(JumpTest::Carry, WordSource::D16)),
             0xdc => Some(Instruction::CALL(JumpTest::Carry)),
+            0xde => Some(Instruction::SBC(ByteSource::D8)),
             0xdf => Some(Instruction::RST(ResetCode::RST18)),
             0xe0 => Some(Instruction::LD(LoadType::IndirectFrom(
-                LoadByteTarget::D8I,
+                LoadByteTarget::D8IFF00,
                 ByteSource::A,
             ))),
             0xe1 => Some(Instruction::POP(StackTarget::HL)),
             0xe2 => Some(Instruction::LD(LoadType::IndirectFrom(
-                LoadByteTarget::C,
+                LoadByteTarget::CIFF00,
                 ByteSource::A,
             ))),
             0xe5 => Some(Instruction::PUSH(StackTarget::HL)),
             0xe6 => Some(Instruction::AND(ByteSource::D8)),
-            0xef => Some(Instruction::RST(ResetCode::RST28)),
+            0xe8 => Some(Instruction::ADD2(ArithmeticWordTarget::SP, WordSource::I8)),
             0xe9 => Some(Instruction::JP(JumpTest::Always, WordSource::HL)),
             0xea => Some(Instruction::LD(LoadType::IndirectFrom(
                 LoadByteTarget::D16I,
                 ByteSource::A,
             ))),
             0xee => Some(Instruction::XOR(ByteSource::D8)),
+            0xef => Some(Instruction::RST(ResetCode::RST28)),
             0xf0 => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
-                ByteSource::D8I,
+                ByteSource::D8IFF00,
             ))),
             0xf1 => Some(Instruction::POP(StackTarget::AF)),
+            0xf2 => Some(Instruction::LD(LoadType::FromIndirect(
+                LoadByteTarget::A,
+                ByteSource::CIFF00,
+            ))),
             0xf3 => Some(Instruction::DI),
             0xf5 => Some(Instruction::PUSH(StackTarget::AF)),
             0xf6 => Some(Instruction::OR(ByteSource::D8)),
@@ -619,15 +643,15 @@ impl JumpTest {
 pub enum LoadByteTarget {
     A,
     B,
-    C,
     D,
     E,
     H,
     L,
-    D8I,  // value refers to address stored in next 8 bits | 0xFF00
-    D16I, // value refers to address stored in next 16 bits
-    DEI,  // value refers to address stored in DE register
-    HLI,  // value refers to address stored in HL register
+    D16I,    // value refers to address stored in next 16 bits
+    DEI,     // value refers to address stored in DE register
+    HLI,     // value refers to address stored in HL register
+    CIFF00,  // value refers to C register + 0xFF00
+    D8IFF00, // value refers to address stored in next 8 bits + 0xFF00
 }
 
 #[derive(Debug, PartialEq)]
@@ -639,12 +663,13 @@ pub enum ByteSource {
     E,
     H,
     L,
-    D8,   // direct 8 bit value
-    D8I,  // value refers to address stored in next 8 bits | 0xFF00
-    BCI,  // value refers to address stored in BC register
-    DEI,  // value refers to address stored in DE register
-    HLI,  // value refers to address stored in HL register
-    D16I, // value refers to address stored in next 16 bits
+    D8,      // direct 8 bit value
+    BCI,     // value refers to address stored in BC register
+    DEI,     // value refers to address stored in DE register
+    HLI,     // value refers to address stored in HL register
+    D16I,    // value refers to address stored in next 16 bits
+    CIFF00,  // value refers to C register + 0xFF00
+    D8IFF00, // value refers to address stored in next 8 bits + 0xFF00
 }
 
 impl ByteSource {
@@ -659,15 +684,16 @@ impl ByteSource {
             ByteSource::H => cpu.r.h,
             ByteSource::L => cpu.r.l,
             ByteSource::D8 => cpu.consume_byte(),
-            ByteSource::D8I => {
-                let address = cpu.consume_byte() as u16;
-                cpu.read(0xFF00 | address)
-            }
             ByteSource::BCI => cpu.read(cpu.r.get_bc()),
             ByteSource::DEI => cpu.read(cpu.r.get_de()),
             ByteSource::HLI => cpu.read(cpu.r.get_hl()),
             ByteSource::D16I => {
                 let address = cpu.consume_word();
+                cpu.read(address)
+            }
+            ByteSource::CIFF00 => cpu.read(u16::from(cpu.r.c).wrapping_add(0xFF00)),
+            ByteSource::D8IFF00 => {
+                let address = u16::from(cpu.consume_byte()).wrapping_add(0xFF00);
                 cpu.read(address)
             }
         }
@@ -685,20 +711,24 @@ pub enum LoadWordTarget {
 
 #[derive(Debug)]
 pub enum WordSource {
+    BC,
     DE,
     HL,
-    D16, // direct 16 bit value
     SP,
+    D16, // direct 16 bit value
+    I8,  // direct 8 signed bit value casted to 16 bit
 }
 
 impl WordSource {
     /// Resolves the referring value
     pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u16 {
         match *self {
+            WordSource::BC => cpu.r.get_bc(),
             WordSource::DE => cpu.r.get_de(),
             WordSource::HL => cpu.r.get_hl(),
-            WordSource::D16 => cpu.consume_word(),
             WordSource::SP => cpu.sp,
+            WordSource::D16 => cpu.consume_word(),
+            WordSource::I8 => cpu.consume_byte() as i8 as u16,
         }
     }
 }
