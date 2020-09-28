@@ -24,6 +24,9 @@ pub enum Instruction {
     LD(LoadType),   // Put value into n
     NOP,            // No operation
     OR(ByteSource), // Logical OR n with register A, result in A.
+    PUSH(StackTarget), // Push to the stack memory, data from the 16-bit register
+    POP(StackTarget), // Pops to the 16-bit register
+    RES(u8, ByteSource), // Reset bit b in register r
     RET(JumpTest),  // Pop two bytes from stack & jump to that address
     RETI,           // Unconditional return which also enables interrupts
     RL(PrefixTarget), // Rotate n left through Carry flag
@@ -41,8 +44,6 @@ pub enum Instruction {
     SUB(ByteSource), // Subtract n from A
     STOP,           // Halt CPU & LCD display until button pressed
     SWAP(ByteSource), // Swap upper & lower nibbles of n
-    PUSH(StackTarget), // Push to the stack memory, data from the 16-bit register
-    POP(StackTarget), // Pops to the 16-bit register
     XOR(ByteSource), // Logical exclusive OR n with register A, result in A
 }
 
@@ -73,10 +74,210 @@ impl Instruction {
             0x37 => Some(Instruction::SWAP(ByteSource::A)),
             0x38 => Some(Instruction::SRL(ByteSource::B)),
             0x3f => Some(Instruction::SRL(ByteSource::A)),
+
+            0x40 => Some(Instruction::BIT(0, ByteSource::B)),
+            0x41 => Some(Instruction::BIT(0, ByteSource::C)),
+            0x42 => Some(Instruction::BIT(0, ByteSource::D)),
+            0x43 => Some(Instruction::BIT(0, ByteSource::E)),
+            0x44 => Some(Instruction::BIT(0, ByteSource::H)),
+            0x45 => Some(Instruction::BIT(0, ByteSource::L)),
+            0x46 => Some(Instruction::BIT(0, ByteSource::HLI)),
+            0x47 => Some(Instruction::BIT(0, ByteSource::A)),
+            0x48 => Some(Instruction::BIT(1, ByteSource::B)),
+            0x49 => Some(Instruction::BIT(1, ByteSource::C)),
+            0x4a => Some(Instruction::BIT(1, ByteSource::D)),
+            0x4b => Some(Instruction::BIT(1, ByteSource::E)),
+            0x4c => Some(Instruction::BIT(1, ByteSource::H)),
+            0x4d => Some(Instruction::BIT(1, ByteSource::L)),
+            0x4e => Some(Instruction::BIT(1, ByteSource::HLI)),
+            0x4f => Some(Instruction::BIT(1, ByteSource::A)),
+
+            0x50 => Some(Instruction::BIT(2, ByteSource::B)),
+            0x51 => Some(Instruction::BIT(2, ByteSource::C)),
+            0x52 => Some(Instruction::BIT(2, ByteSource::D)),
+            0x53 => Some(Instruction::BIT(2, ByteSource::E)),
+            0x54 => Some(Instruction::BIT(2, ByteSource::H)),
+            0x55 => Some(Instruction::BIT(2, ByteSource::L)),
+            0x56 => Some(Instruction::BIT(2, ByteSource::HLI)),
+            0x57 => Some(Instruction::BIT(2, ByteSource::A)),
+            0x58 => Some(Instruction::BIT(3, ByteSource::B)),
+            0x59 => Some(Instruction::BIT(3, ByteSource::C)),
+            0x5a => Some(Instruction::BIT(3, ByteSource::D)),
+            0x5b => Some(Instruction::BIT(3, ByteSource::E)),
+            0x5c => Some(Instruction::BIT(3, ByteSource::H)),
+            0x5d => Some(Instruction::BIT(3, ByteSource::L)),
+            0x5e => Some(Instruction::BIT(3, ByteSource::HLI)),
+            0x5f => Some(Instruction::BIT(3, ByteSource::A)),
+
+            0x60 => Some(Instruction::BIT(4, ByteSource::B)),
+            0x61 => Some(Instruction::BIT(4, ByteSource::C)),
+            0x62 => Some(Instruction::BIT(4, ByteSource::D)),
+            0x63 => Some(Instruction::BIT(4, ByteSource::E)),
+            0x64 => Some(Instruction::BIT(4, ByteSource::H)),
+            0x65 => Some(Instruction::BIT(4, ByteSource::L)),
+            0x66 => Some(Instruction::BIT(4, ByteSource::HLI)),
+            0x67 => Some(Instruction::BIT(4, ByteSource::A)),
+            0x68 => Some(Instruction::BIT(5, ByteSource::B)),
+            0x69 => Some(Instruction::BIT(5, ByteSource::C)),
+            0x6a => Some(Instruction::BIT(5, ByteSource::D)),
             0x6b => Some(Instruction::BIT(5, ByteSource::E)),
+            0x6c => Some(Instruction::BIT(5, ByteSource::H)),
+            0x6d => Some(Instruction::BIT(5, ByteSource::L)),
             0x6e => Some(Instruction::BIT(5, ByteSource::HLI)),
+            0x6f => Some(Instruction::BIT(5, ByteSource::A)),
+
+            0x70 => Some(Instruction::BIT(6, ByteSource::B)),
+            0x71 => Some(Instruction::BIT(6, ByteSource::C)),
+            0x72 => Some(Instruction::BIT(6, ByteSource::D)),
+            0x73 => Some(Instruction::BIT(6, ByteSource::E)),
+            0x74 => Some(Instruction::BIT(6, ByteSource::H)),
+            0x75 => Some(Instruction::BIT(6, ByteSource::L)),
+            0x76 => Some(Instruction::BIT(6, ByteSource::HLI)),
+            0x77 => Some(Instruction::BIT(6, ByteSource::A)),
+            0x78 => Some(Instruction::BIT(7, ByteSource::B)),
+            0x79 => Some(Instruction::BIT(7, ByteSource::C)),
+            0x7a => Some(Instruction::BIT(7, ByteSource::D)),
+            0x7b => Some(Instruction::BIT(7, ByteSource::E)),
             0x7c => Some(Instruction::BIT(7, ByteSource::H)),
+            0x7d => Some(Instruction::BIT(7, ByteSource::L)),
+            0x7e => Some(Instruction::BIT(7, ByteSource::HLI)),
+            0x7f => Some(Instruction::BIT(7, ByteSource::A)),
+
+            0x80 => Some(Instruction::RES(0, ByteSource::B)),
+            0x81 => Some(Instruction::RES(0, ByteSource::C)),
+            0x82 => Some(Instruction::RES(0, ByteSource::D)),
+            0x83 => Some(Instruction::RES(0, ByteSource::E)),
+            0x84 => Some(Instruction::RES(0, ByteSource::H)),
+            0x85 => Some(Instruction::RES(0, ByteSource::L)),
+            0x86 => Some(Instruction::RES(0, ByteSource::HLI)),
+            0x87 => Some(Instruction::RES(0, ByteSource::A)),
+            0x88 => Some(Instruction::RES(1, ByteSource::B)),
+            0x89 => Some(Instruction::RES(1, ByteSource::C)),
+            0x8a => Some(Instruction::RES(1, ByteSource::D)),
+            0x8b => Some(Instruction::RES(1, ByteSource::E)),
+            0x8c => Some(Instruction::RES(1, ByteSource::H)),
+            0x8d => Some(Instruction::RES(1, ByteSource::L)),
+            0x8e => Some(Instruction::RES(1, ByteSource::HLI)),
+            0x8f => Some(Instruction::RES(1, ByteSource::A)),
+
+            0x90 => Some(Instruction::RES(2, ByteSource::B)),
+            0x91 => Some(Instruction::RES(2, ByteSource::C)),
+            0x92 => Some(Instruction::RES(2, ByteSource::D)),
+            0x93 => Some(Instruction::RES(2, ByteSource::E)),
+            0x94 => Some(Instruction::RES(2, ByteSource::H)),
+            0x95 => Some(Instruction::RES(2, ByteSource::L)),
+            0x96 => Some(Instruction::RES(2, ByteSource::HLI)),
+            0x97 => Some(Instruction::RES(2, ByteSource::A)),
+            0x98 => Some(Instruction::RES(3, ByteSource::B)),
+            0x99 => Some(Instruction::RES(3, ByteSource::C)),
+            0x9a => Some(Instruction::RES(3, ByteSource::D)),
+            0x9b => Some(Instruction::RES(3, ByteSource::E)),
+            0x9c => Some(Instruction::RES(3, ByteSource::H)),
+            0x9d => Some(Instruction::RES(3, ByteSource::L)),
+            0x9e => Some(Instruction::RES(3, ByteSource::HLI)),
+            0x9f => Some(Instruction::RES(3, ByteSource::A)),
+
+            0xa0 => Some(Instruction::RES(4, ByteSource::B)),
+            0xa1 => Some(Instruction::RES(4, ByteSource::C)),
+            0xa2 => Some(Instruction::RES(4, ByteSource::D)),
+            0xa3 => Some(Instruction::RES(4, ByteSource::E)),
+            0xa4 => Some(Instruction::RES(4, ByteSource::H)),
+            0xa5 => Some(Instruction::RES(4, ByteSource::L)),
+            0xa6 => Some(Instruction::RES(4, ByteSource::HLI)),
+            0xa7 => Some(Instruction::RES(4, ByteSource::A)),
+            0xa8 => Some(Instruction::RES(5, ByteSource::B)),
+            0xa9 => Some(Instruction::RES(5, ByteSource::C)),
+            0xaa => Some(Instruction::RES(5, ByteSource::D)),
+            0xab => Some(Instruction::RES(5, ByteSource::E)),
+            0xac => Some(Instruction::RES(5, ByteSource::H)),
+            0xad => Some(Instruction::RES(5, ByteSource::L)),
+            0xae => Some(Instruction::RES(5, ByteSource::HLI)),
+            0xaf => Some(Instruction::RES(5, ByteSource::A)),
+
+            0xb0 => Some(Instruction::RES(6, ByteSource::B)),
+            0xb1 => Some(Instruction::RES(6, ByteSource::C)),
+            0xb2 => Some(Instruction::RES(6, ByteSource::D)),
+            0xb3 => Some(Instruction::RES(6, ByteSource::E)),
+            0xb4 => Some(Instruction::RES(6, ByteSource::H)),
+            0xb5 => Some(Instruction::RES(6, ByteSource::L)),
+            0xb6 => Some(Instruction::RES(6, ByteSource::HLI)),
+            0xb7 => Some(Instruction::RES(6, ByteSource::A)),
+            0xb8 => Some(Instruction::RES(7, ByteSource::B)),
+            0xb9 => Some(Instruction::RES(7, ByteSource::C)),
+            0xba => Some(Instruction::RES(7, ByteSource::D)),
+            0xbb => Some(Instruction::RES(7, ByteSource::E)),
+            0xbc => Some(Instruction::RES(7, ByteSource::H)),
+            0xbd => Some(Instruction::RES(7, ByteSource::L)),
+            0xbe => Some(Instruction::RES(7, ByteSource::HLI)),
+            0xbf => Some(Instruction::RES(7, ByteSource::A)),
+
+            0xc0 => Some(Instruction::SET(0, ByteSource::B)),
+            0xc1 => Some(Instruction::SET(0, ByteSource::C)),
+            0xc2 => Some(Instruction::SET(0, ByteSource::D)),
+            0xc3 => Some(Instruction::SET(0, ByteSource::E)),
+            0xc4 => Some(Instruction::SET(0, ByteSource::H)),
+            0xc5 => Some(Instruction::SET(0, ByteSource::L)),
+            0xc6 => Some(Instruction::SET(0, ByteSource::HLI)),
+            0xc7 => Some(Instruction::SET(0, ByteSource::A)),
+            0xc8 => Some(Instruction::SET(1, ByteSource::B)),
+            0xc9 => Some(Instruction::SET(1, ByteSource::C)),
+            0xca => Some(Instruction::SET(1, ByteSource::D)),
+            0xcb => Some(Instruction::SET(1, ByteSource::E)),
+            0xcc => Some(Instruction::SET(1, ByteSource::H)),
+            0xcd => Some(Instruction::SET(1, ByteSource::L)),
+            0xce => Some(Instruction::SET(1, ByteSource::HLI)),
+            0xcf => Some(Instruction::SET(1, ByteSource::A)),
+
+            0xd0 => Some(Instruction::SET(2, ByteSource::B)),
+            0xd1 => Some(Instruction::SET(2, ByteSource::C)),
+            0xd2 => Some(Instruction::SET(2, ByteSource::D)),
+            0xd3 => Some(Instruction::SET(2, ByteSource::E)),
+            0xd4 => Some(Instruction::SET(2, ByteSource::H)),
+            0xd5 => Some(Instruction::SET(2, ByteSource::L)),
+            0xd6 => Some(Instruction::SET(2, ByteSource::HLI)),
+            0xd7 => Some(Instruction::SET(2, ByteSource::A)),
+            0xd8 => Some(Instruction::SET(3, ByteSource::B)),
+            0xd9 => Some(Instruction::SET(3, ByteSource::C)),
+            0xda => Some(Instruction::SET(3, ByteSource::D)),
+            0xdb => Some(Instruction::SET(3, ByteSource::E)),
+            0xdc => Some(Instruction::SET(3, ByteSource::H)),
+            0xdd => Some(Instruction::SET(3, ByteSource::L)),
+            0xde => Some(Instruction::SET(3, ByteSource::HLI)),
+            0xdf => Some(Instruction::SET(3, ByteSource::A)),
+
+            0xe0 => Some(Instruction::SET(4, ByteSource::B)),
+            0xe1 => Some(Instruction::SET(4, ByteSource::C)),
+            0xe2 => Some(Instruction::SET(4, ByteSource::D)),
+            0xe3 => Some(Instruction::SET(4, ByteSource::E)),
+            0xe4 => Some(Instruction::SET(4, ByteSource::H)),
+            0xe5 => Some(Instruction::SET(4, ByteSource::L)),
+            0xe6 => Some(Instruction::SET(4, ByteSource::HLI)),
+            0xe7 => Some(Instruction::SET(4, ByteSource::A)),
+            0xe8 => Some(Instruction::SET(5, ByteSource::B)),
+            0xe9 => Some(Instruction::SET(5, ByteSource::C)),
+            0xea => Some(Instruction::SET(5, ByteSource::D)),
+            0xeb => Some(Instruction::SET(5, ByteSource::E)),
+            0xec => Some(Instruction::SET(5, ByteSource::H)),
+            0xed => Some(Instruction::SET(5, ByteSource::L)),
+            0xee => Some(Instruction::SET(5, ByteSource::HLI)),
+            0xef => Some(Instruction::SET(5, ByteSource::A)),
+
+            0xf0 => Some(Instruction::SET(6, ByteSource::B)),
+            0xf1 => Some(Instruction::SET(6, ByteSource::C)),
+            0xf2 => Some(Instruction::SET(6, ByteSource::D)),
+            0xf3 => Some(Instruction::SET(6, ByteSource::E)),
+            0xf4 => Some(Instruction::SET(6, ByteSource::H)),
+            0xf5 => Some(Instruction::SET(6, ByteSource::L)),
+            0xf6 => Some(Instruction::SET(6, ByteSource::HLI)),
+            0xf7 => Some(Instruction::SET(6, ByteSource::A)),
+            0xf8 => Some(Instruction::SET(7, ByteSource::B)),
+            0xf9 => Some(Instruction::SET(7, ByteSource::C)),
+            0xfa => Some(Instruction::SET(7, ByteSource::D)),
+            0xfb => Some(Instruction::SET(7, ByteSource::E)),
+            0xfc => Some(Instruction::SET(7, ByteSource::H)),
+            0xfd => Some(Instruction::SET(7, ByteSource::L)),
             0xfe => Some(Instruction::SET(7, ByteSource::HLI)),
+            0xff => Some(Instruction::SET(7, ByteSource::A)),
             _ => None,
         }
     }
@@ -114,6 +315,7 @@ impl Instruction {
                 ByteSource::D8,
             ))),
             0x0f => Some(Instruction::RRCA),
+
             0x10 => Some(Instruction::STOP),
             0x11 => Some(Instruction::LD(LoadType::Word(
                 LoadWordTarget::DE,
@@ -145,6 +347,7 @@ impl Instruction {
                 ByteSource::D8,
             ))),
             0x1f => Some(Instruction::RRA),
+
             0x20 => Some(Instruction::JR(JumpTest::NotZero)),
             0x21 => Some(Instruction::LD(LoadType::Word(
                 LoadWordTarget::HL,
@@ -172,6 +375,7 @@ impl Instruction {
                 ByteSource::D8,
             ))),
             0x2f => Some(Instruction::CPL),
+
             0x30 => Some(Instruction::JR(JumpTest::NotCarry)),
             0x31 => Some(Instruction::LD(LoadType::Word(
                 LoadWordTarget::SP,
@@ -198,6 +402,7 @@ impl Instruction {
                 ByteSource::D8,
             ))),
             0x3f => Some(Instruction::CCF),
+
             0x40 => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::B,
                 ByteSource::B,
@@ -262,6 +467,7 @@ impl Instruction {
                 LoadByteTarget::CIFF00,
                 ByteSource::A,
             ))),
+
             0x50 => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::D,
                 ByteSource::B,
@@ -326,6 +532,7 @@ impl Instruction {
                 LoadByteTarget::E,
                 ByteSource::A,
             ))),
+
             0x60 => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::H,
                 ByteSource::B,
@@ -390,6 +597,7 @@ impl Instruction {
                 LoadByteTarget::L,
                 ByteSource::A,
             ))),
+
             0x70 => Some(Instruction::LD(LoadType::Byte(
                 LoadByteTarget::HLI,
                 ByteSource::B,
@@ -451,6 +659,7 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::A,
             ))),
+
             0x80 => Some(Instruction::ADD(ByteSource::B)),
             0x81 => Some(Instruction::ADD(ByteSource::C)),
             0x82 => Some(Instruction::ADD(ByteSource::D)),
@@ -467,6 +676,7 @@ impl Instruction {
             0x8d => Some(Instruction::ADC(ByteSource::L)),
             0x8e => Some(Instruction::ADC(ByteSource::HLI)),
             0x8f => Some(Instruction::ADC(ByteSource::A)),
+
             0x90 => Some(Instruction::SUB(ByteSource::B)),
             0x91 => Some(Instruction::SUB(ByteSource::C)),
             0x92 => Some(Instruction::SUB(ByteSource::D)),
@@ -483,6 +693,7 @@ impl Instruction {
             0x9d => Some(Instruction::SBC(ByteSource::L)),
             0x9e => Some(Instruction::SBC(ByteSource::HLI)),
             0x9f => Some(Instruction::SBC(ByteSource::A)),
+
             0xa0 => Some(Instruction::AND(ByteSource::B)),
             0xa1 => Some(Instruction::AND(ByteSource::C)),
             0xa2 => Some(Instruction::AND(ByteSource::D)),
@@ -499,6 +710,7 @@ impl Instruction {
             0xad => Some(Instruction::XOR(ByteSource::L)),
             0xae => Some(Instruction::XOR(ByteSource::HLI)),
             0xaf => Some(Instruction::XOR(ByteSource::A)),
+
             0xb0 => Some(Instruction::OR(ByteSource::B)),
             0xb1 => Some(Instruction::OR(ByteSource::C)),
             0xb2 => Some(Instruction::OR(ByteSource::D)),
@@ -515,6 +727,7 @@ impl Instruction {
             0xbd => Some(Instruction::CP(ByteSource::L)),
             0xbe => Some(Instruction::CP(ByteSource::HLI)),
             0xbf => Some(Instruction::CP(ByteSource::A)),
+
             0xc0 => Some(Instruction::RET(JumpTest::NotZero)),
             0xc1 => Some(Instruction::POP(StackTarget::BC)),
             0xc3 => Some(Instruction::JP(JumpTest::Always, WordSource::D16)),
@@ -530,6 +743,7 @@ impl Instruction {
             0xc2 => Some(Instruction::JP(JumpTest::NotZero, WordSource::D16)),
             0xc5 => Some(Instruction::PUSH(StackTarget::BC)),
             0xc8 => Some(Instruction::RET(JumpTest::Zero)),
+
             0xd0 => Some(Instruction::RET(JumpTest::NotCarry)),
             0xd1 => Some(Instruction::POP(StackTarget::DE)),
             0xd2 => Some(Instruction::JP(JumpTest::NotCarry, WordSource::D16)),
@@ -542,6 +756,7 @@ impl Instruction {
             0xdc => Some(Instruction::CALL(JumpTest::Carry)),
             0xde => Some(Instruction::SBC(ByteSource::D8)),
             0xdf => Some(Instruction::RST(ResetCode::RST18)),
+
             0xe0 => Some(Instruction::LD(LoadType::IndirectFrom(
                 LoadByteTarget::D8IFF00,
                 ByteSource::A,
@@ -561,6 +776,7 @@ impl Instruction {
             ))),
             0xee => Some(Instruction::XOR(ByteSource::D8)),
             0xef => Some(Instruction::RST(ResetCode::RST28)),
+
             0xf0 => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::D8IFF00,

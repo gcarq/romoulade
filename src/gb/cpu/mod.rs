@@ -116,6 +116,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::LD(load_type) => self.handle_ld(load_type),
             Instruction::NOP => self.handle_nop(),
             Instruction::OR(source) => self.handle_or(source),
+            Instruction::RES(bit, source) => self.handle_res(bit, source),
             Instruction::RET(test) => self.handle_ret(test),
             Instruction::RETI => self.handle_reti(),
             Instruction::RL(target) => self.handle_rl(target),
@@ -785,6 +786,28 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.pc.wrapping_add(1)
     }
 
+    /// Handles RES instructions
+    fn handle_res(&mut self, bit: u8, source: ByteSource) -> u16 {
+        let value = source.resolve_value(self);
+        let result = utils::set_bit(value, bit, false);
+        match source {
+            ByteSource::A => self.r.a = result,
+            ByteSource::B => self.r.b = result,
+            ByteSource::C => self.r.c = result,
+            ByteSource::D => self.r.d = result,
+            ByteSource::E => self.r.e = result,
+            ByteSource::H => self.r.h = result,
+            ByteSource::L => self.r.l = result,
+            ByteSource::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
+            _ => unimplemented!(),
+        }
+        self.clock.advance(8);
+        self.pc.wrapping_add(2)
+    }
+
     /// Handles RET instruction
     fn handle_ret(&mut self, test: JumpTest) -> u16 {
         let should_jump = test.resolve_value(self);
@@ -962,14 +985,20 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         let value = source.resolve_value(self);
         let result = utils::set_bit(value, bit, true);
         match source {
-            ByteSource::HLI => self.write(self.r.get_hl(), result),
+            ByteSource::A => self.r.a = result,
+            ByteSource::B => self.r.b = result,
+            ByteSource::C => self.r.c = result,
+            ByteSource::D => self.r.d = result,
+            ByteSource::E => self.r.e = result,
+            ByteSource::H => self.r.h = result,
+            ByteSource::L => self.r.l = result,
+            ByteSource::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
             _ => unimplemented!(),
         }
-
-        match source {
-            ByteSource::HLI => self.clock.advance(16),
-            _ => self.clock.advance(8),
-        }
+        self.clock.advance(8);
         self.pc.wrapping_add(2)
     }
 
