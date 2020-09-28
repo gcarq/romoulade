@@ -1,6 +1,6 @@
 use crate::gb::instruction::{
-    ArithmeticByteTarget, ArithmeticWordTarget, ByteSource, IncDecTarget, Instruction, JumpTest,
-    LoadByteTarget, LoadType, LoadWordTarget, PrefixTarget, ResetCode, StackTarget, WordSource,
+    ArithmeticWordTarget, ByteSource, IncDecTarget, Instruction, JumpTest, LoadByteTarget,
+    LoadType, LoadWordTarget, PrefixTarget, ResetCode, StackTarget, WordSource,
 };
 use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
@@ -95,7 +95,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// and returns the updated program counter.
     fn execute(&mut self, instruction: Instruction) -> u16 {
         match instruction {
-            Instruction::ADD(target, source) => self.handle_add(target, source),
+            Instruction::ADD(source) => self.handle_add(source),
             Instruction::ADD2(target, source) => self.handle_add2(target, source),
             Instruction::ADC(source) => self.handle_adc(source),
             Instruction::AND(source) => self.handle_and(source),
@@ -187,28 +187,19 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles ADD instructions
-    fn handle_add(&mut self, target: ArithmeticByteTarget, source: ByteSource) -> u16 {
+    fn handle_add(&mut self, source: ByteSource) -> u16 {
         let source_value = source.resolve_value(self);
-        let target_value = match target {
-            ArithmeticByteTarget::A => self.r.a,
-            _ => unimplemented!(),
-        };
-
-        let (new_value, did_overflow) = target_value.overflowing_add(source_value);
+        let (new_value, did_overflow) = self.r.a.overflowing_add(source_value);
         // Half Carry is set if adding the lower nibbles of the value and register A
         // together result in a value bigger than 0xF. If the result is larger than 0xF
         // than the addition caused a carry from the lower nibble to the upper nibble.
         self.r.f.update(
             new_value == 0,
             false,
-            utils::half_carry_u8(target_value, source_value),
+            utils::half_carry_u8(self.r.a, source_value),
             did_overflow,
         );
-
-        match target {
-            ArithmeticByteTarget::A => self.r.a = new_value,
-            _ => unimplemented!(),
-        }
+        self.r.a = new_value;
 
         match source {
             ByteSource::HLI => self.clock.advance(8),

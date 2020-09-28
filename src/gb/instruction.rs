@@ -3,7 +3,7 @@ use crate::gb::AddressSpace;
 
 #[derive(Debug)]
 pub enum Instruction {
-    ADD(ArithmeticByteTarget, ByteSource),  // Add n to target
+    ADD(ByteSource),                        // Add n to target
     ADD2(ArithmeticWordTarget, WordSource), // Same as ADD but with words
     ADC(ByteSource),                        // Add n + Carry flag to A
     AND(ByteSource),                        // Logically AND n with A, result in A
@@ -442,14 +442,14 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::A,
             ))),
-            0x80 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::B)),
-            0x81 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::C)),
-            0x82 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::D)),
-            0x83 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::E)),
-            0x84 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::H)),
-            0x85 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::L)),
-            0x86 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::HLI)),
-            0x87 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::A)),
+            0x80 => Some(Instruction::ADD(ByteSource::B)),
+            0x81 => Some(Instruction::ADD(ByteSource::C)),
+            0x82 => Some(Instruction::ADD(ByteSource::D)),
+            0x83 => Some(Instruction::ADD(ByteSource::E)),
+            0x84 => Some(Instruction::ADD(ByteSource::H)),
+            0x85 => Some(Instruction::ADD(ByteSource::L)),
+            0x86 => Some(Instruction::ADD(ByteSource::HLI)),
+            0x87 => Some(Instruction::ADD(ByteSource::A)),
             0x88 => Some(Instruction::ADC(ByteSource::B)),
             0x89 => Some(Instruction::ADC(ByteSource::C)),
             0x8a => Some(Instruction::ADC(ByteSource::D)),
@@ -510,7 +510,7 @@ impl Instruction {
             0xc1 => Some(Instruction::POP(StackTarget::BC)),
             0xc3 => Some(Instruction::JP(JumpTest::Always, WordSource::D16)),
             0xc4 => Some(Instruction::CALL(JumpTest::NotZero)),
-            0xc6 => Some(Instruction::ADD(ArithmeticByteTarget::A, ByteSource::D8)),
+            0xc6 => Some(Instruction::ADD(ByteSource::D8)),
             0xc7 => Some(Instruction::RST(ResetCode::RST00)),
             0xc9 => Some(Instruction::RET(JumpTest::Always)),
             0xca => Some(Instruction::JP(JumpTest::Zero, WordSource::D16)),
@@ -581,12 +581,6 @@ impl Instruction {
             _ => None,
         }
     }
-}
-
-#[derive(Debug)]
-pub enum ArithmeticByteTarget {
-    A,
-    HL,
 }
 
 #[derive(Debug)]
