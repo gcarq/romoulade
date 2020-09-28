@@ -121,10 +121,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::RETI => self.handle_reti(),
             Instruction::RL(target) => self.handle_rl(target),
             Instruction::RLA => self.handle_rla(),
-            Instruction::RR(source) => self.handle_rr(source),
-            Instruction::RRA => self.handle_rra(),
             Instruction::RLC(target) => self.handle_rlc(target),
             Instruction::RLCA => self.handle_rlca(),
+            Instruction::RR(target) => self.handle_rr(target),
+            Instruction::RRA => self.handle_rra(),
+            Instruction::RRC(target) => self.handle_rrc(target),
             Instruction::RRCA => self.handle_rrca(),
             Instruction::RST(code) => self.handle_rst(code),
             Instruction::SBC(source) => self.handle_sbc(source),
@@ -911,25 +912,25 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles RR instructions
-    fn handle_rr(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+    fn handle_rr(&mut self, target: PrefixTarget) -> u16 {
+        let value = target.resolve_value(self);
         let carry = value & 0x01 != 0;
         let result = (value >> 1) | ((self.r.f.carry as u8) << 7);
-
-        match source {
-            ByteSource::A => self.r.a = result,
-            ByteSource::B => self.r.b = result,
-            ByteSource::C => self.r.c = result,
-            ByteSource::D => self.r.d = result,
-            ByteSource::E => self.r.e = result,
-            _ => unimplemented!(),
+        match target {
+            PrefixTarget::A => self.r.a = result,
+            PrefixTarget::B => self.r.b = result,
+            PrefixTarget::C => self.r.c = result,
+            PrefixTarget::D => self.r.d = result,
+            PrefixTarget::E => self.r.e = result,
+            PrefixTarget::H => self.r.h = result,
+            PrefixTarget::L => self.r.l = result,
+            PrefixTarget::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
         }
         self.r.f.update(result == 0, false, false, carry);
-
-        match source {
-            ByteSource::HLI => self.clock.advance(16),
-            _ => self.clock.advance(8),
-        }
+        self.clock.advance(8);
         self.pc.wrapping_add(2)
     }
 
@@ -941,6 +942,30 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.r.f.update(false, false, false, carry);
         self.clock.advance(4);
         self.pc.wrapping_add(1)
+    }
+
+    /// Handles RRC instructions
+    fn handle_rrc(&mut self, target: PrefixTarget) -> u16 {
+        let value = target.resolve_value(self);
+        let carry = utils::bit_at(value, 0);
+        let result = (value >> 1) | (value << 7);
+        self.r.f.update(result == 0, false, false, carry);
+        match target {
+            PrefixTarget::A => self.r.a = result,
+            PrefixTarget::B => self.r.b = result,
+            PrefixTarget::C => self.r.c = result,
+            PrefixTarget::D => self.r.d = result,
+            PrefixTarget::E => self.r.e = result,
+            PrefixTarget::H => self.r.h = result,
+            PrefixTarget::L => self.r.l = result,
+            PrefixTarget::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
+        }
+
+        self.clock.advance(8);
+        self.pc.wrapping_add(2)
     }
 
     /// Handles RCAA instruction

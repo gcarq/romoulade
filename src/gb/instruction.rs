@@ -33,8 +33,9 @@ pub enum Instruction {
     RLA,            // Rotate `A` left through carry
     RLC(PrefixTarget), // Rotate target left
     RLCA,           // Rotate A left. Old bit 7 to Carry flag
-    RR(ByteSource), // Rotate n right through Carry flag
+    RR(PrefixTarget), // Rotate n right through Carry flag
     RRA,            // Rotate A right through Carry flag
+    RRC(PrefixTarget), // Rotate n right. Old bit 0 to Carry flag
     RRCA,           // Rotate A right. Old bit 0 to Carry flag
     RST(ResetCode), // Push present address onto stack.  Jump to address 0x0000 + n
     SBC(ByteSource), // Subtract n + Carry flag from A
@@ -66,11 +67,30 @@ impl Instruction {
             0x05 => Some(Instruction::RLC(PrefixTarget::L)),
             0x06 => Some(Instruction::RLC(PrefixTarget::HLI)),
             0x07 => Some(Instruction::RLC(PrefixTarget::A)),
+            0x08 => Some(Instruction::RRC(PrefixTarget::B)),
+            0x09 => Some(Instruction::RRC(PrefixTarget::C)),
+            0x0a => Some(Instruction::RRC(PrefixTarget::D)),
+            0x0b => Some(Instruction::RRC(PrefixTarget::E)),
+            0x0c => Some(Instruction::RRC(PrefixTarget::H)),
+            0x0d => Some(Instruction::RRC(PrefixTarget::L)),
+            0x0e => Some(Instruction::RRC(PrefixTarget::HLI)),
+            0x0f => Some(Instruction::RRC(PrefixTarget::A)),
+
+            0x10 => Some(Instruction::RL(PrefixTarget::B)),
             0x11 => Some(Instruction::RL(PrefixTarget::C)),
-            0x18 => Some(Instruction::RR(ByteSource::B)),
-            0x19 => Some(Instruction::RR(ByteSource::C)),
-            0x1a => Some(Instruction::RR(ByteSource::D)),
-            0x1b => Some(Instruction::RR(ByteSource::E)),
+            0x12 => Some(Instruction::RL(PrefixTarget::D)),
+            0x13 => Some(Instruction::RL(PrefixTarget::E)),
+            0x14 => Some(Instruction::RL(PrefixTarget::H)),
+            0x15 => Some(Instruction::RL(PrefixTarget::L)),
+            0x16 => Some(Instruction::RL(PrefixTarget::HLI)),
+            0x17 => Some(Instruction::RL(PrefixTarget::A)),
+            0x18 => Some(Instruction::RR(PrefixTarget::B)),
+            0x19 => Some(Instruction::RR(PrefixTarget::C)),
+            0x1a => Some(Instruction::RR(PrefixTarget::D)),
+            0x1b => Some(Instruction::RR(PrefixTarget::E)),
+            0x1e => Some(Instruction::RR(PrefixTarget::HLI)),
+            0x1f => Some(Instruction::RR(PrefixTarget::A)),
+
             0x37 => Some(Instruction::SWAP(ByteSource::A)),
             0x38 => Some(Instruction::SRL(ByteSource::B)),
             0x3f => Some(Instruction::SRL(ByteSource::A)),
