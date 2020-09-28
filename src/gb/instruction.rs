@@ -41,6 +41,8 @@ pub enum Instruction {
     SBC(ByteSource), // Subtract n + Carry flag from A
     SCF,            // Set carry flag
     SET(u8, ByteSource), // Set bit b in register r
+    SLA(PrefixTarget), // Shift n left into Carry. LSB of n set to 0
+    SRA(PrefixTarget), // Shift n right into Carry. MSB doesn't change
     SRL(ByteSource), // Shift right into Carry, MSB set to 0
     SUB(ByteSource), // Subtract n from A
     STOP,           // Halt CPU & LCD display until button pressed
@@ -88,11 +90,43 @@ impl Instruction {
             0x19 => Some(Instruction::RR(PrefixTarget::C)),
             0x1a => Some(Instruction::RR(PrefixTarget::D)),
             0x1b => Some(Instruction::RR(PrefixTarget::E)),
+            0x1c => Some(Instruction::RR(PrefixTarget::H)),
+            0x1d => Some(Instruction::RR(PrefixTarget::L)),
             0x1e => Some(Instruction::RR(PrefixTarget::HLI)),
             0x1f => Some(Instruction::RR(PrefixTarget::A)),
 
+            0x20 => Some(Instruction::SLA(PrefixTarget::B)),
+            0x21 => Some(Instruction::SLA(PrefixTarget::C)),
+            0x22 => Some(Instruction::SLA(PrefixTarget::D)),
+            0x23 => Some(Instruction::SLA(PrefixTarget::E)),
+            0x24 => Some(Instruction::SLA(PrefixTarget::H)),
+            0x25 => Some(Instruction::SLA(PrefixTarget::L)),
+            0x26 => Some(Instruction::SLA(PrefixTarget::HLI)),
+            0x27 => Some(Instruction::SLA(PrefixTarget::A)),
+            0x28 => Some(Instruction::SRA(PrefixTarget::B)),
+            0x29 => Some(Instruction::SRA(PrefixTarget::C)),
+            0x2a => Some(Instruction::SRA(PrefixTarget::D)),
+            0x2b => Some(Instruction::SRA(PrefixTarget::E)),
+            0x2c => Some(Instruction::SRA(PrefixTarget::H)),
+            0x2d => Some(Instruction::SRA(PrefixTarget::L)),
+            0x2e => Some(Instruction::SRA(PrefixTarget::HLI)),
+            0x2f => Some(Instruction::SRA(PrefixTarget::A)),
+
+            0x30 => Some(Instruction::SWAP(ByteSource::B)),
+            0x31 => Some(Instruction::SWAP(ByteSource::C)),
+            0x32 => Some(Instruction::SWAP(ByteSource::D)),
+            0x33 => Some(Instruction::SWAP(ByteSource::E)),
+            0x34 => Some(Instruction::SWAP(ByteSource::H)),
+            0x35 => Some(Instruction::SWAP(ByteSource::L)),
+            0x36 => Some(Instruction::SWAP(ByteSource::HLI)),
             0x37 => Some(Instruction::SWAP(ByteSource::A)),
             0x38 => Some(Instruction::SRL(ByteSource::B)),
+            0x39 => Some(Instruction::SRL(ByteSource::C)),
+            0x3a => Some(Instruction::SRL(ByteSource::D)),
+            0x3b => Some(Instruction::SRL(ByteSource::E)),
+            0x3c => Some(Instruction::SRL(ByteSource::H)),
+            0x3d => Some(Instruction::SRL(ByteSource::L)),
+            0x3e => Some(Instruction::SRL(ByteSource::HLI)),
             0x3f => Some(Instruction::SRL(ByteSource::A)),
 
             0x40 => Some(Instruction::BIT(0, ByteSource::B)),

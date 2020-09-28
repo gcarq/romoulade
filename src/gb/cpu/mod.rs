@@ -131,6 +131,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::SBC(source) => self.handle_sbc(source),
             Instruction::SCF => self.handle_scf(),
             Instruction::SET(bit, source) => self.handle_set(bit, source),
+            Instruction::SLA(target) => self.handle_sla(target),
+            Instruction::SRA(target) => self.handle_sra(target),
             Instruction::SRL(source) => self.handle_srl(source),
             Instruction::STOP => self.handle_stop(),
             Instruction::SUB(source) => self.handle_sub(source),
@@ -846,8 +848,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Rotate n left through Carry flag.
     fn handle_rl(&mut self, target: PrefixTarget) -> u16 {
         let value = target.resolve_value(self);
+        let result = (value << 1) | self.r.f.carry as u8;
         let carry = utils::bit_at(value, 7);
-        let result = (value << 1) | carry as u8;
         self.r.f.update(result == 0, false, false, carry);
         match target {
             PrefixTarget::A => self.r.a = result,
@@ -970,9 +972,9 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles RCAA instruction
     fn handle_rrca(&mut self) -> u16 {
-        let bit = self.r.a & 1;
-        self.r.a >>= 1;
-        self.r.f.update(self.r.a == 0, false, false, bit == 1);
+        let carry = self.r.a & 1;
+        self.r.a = (self.r.a >> 1) | (carry << 7);
+        self.r.f.update(false, false, false, carry != 0);
         self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
@@ -1041,6 +1043,52 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.pc.wrapping_add(2)
     }
 
+    /// Handles SLA instructions
+    fn handle_sla(&mut self, target: PrefixTarget) -> u16 {
+        let value = target.resolve_value(self);
+        let carry = utils::bit_at(value, 7);
+        let result = value << 1;
+        self.r.f.update(result == 0, false, false, carry);
+        match target {
+            PrefixTarget::A => self.r.a = result,
+            PrefixTarget::B => self.r.b = result,
+            PrefixTarget::C => self.r.c = result,
+            PrefixTarget::D => self.r.d = result,
+            PrefixTarget::E => self.r.e = result,
+            PrefixTarget::H => self.r.h = result,
+            PrefixTarget::L => self.r.l = result,
+            PrefixTarget::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
+        }
+        self.clock.advance(8);
+        self.pc.wrapping_add(2)
+    }
+
+    /// Handles SRA instructions
+    fn handle_sra(&mut self, target: PrefixTarget) -> u16 {
+        let value = target.resolve_value(self);
+        let result = (value >> 1) | (value & 0x80);
+        let carry = utils::bit_at(value, 0);
+        self.r.f.update(result == 0, false, false, carry);
+        match target {
+            PrefixTarget::A => self.r.a = result,
+            PrefixTarget::B => self.r.b = result,
+            PrefixTarget::C => self.r.c = result,
+            PrefixTarget::D => self.r.d = result,
+            PrefixTarget::E => self.r.e = result,
+            PrefixTarget::H => self.r.h = result,
+            PrefixTarget::L => self.r.l = result,
+            PrefixTarget::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
+        }
+        self.clock.advance(8);
+        self.pc.wrapping_add(2)
+    }
+
     /// Handles SRL instructions
     fn handle_srl(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
@@ -1049,14 +1097,19 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         match source {
             ByteSource::A => self.r.a = result,
             ByteSource::B => self.r.b = result,
+            ByteSource::C => self.r.c = result,
+            ByteSource::D => self.r.d = result,
+            ByteSource::E => self.r.e = result,
+            ByteSource::H => self.r.h = result,
+            ByteSource::L => self.r.l = result,
+            ByteSource::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
             _ => unimplemented!(),
         }
         self.r.f.update(result == 0, false, false, carry);
-
-        match source {
-            ByteSource::HLI => self.clock.advance(16),
-            _ => self.clock.advance(8),
-        }
+        self.clock.advance(8);
         self.pc.wrapping_add(2)
     }
 
@@ -1096,12 +1149,20 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         let value = source.resolve_value(self);
         let result = (value & 0x0F) << 4 | (value & 0xF0) >> 4;
         self.r.f.update(result == 0, false, false, false);
-
         match source {
             ByteSource::A => self.r.a = result,
+            ByteSource::B => self.r.b = result,
+            ByteSource::C => self.r.c = result,
+            ByteSource::D => self.r.d = result,
+            ByteSource::E => self.r.e = result,
+            ByteSource::H => self.r.h = result,
+            ByteSource::L => self.r.l = result,
+            ByteSource::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
             _ => unimplemented!(),
         }
-
         self.clock.advance(8);
         self.pc.wrapping_add(2)
     }
