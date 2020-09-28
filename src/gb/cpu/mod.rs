@@ -118,6 +118,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::OR(source) => self.handle_or(source),
             Instruction::RET(test) => self.handle_ret(test),
             Instruction::RETI => self.handle_reti(),
+            Instruction::RL(target) => self.handle_rl(target),
             Instruction::RLA => self.handle_rla(),
             Instruction::RR(source) => self.handle_rr(source),
             Instruction::RRA => self.handle_rra(),
@@ -803,6 +804,24 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.pop()
     }
 
+    /// Handles RL instructions
+    /// Rotate n left through Carry flag.
+    fn handle_rl(&mut self, target: PrefixTarget) -> u16 {
+        let value = match target {
+            PrefixTarget::B => self.r.b,
+            PrefixTarget::C => self.r.c,
+        };
+        let carry = utils::bit_at(value, 7);
+        let result = (value << 1) | carry as u8;
+        self.r.f.update(result == 0, false, false, carry);
+        match target {
+            PrefixTarget::B => self.r.b = result,
+            PrefixTarget::C => self.r.c = result,
+        }
+        self.clock.advance(8);
+        self.pc.wrapping_add(2)
+    }
+
     /// Handles RLA instruction
     /// Rotate A left through carry
     fn handle_rla(&mut self) -> u16 {
@@ -816,16 +835,17 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RLC instructions
     /// Rotates register to the left and updates CPU flags
     fn handle_rlc(&mut self, target: PrefixTarget) -> u16 {
-        let cur_val = match target {
+        let value = match target {
             PrefixTarget::B => self.r.b,
             PrefixTarget::C => self.r.c,
         };
-        let carry = utils::bit_at(cur_val, 7);
-        let new_val = (cur_val << 1) | carry as u8;
-        self.r.f.update(new_val == 0, false, false, carry);
+
+        let carry = utils::bit_at(value, 7);
+        let result = (value << 1) | (value >> 7);
+        self.r.f.update(result == 0, false, false, carry);
         match target {
-            PrefixTarget::B => self.r.b = new_val,
-            PrefixTarget::C => self.r.c = new_val,
+            PrefixTarget::B => self.r.b = result,
+            PrefixTarget::C => self.r.c = result,
         }
         self.clock.advance(8);
         self.pc.wrapping_add(2)

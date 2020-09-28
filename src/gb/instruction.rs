@@ -26,6 +26,7 @@ pub enum Instruction {
     OR(ByteSource), // Logical OR n with register A, result in A.
     RET(JumpTest),  // Pop two bytes from stack & jump to that address
     RETI,           // Unconditional return which also enables interrupts
+    RL(PrefixTarget), // Rotate n left through Carry flag
     RLA,            // Rotate `A` left through carry
     RLC(PrefixTarget), // Rotate target left
     RLCA,           // Rotate A left. Old bit 7 to Carry flag
@@ -57,7 +58,8 @@ impl Instruction {
     fn from_byte_prefixed(opcode: u8) -> Option<Instruction> {
         match opcode {
             0x00 => Some(Instruction::RLC(PrefixTarget::B)),
-            0x11 => Some(Instruction::RLC(PrefixTarget::C)),
+            0x01 => Some(Instruction::RLC(PrefixTarget::C)),
+            0x11 => Some(Instruction::RL(PrefixTarget::C)),
             0x18 => Some(Instruction::RR(ByteSource::B)),
             0x19 => Some(Instruction::RR(ByteSource::C)),
             0x1a => Some(Instruction::RR(ByteSource::D)),
