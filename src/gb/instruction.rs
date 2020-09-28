@@ -290,6 +290,10 @@ impl Instruction {
                 LoadWordTarget::BC,
                 WordSource::D16,
             ))),
+            0x02 => Some(Instruction::LD(LoadType::IndirectFrom(
+                LoadByteTarget::BCI,
+                ByteSource::A,
+            ))),
             0x03 => Some(Instruction::INC(IncDecTarget::BC)),
             0x04 => Some(Instruction::INC(IncDecTarget::B)),
             0x05 => Some(Instruction::DEC(IncDecTarget::B)),
@@ -303,10 +307,10 @@ impl Instruction {
                 WordSource::SP,
             ))),
             0x09 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::BC)),
-            //0x0a => Some(Instruction::LD(LoadType::FromIndirect(
-            //    LoadByteTarget::A,
-            //    ByteSource::BC,
-            //))),
+            0x0a => Some(Instruction::LD(LoadType::FromIndirect(
+                LoadByteTarget::A,
+                ByteSource::BCI,
+            ))),
             0x0b => Some(Instruction::DEC(IncDecTarget::BC)),
             0x0c => Some(Instruction::INC(IncDecTarget::C)),
             0x0d => Some(Instruction::DEC(IncDecTarget::C)),
@@ -394,6 +398,7 @@ impl Instruction {
             0x37 => Some(Instruction::SCF),
             0x38 => Some(Instruction::JR(JumpTest::Carry)),
             0x39 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::SP)),
+            0x3a => Some(Instruction::LD(LoadType::FromIndirectADec(ByteSource::HLI))),
             0x3b => Some(Instruction::DEC(IncDecTarget::SP)),
             0x3c => Some(Instruction::INC(IncDecTarget::A)),
             0x3d => Some(Instruction::DEC(IncDecTarget::A)),
@@ -887,9 +892,10 @@ pub enum LoadByteTarget {
     E,
     H,
     L,
-    D16I,    // value refers to address stored in next 16 bits
+    BCI,     // value refers to address stored in BC register
     DEI,     // value refers to address stored in DE register
     HLI,     // value refers to address stored in HL register
+    D16I,    // value refers to address stored in next 16 bits
     CIFF00,  // value refers to C register + 0xFF00
     D8IFF00, // value refers to address stored in next 8 bits + 0xFF00
 }
@@ -980,6 +986,7 @@ pub enum LoadType {
     IndirectFromADec(LoadByteTarget), // Same as IndirectFromA, source value is decremented afterwards
     FromIndirect(LoadByteTarget, ByteSource), // load the A register with the contents from a value from a memory location whose address is stored in some location
     FromIndirectAInc(ByteSource),
+    FromIndirectADec(ByteSource),
     IndirectFromWord(LoadWordTarget, WordSource),
     IndirectFromSPi8(LoadWordTarget), // Put SP plus 8 bit immediate value into target.
 }

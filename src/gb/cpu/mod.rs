@@ -632,21 +632,24 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             LoadType::IndirectFrom(target, source) => {
+                let value = source.resolve_value(self);
                 let addr = match target {
+                    LoadByteTarget::BCI => self.r.get_bc(),
                     LoadByteTarget::DEI => self.r.get_de(),
                     LoadByteTarget::D16I => self.consume_word(),
                     LoadByteTarget::HLI => self.r.get_hl(),
-                    LoadByteTarget::CIFF00 => u16::from(self.r.c).wrapping_add(0xFF00),
-                    LoadByteTarget::D8IFF00 => u16::from(self.consume_byte()).wrapping_add(0xFF00),
+                    LoadByteTarget::CIFF00 => {
+                        self.clock.advance(8);
+                        u16::from(self.r.c).wrapping_add(0xFF00)
+                    }
+                    LoadByteTarget::D8IFF00 => {
+                        self.clock.advance(4);
+                        u16::from(self.consume_byte()).wrapping_add(0xFF00)
+                    }
                     _ => unimplemented!(),
                 };
-                let value = source.resolve_value(self);
                 self.write(addr, value);
-                match target {
-                    LoadByteTarget::D16I => self.clock.advance(16),
-                    LoadByteTarget::D8IFF00 => self.clock.advance(12),
-                    _ => self.clock.advance(8),
-                }
+                self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
             LoadType::IndirectFromAInc(target) => {
@@ -713,6 +716,17 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.a = value;
                 match source {
                     ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_add(1)),
+                    _ => unimplemented!(),
+                }
+
+                self.clock.advance(8);
+                self.pc.wrapping_add(1)
+            }
+            LoadType::FromIndirectADec(source) => {
+                let value = source.resolve_value(self);
+                self.r.a = value;
+                match source {
+                    ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_sub(1)),
                     _ => unimplemented!(),
                 }
 
