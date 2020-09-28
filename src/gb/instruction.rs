@@ -59,6 +59,12 @@ impl Instruction {
         match opcode {
             0x00 => Some(Instruction::RLC(PrefixTarget::B)),
             0x01 => Some(Instruction::RLC(PrefixTarget::C)),
+            0x02 => Some(Instruction::RLC(PrefixTarget::D)),
+            0x03 => Some(Instruction::RLC(PrefixTarget::E)),
+            0x04 => Some(Instruction::RLC(PrefixTarget::H)),
+            0x05 => Some(Instruction::RLC(PrefixTarget::L)),
+            0x06 => Some(Instruction::RLC(PrefixTarget::HLI)),
+            0x07 => Some(Instruction::RLC(PrefixTarget::A)),
             0x11 => Some(Instruction::RL(PrefixTarget::C)),
             0x18 => Some(Instruction::RR(ByteSource::B)),
             0x19 => Some(Instruction::RR(ByteSource::C)),
@@ -609,8 +615,30 @@ pub enum IncDecTarget {
 
 #[derive(Debug)]
 pub enum PrefixTarget {
+    A,
     B,
     C,
+    D,
+    E,
+    H,
+    L,
+    HLI,
+}
+
+impl PrefixTarget {
+    /// Resolves the referring value
+    pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
+        match *self {
+            PrefixTarget::A => cpu.r.a,
+            PrefixTarget::B => cpu.r.b,
+            PrefixTarget::C => cpu.r.c,
+            PrefixTarget::D => cpu.r.d,
+            PrefixTarget::E => cpu.r.e,
+            PrefixTarget::H => cpu.r.h,
+            PrefixTarget::L => cpu.r.l,
+            PrefixTarget::HLI => cpu.read(cpu.r.get_hl()),
+        }
+    }
 }
 
 #[derive(Debug)]

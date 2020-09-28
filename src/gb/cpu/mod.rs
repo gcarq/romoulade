@@ -807,16 +807,22 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RL instructions
     /// Rotate n left through Carry flag.
     fn handle_rl(&mut self, target: PrefixTarget) -> u16 {
-        let value = match target {
-            PrefixTarget::B => self.r.b,
-            PrefixTarget::C => self.r.c,
-        };
+        let value = target.resolve_value(self);
         let carry = utils::bit_at(value, 7);
         let result = (value << 1) | carry as u8;
         self.r.f.update(result == 0, false, false, carry);
         match target {
+            PrefixTarget::A => self.r.a = result,
             PrefixTarget::B => self.r.b = result,
             PrefixTarget::C => self.r.c = result,
+            PrefixTarget::D => self.r.d = result,
+            PrefixTarget::E => self.r.e = result,
+            PrefixTarget::H => self.r.h = result,
+            PrefixTarget::L => self.r.l = result,
+            PrefixTarget::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
         }
         self.clock.advance(8);
         self.pc.wrapping_add(2)
@@ -835,18 +841,25 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RLC instructions
     /// Rotates register to the left and updates CPU flags
     fn handle_rlc(&mut self, target: PrefixTarget) -> u16 {
-        let value = match target {
-            PrefixTarget::B => self.r.b,
-            PrefixTarget::C => self.r.c,
-        };
-
+        let value = target.resolve_value(self);
         let carry = utils::bit_at(value, 7);
         let result = (value << 1) | (value >> 7);
         self.r.f.update(result == 0, false, false, carry);
+
         match target {
+            PrefixTarget::A => self.r.a = result,
             PrefixTarget::B => self.r.b = result,
             PrefixTarget::C => self.r.c = result,
+            PrefixTarget::D => self.r.d = result,
+            PrefixTarget::E => self.r.e = result,
+            PrefixTarget::H => self.r.h = result,
+            PrefixTarget::L => self.r.l = result,
+            PrefixTarget::HLI => {
+                self.clock.advance(8);
+                self.write(self.r.get_hl(), result)
+            }
         }
+
         self.clock.advance(8);
         self.pc.wrapping_add(2)
     }
