@@ -242,13 +242,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         let sp = self.sp as i32;
         let byte = self.consume_byte() as i8 as i32;
         let result = sp.wrapping_add(byte as i32);
+        self.sp = result as u16;
 
         // Carry and half carry are for the low byte
         let half_carry = (sp ^ byte as i32 ^ result) & 0x10 != 0;
         let carry = (sp ^ byte as i32 ^ result) & 0x100 != 0;
         self.r.f.update(false, false, half_carry, carry);
-
-        self.sp = result as u16;
         self.clock.advance(16);
         self.pc.wrapping_add(1)
     }
@@ -899,17 +898,16 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles SBC instructions
     fn handle_sbc(&mut self, source: ByteSource) -> u16 {
-        let source_value = source.resolve_value(self);
-        let y = source_value.wrapping_sub(self.r.f.carry as u8);
-        let (result, overflow) = self.r.a.overflowing_sub(y);
+        let a = self.r.a as u32;
+        let value = source.resolve_value(self) as u32;
+        let result = a.wrapping_sub(value).wrapping_sub(self.r.f.carry as u32);
+        self.r.a = result as u8;
         self.r.f.update(
-            result == 0,
+            result as u8 == 0,
             true,
-            // FIXME: blargg tests fail
-            utils::half_carry_u8(source_value, self.r.a),
-            overflow,
+            (a ^ value ^ result) & 0x10 != 0,
+            result & 0x100 != 0,
         );
-        self.r.a = result;
         match source {
             ByteSource::D8 => self.clock.advance(8),
             _ => self.clock.advance(4),

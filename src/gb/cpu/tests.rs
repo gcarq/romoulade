@@ -477,10 +477,10 @@ fn test_sbc_carry() {
     cpu.r.a = 0b0000_0001;
     cpu.r.f.carry = true;
     cpu.step();
-    assert_eq!(cpu.r.a, 0b1111_1110);
+    assert_eq!(cpu.r.a, 0b1111_1100);
     assert_eq!(cpu.clock.ticks(), 8);
     assert_eq!(cpu.pc, 2);
-    assert_flags(cpu.r.f, false, true, false, true);
+    assert_flags(cpu.r.f, false, true, true, true);
 }
 
 #[test]
@@ -493,7 +493,7 @@ fn test_sbc_no_carry() {
     assert_eq!(cpu.r.a, 0b0000_1100);
     assert_eq!(cpu.clock.ticks(), 8);
     assert_eq!(cpu.pc, 2);
-    assert_flags(cpu.r.f, false, true, false, false);
+    assert_flags(cpu.r.f, false, true, true, false);
 }
 
 #[test]
