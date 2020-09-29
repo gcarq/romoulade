@@ -56,12 +56,22 @@ impl MemoryBus {
         }
     }
 
+    /// Initiate DMA transfer
+    fn dma_transfer(&mut self, value: u8) {
+        let address = u16::from(value) * 100;
+        for offset in 0..0xA0 {
+            let byte = self.read(address + offset);
+            self.write(OAM_BEGIN + offset, byte);
+        }
+    }
+
     fn write_io(&mut self, address: u16, value: u8) {
         //println!("write IO: {:#06x}: {:#04x}", address, value);
         match address {
             // Trap the diver register, whenever a ROM writes tries to write
             // to it it will reset to 0
             TIMER_DIVIDER => self.io[(address - IO_BEGIN) as usize] = 0,
+            PPU_DMA => self.dma_transfer(value),
             _ => self.io[(address - IO_BEGIN) as usize] = value,
         }
     }
