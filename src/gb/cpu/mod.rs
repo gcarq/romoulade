@@ -1,7 +1,4 @@
-use crate::gb::instruction::{
-    ArithmeticWordTarget, ByteSource, IncDecTarget, Instruction, JumpTest, LoadByteTarget,
-    LoadType, LoadWordTarget, ResetCode, StackTarget, WordSource,
-};
+use crate::gb::instruction::*;
 use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
 use crate::utils;
@@ -79,10 +76,10 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Prints the current registers, pointers with opcode and resolved instruction
     fn print_registers(&self, opcode: u8, instruction: Option<&Instruction>) {
         println!(
-            "{} | pc: {:<5} sp: {:<5} | op: {:#04x} -> {}",
+            "{} | pc: {:<5} sp: {:<5} | op: {:#04X} -> {}",
             self.r,
-            format!("{:#06x}", self.pc),
-            format!("{:#06x}", self.sp),
+            format!("{:#06X}", self.pc),
+            format!("{:#06X}", self.sp),
             opcode,
             match instruction {
                 Some(i) => format!("{:?}", i),
@@ -96,7 +93,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn execute(&mut self, instruction: Instruction) -> u16 {
         match instruction {
             Instruction::ADD(source) => self.handle_add(source),
-            Instruction::ADD2(target, source) => self.handle_add2(target, source),
+            Instruction::ADDHL(source) => self.handle_add_hl(source),
             Instruction::ADDSP => self.handle_add_sp(),
             Instruction::ADC(source) => self.handle_adc(source),
             Instruction::AND(source) => self.handle_and(source),
@@ -155,15 +152,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             0x0062..=0x00fd => {}
             0x00fe => println!("Done with processing boot ROM. Switching to Cartridge..."),
             0x0100 => {
-                // FIXME: ugly hack to get a reproducible debugging state:
-                //assert_eq!(self.r.get_af(), 0x1180, "AF is invalid");
-                //assert_eq!(self.r.get_bc(), 0x0000, "BC is invalid");
-                //assert_eq!(self.r.get_de(), 0xFF56, "DE is invalid");
-                //assert_eq!(self.r.get_hl(), 0x000D, "HL is invalid");
-                self.r.set_af(0x1180);
-                self.r.set_bc(0x0000);
-                self.r.set_de(0xFF56);
-                self.r.set_hl(0x000D);
+                assert_eq!(self.r.get_af(), 0x01B0, "AF is invalid, boot ROM failure!");
+                assert_eq!(self.r.get_bc(), 0x0013, "BC is invalid, boot ROM failure!");
+                assert_eq!(self.r.get_de(), 0x00D8, "DE is invalid, boot ROM failure!");
+                assert_eq!(self.r.get_hl(), 0x014D, "HL is invalid, boot ROM failure!");
+                assert_eq!(self.sp, 0xFFFE, "SP is invalid, boot ROM failure!");
             }
             0x0101..=0xffff => self.print_registers(opcode, Some(instruction)),
             _ => {}
@@ -227,29 +220,19 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.pc.wrapping_add(1)
     }
 
-    /// Handles ADD instructions with words
-    /// TODO: refactor me
-    fn handle_add2(&mut self, target: ArithmeticWordTarget, source: WordSource) -> u16 {
-        let source_value = source.resolve_value(self);
-        let target_value = match target {
-            ArithmeticWordTarget::HL => self.r.get_hl(),
-        };
+    /// Handles ADD HL, nn instructions
+    fn handle_add_hl(&mut self, source: WordSource) -> u16 {
+        let value = source.resolve_value(self);
+        let hl = self.r.get_hl();
+        let (result, overflow) = hl.overflowing_add(value);
 
-        let (new_value, overflow) = target_value.overflowing_add(source_value);
+        let half_carry = (hl ^ value ^ result) & 0x1000 != 0;
+        self.r.f.negative = false;
+        self.r.f.half_carry = half_carry;
+        self.r.f.carry = overflow;
+        self.r.set_hl(result);
 
-        match target {
-            ArithmeticWordTarget::HL => {
-                self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u16(target_value, source_value);
-                self.r.f.carry = overflow;
-                self.r.set_hl(new_value);
-            }
-        }
-
-        match target {
-            ArithmeticWordTarget::HL => self.clock.advance(8),
-        }
-
+        self.clock.advance(8);
         self.pc.wrapping_add(1)
     }
 
@@ -270,19 +253,16 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles ADC instructions
     fn handle_adc(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self) as u32;
+        let value = source.resolve_value(self);
+        let half_carry = ((self.r.a & 0x0F) + (value & 0x0F) + self.r.f.carry as u8) > 0x0F;
 
-        // Check for carry using 32bit arithmetic
-        // TODO: can be improved
-        let a = self.r.a as u32;
-        let carry = self.r.f.carry as u32;
+        let (result, overflow) = self.r.a.overflowing_add(value);
+        let mut carry = overflow;
+        let (result, overflow) = result.overflowing_add(self.r.f.carry as u8);
+        carry |= overflow;
+        self.r.f.update(result == 0, false, half_carry, carry);
+        self.r.a = result;
 
-        let result = a.wrapping_add(value).wrapping_add(carry);
-        self.r.a = result as u8;
-
-        let half_carry = (a ^ value ^ result) & 0x10 != 0;
-        let carry = result & 0x100 != 0;
-        self.r.f.update(result as u8 == 0, false, half_carry, carry);
         match source {
             ByteSource::D8 => self.clock.advance(8),
             _ => self.clock.advance(4),
@@ -892,9 +872,9 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles RLCA instruction
     fn handle_rlca(&mut self) -> u16 {
-        let carry = self.r.a >> 7;
-        self.r.a = self.r.a << 1 | carry;
-        self.r.f.update(false, false, false, carry != 0);
+        let carry = self.r.a & 0x80 != 0;
+        self.r.a = (self.r.a << 1) | carry as u8;
+        self.r.f.update(false, false, false, carry);
         self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
@@ -1050,26 +1030,22 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles STOP instruction
     fn handle_stop(&mut self) -> u16 {
-        // TODO: implement me
+        panic!("STOP is not implemented");
         self.clock.advance(4);
         self.pc.wrapping_add(2)
     }
 
     /// Handles SUB instructions
     fn handle_sub(&mut self, source: ByteSource) -> u16 {
-        let source_value = source.resolve_value(self);
-        let (new_value, did_overflow) = self.r.a.overflowing_sub(source_value);
-        // Half Carry is set if adding the lower nibbles of the value and register A
-        // together result in a value bigger than 0xF. If the result is larger than 0xF
-        // than the addition caused a carry from the lower nibble to the upper nibble.
-        self.r.f.update(
-            new_value == 0,
-            true,
-            // TODO: verify me
-            (self.r.a ^ source_value ^ new_value) & 0x10 != 0,
-            did_overflow,
-        );
-        self.r.a = new_value;
+        let a = u16::from(self.r.a);
+        let value = u16::from(source.resolve_value(self));
+        let result = a.wrapping_sub(value);
+
+        let carry_bits = a ^ value ^ result;
+        let half_carry = carry_bits & 0x10 != 0;
+        let carry = carry_bits & 0x100 != 0;
+        self.r.f.update(result == 0, true, half_carry, carry);
+        self.r.a = result as u8;
         match source {
             ByteSource::HLI => self.clock.advance(8),
             ByteSource::D8 => self.clock.advance(8),

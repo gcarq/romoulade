@@ -4,6 +4,7 @@ use crate::gb::memory::constants::{
     ROM_BANK_N_END, ROM_BANK_N_SIZE,
 };
 use crate::gb::AddressSpace;
+use crate::utils;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -11,7 +12,14 @@ use std::{convert, fmt, fs, io};
 
 /// This area of memory contains ROM title
 const TITLE_BEGIN: u16 = 0x0134;
-const TITLE_END: u16 = 0x0143;
+const TITLE_END: u16 = 0x0142;
+
+/// When using any CGB registers (including those in the Video/Link chapters),
+/// you must first unlock CGB features by changing byte 0143h in the cartridge header.
+/// Typically use a value of 80h for games which support both CGB and monochrome gameboys,
+/// and C0h for games which work on CGBs only. Otherwise,
+/// the CGB will operate in monochrome "Non CGB" compatibility mode.
+const CARTRIDGE_CGB_FLAG: u16 = 0x0143;
 
 /// This address contains the number of ROM banks
 /// 0     => No memory banking
@@ -47,6 +55,7 @@ impl convert::From<u8> for BankingMode {
 pub struct Metadata {
     pub title: String,
     pub banking: BankingMode,
+    pub cgb_flag: u8,
 }
 
 impl Metadata {
@@ -54,17 +63,28 @@ impl Metadata {
         Self {
             title: Metadata::parse_title(buf),
             banking: BankingMode::from(buf[CARTRIDGE_ROM_BANKS as usize]),
+            cgb_flag: buf[CARTRIDGE_CGB_FLAG as usize],
         }
     }
 
     /// Returns title from metadata
     /// TODO: can it contain utf8 data?
     fn parse_title(buf: &[u8]) -> String {
-        buf[TITLE_BEGIN as usize..TITLE_END as usize]
+        buf[TITLE_BEGIN as usize..=TITLE_END as usize]
             .iter()
             .filter(|b| b.is_ascii_alphanumeric())
             .map(|b| char::from(*b))
             .collect()
+    }
+}
+
+impl fmt::Display for Metadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Title: {} (banking: {:?}, cgb_flag: {:#04X})",
+            self.title, self.banking, self.cgb_flag
+        )
     }
 }
 
@@ -89,6 +109,11 @@ impl Cartridge {
         let mut buffer = vec![0; metadata.len() as usize];
         file.read_exact(&mut buffer)?;
         let meta = Metadata::from_buf(&buffer);
+
+        /*if meta.cgb_flag != 0x80 {
+            unimplemented!("TODO: only GB games are supported for now!");
+        }*/
+
         Ok(Self {
             meta,
             rom: buffer,
@@ -138,11 +163,9 @@ impl Cartridge {
     }
 
     /// Enables or disables RAM banking.
-    fn toggle_ram_banking(&mut self, _address: u16, value: u8) {
+    fn toggle_ram_banking(&mut self, address: u16, value: u8) {
         // If MBC2 is enabled, bit 4 of the address must be zero.
-        if self.meta.banking == MBC2
-        /*&& utils::bit_at(address as u8, 4)*/
-        {
+        if self.meta.banking == MBC2 && utils::bit_at(address as u8, 4) {
             // TODO: implement me
             panic!("TODO: implement RAM banking while MBC2 is enabled!");
             return;
@@ -152,7 +175,7 @@ impl Cartridge {
         match value & 0x0F {
             0x0A => self.enable_ram = true,
             0x00 => self.enable_ram = false,
-            _ => panic!(),
+            _ => panic!("{:#04X}", value),
         }
     }
 
@@ -219,15 +242,5 @@ impl AddressSpace for Cartridge {
             }
             _ => unimplemented!("Trying to read byte from ROM: {:#06x}", address),
         }
-    }
-}
-
-impl fmt::Display for Cartridge {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Title: {} (banking: {:?})",
-            self.meta.title, self.meta.banking
-        )
     }
 }

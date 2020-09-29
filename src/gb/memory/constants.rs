@@ -53,6 +53,10 @@ pub const OAM_BEGIN: u16 = 0xFE00;
 pub const OAM_END: u16 = 0xFE9F;
 pub const OAM_SIZE: usize = (OAM_END - OAM_BEGIN + 1) as usize;
 
+/// This area is unmapped: reading from it just returns 0xFF
+pub const UNUSED_BEGIN: u16 = 0xFEA0;
+pub const UNUSED_END: u16 = 0xFEFF;
+
 /// This is one of the most dense areas of memory.
 /// Practically every byte has a special meaning.
 /// It's used by both the screen and the sound system to determine different settings.
@@ -97,12 +101,30 @@ pub const PPU_OBP1: u16 = 0xFF49;
 pub const PPU_WY: u16 = 0xFF4A;
 pub const PPU_WX: u16 = 0xFF4B;
 
+/// This register is used to prepare the gameboy to switch
+/// between CGB Double Speed Mode and Normal Speed Mode.
+/// The actual speed switch is performed by executing a STOP command after Bit 0 has been set.
+/// After that Bit 0 will be cleared automatically, and the gameboy will operate at the 'other' speed.
+pub const CGB_PREPARE_SPEED_SWITCH: u16 = 0xFF4D;
+
+/// In CGB Mode 32 KBytes internal RAM are available.
+/// This memory is divided into 8 banks of 4 KBytes each.
+/// Bank 0 is always available in memory at C000-CFFF,
+/// Bank 1-7 can be selected into the address space at D000-DFFF.
+pub const CGB_WRAM_BANK: u16 = 0xFF70;
+
 /// Boot ROM lock bit
 /// 0b1 = Boot ROM is disabled and 0x0000-0x00FF works normally
 /// 0b0 = Boot Rom is active and intercepts access to 0x0000-0x00FF
 /// Can only transition from 0b0 to 0b1, so once 0b1 has written,
 /// the boot ROM is permanently disabled until the next system reset.
 pub const BOOT_ROM_OFF: u16 = 0xFF50;
+
+/// Those two registers are read-only.
+/// The low nibble is a copy of sound channel #1's PCM amplitude,
+/// the high nibble a copy of sound channel #2's.
+pub const PCM_AMPLITUDES12: u16 = 0xFF76;
+pub const PCM_AMPLITUDES34: u16 = 0xFF77;
 
 // Interrupt Controller Registers
 pub const INTERRUPT_FLAG: u16 = 0xFF0F;

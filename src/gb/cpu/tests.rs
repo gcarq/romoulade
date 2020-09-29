@@ -152,7 +152,7 @@ fn test_bit_non_zero() {
 }
 
 #[test]
-fn test_ccf() {
+fn test_ccf_no_carry() {
     // CCF
     let bus = RefCell::new(MockBus::new(vec![0x3f; 1]));
     let mut cpu = CPU::new(&bus);
@@ -160,6 +160,18 @@ fn test_ccf() {
     assert_eq!(cpu.clock.ticks(), 4);
     assert_eq!(cpu.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);
+}
+
+#[test]
+fn test_ccf_carry() {
+    // CCF
+    let bus = RefCell::new(MockBus::new(vec![0x3f; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.f.carry = true;
+    cpu.step();
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, false, false);
 }
 
 #[test]
@@ -330,6 +342,32 @@ fn test_inc_word() {
     assert_eq!(cpu.clock.ticks(), 12);
     assert_eq!(cpu.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
+}
+
+#[test]
+fn test_jr_always_neg_offset() {
+    // JR i8
+    let bus = RefCell::new(MockBus::new(
+        [0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 251].into(),
+    ));
+    let mut cpu = CPU::new(&bus);
+    for _ in 0..6 {
+        cpu.step();
+    }
+    // At this point 7 byte have been consumed.
+    // pc must be 7 - 5 (offset)
+    assert_eq!(cpu.clock.ticks(), 12);
+    assert_eq!(cpu.pc, 0x02);
+}
+
+#[test]
+fn test_jr_always_pos_offset() {
+    // JR i8
+    let bus = RefCell::new(MockBus::new([0x18, 0x03].into()));
+    let mut cpu = CPU::new(&bus);
+    cpu.step();
+    assert_eq!(cpu.clock.ticks(), 12);
+    assert_eq!(cpu.pc, 0x05);
 }
 
 #[test]
@@ -583,4 +621,32 @@ fn test_push() {
     assert_eq!(bus.borrow().read(0x02), 0x00);
     assert_eq!(cpu.clock.ticks(), 16);
     assert_eq!(cpu.pc, 1);
+}
+
+#[test]
+fn test_xor_non_zero() {
+    // XOR A, C
+    let bus = RefCell::new(MockBus::new(vec![0xa9; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0x42;
+    cpu.r.c = 0x90;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0xd2);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, false, false, false, false);
+}
+
+#[test]
+fn test_xor_zero() {
+    // XOR A, C
+    let bus = RefCell::new(MockBus::new(vec![0xa9; 1]));
+    let mut cpu = CPU::new(&bus);
+    cpu.r.a = 0x90;
+    cpu.r.c = 0x90;
+    cpu.step();
+    assert_eq!(cpu.r.a, 0x00);
+    assert_eq!(cpu.clock.ticks(), 4);
+    assert_eq!(cpu.pc, 1);
+    assert_flags(cpu.r.f, true, false, false, false);
 }

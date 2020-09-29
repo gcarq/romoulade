@@ -3,13 +3,13 @@ use crate::gb::AddressSpace;
 
 #[derive(Debug)]
 pub enum Instruction {
-    ADD(ByteSource),                        // Add n to target
-    ADD2(ArithmeticWordTarget, WordSource), // Same as ADD but with words
-    ADDSP,                                  // Add signed immediate 8 bit value to Stack Pointer
-    ADC(ByteSource),                        // Add n + Carry flag to A
-    AND(ByteSource),                        // Logically AND n with A, result in A
-    BIT(u8, ByteSource),                    // Test bit b in register r
-    INC(IncDecTarget),                      // Increment register n
+    ADD(ByteSource),          // Add n to target
+    ADDHL(WordSource),        // Add nn to HL
+    ADDSP,                    // Add signed immediate 8 bit value to Stack Pointer
+    ADC(ByteSource),          // Add n + Carry flag to A
+    AND(ByteSource),          // Logically AND n with A, result in A
+    BIT(u8, ByteSource),      // Test bit b in register r
+    INC(IncDecTarget),        // Increment register n
     CALL(JumpTest), // Push address of next instruction onto stack and then  jump to address nn
     CCF,            // Complement carry flag
     CP(ByteSource), // Compare A with source
@@ -359,7 +359,7 @@ impl Instruction {
                 LoadWordTarget::D16I,
                 WordSource::SP,
             ))),
-            0x09 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::BC)),
+            0x09 => Some(Instruction::ADDHL(WordSource::BC)),
             0x0a => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::BCI,
@@ -391,7 +391,7 @@ impl Instruction {
             ))),
             0x17 => Some(Instruction::RLA),
             0x18 => Some(Instruction::JR(JumpTest::Always)),
-            0x19 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::DE)),
+            0x19 => Some(Instruction::ADDHL(WordSource::DE)),
             0x1a => Some(Instruction::LD(LoadType::FromIndirect(
                 LoadByteTarget::A,
                 ByteSource::DEI,
@@ -422,7 +422,7 @@ impl Instruction {
             ))),
             0x27 => Some(Instruction::DAA),
             0x28 => Some(Instruction::JR(JumpTest::Zero)),
-            0x29 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::HL)),
+            0x29 => Some(Instruction::ADDHL(WordSource::HL)),
             0x2a => Some(Instruction::LD(LoadType::FromIndirectAInc(ByteSource::HLI))),
             0x2b => Some(Instruction::DEC(IncDecTarget::HL)),
             0x2c => Some(Instruction::INC(IncDecTarget::L)),
@@ -450,7 +450,7 @@ impl Instruction {
             ))),
             0x37 => Some(Instruction::SCF),
             0x38 => Some(Instruction::JR(JumpTest::Carry)),
-            0x39 => Some(Instruction::ADD2(ArithmeticWordTarget::HL, WordSource::SP)),
+            0x39 => Some(Instruction::ADDHL(WordSource::SP)),
             0x3a => Some(Instruction::LD(LoadType::FromIndirectADec(ByteSource::HLI))),
             0x3b => Some(Instruction::DEC(IncDecTarget::SP)),
             0x3c => Some(Instruction::INC(IncDecTarget::A)),
@@ -875,11 +875,6 @@ impl Instruction {
             _ => None,
         }
     }
-}
-
-#[derive(Debug)]
-pub enum ArithmeticWordTarget {
-    HL,
 }
 
 #[derive(Debug)]

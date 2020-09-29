@@ -57,11 +57,70 @@ impl MemoryBus {
     }
 
     fn write_io(&mut self, address: u16, value: u8) {
+        //println!("write IO: {:#06x}: {:#04x}", address, value);
         match address {
             // Trap the diver register, whenever a ROM writes tries to write
             // to it it will reset to 0
             TIMER_DIVIDER => self.io[(address - IO_BEGIN) as usize] = 0,
             _ => self.io[(address - IO_BEGIN) as usize] = value,
+        }
+    }
+
+    /// TODO: document unmapped I/O registers
+    /// https://gbdev.gg8.se/wiki/articles/CGB_Registers#FF6C_-_Bit_0_.28Read.2FWrite.29_-_CGB_Mode_Only
+    fn read_io(&self, address: u16) -> u8 {
+        match address {
+            0xFF03 => 0xFF,
+            0xFF08 => 0xFF,
+            0xFF09 => 0xFF,
+            0xFF0A => 0xFF,
+            0xFF0B => 0xFF,
+            0xFF0C => 0xFF,
+            0xFF0D => 0xFF,
+            0xFF0E => 0xFF,
+            0xFF15 => 0xFF,
+            0xFF1F => 0xFF,
+            0xFF27 => 0xFF,
+            0xFF28 => 0xFF,
+            0xFF29 => 0xFF,
+            0xFF2A => 0xFF,
+            0xFF2B => 0xFF,
+            0xFF2C => 0xFF,
+            0xFF2D => 0xFF,
+            0xFF2E => 0xFF,
+            0xFF2F => 0xFF,
+            CGB_PREPARE_SPEED_SWITCH => 0xFF,
+            0xFF4E => 0xFF,
+            0xFF57 => 0xFF,
+            0xFF58 => 0xFF,
+            0xFF59 => 0xFF,
+            0xFF5A => 0xFF,
+            0xFF5B => 0xFF,
+            0xFF5C => 0xFF,
+            0xFF5D => 0xFF,
+            0xFF5E => 0xFF,
+            0xFF5F => 0xFF,
+            0xFF6C => 0xFF, // Undocumented CGB flag
+            0xFF6D => 0xFF,
+            0xFF6E => 0xFF,
+            0xFF6F => 0xFF,
+            CGB_WRAM_BANK => 0xFF,
+            0xFF71 => 0xFF,
+            0xFF72 => 0xFF,
+            0xFF73 => 0xFF,
+            0xFF74 => 0xFF,
+            0xFF75 => 0xFF,
+            PCM_AMPLITUDES12 => unimplemented!(),
+            PCM_AMPLITUDES34 => unimplemented!(),
+            0xFF78 => 0xFF,
+            0xFF79 => 0xFF,
+            0xFF7A => 0xFF,
+            0xFF7B => 0xFF,
+            0xFF7C => 0xFF,
+            0xFF7D => 0xFF,
+            0xFF7E => 0xFF,
+            0xFF7F => 0xFF,
+            _ => self.io[(address - IO_BEGIN) as usize],
         }
     }
 }
@@ -80,7 +139,7 @@ impl AddressSpace for MemoryBus {
                 self.wram[(address - ERAM_SIZE as u16 - WRAM_BEGIN) as usize] = value;
             }
             OAM_BEGIN..=OAM_END => self.oam[(address - OAM_BEGIN) as usize] = value,
-            0xFEA0..=0xFEFF => {} // This area is unmapped, writing to it does nothing.
+            UNUSED_BEGIN..=UNUSED_END => {}
             IO_BEGIN..=IO_END => self.write_io(address, value),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize] = value,
             INTERRUPT_ENABLE => self.ie = value,
@@ -95,8 +154,8 @@ impl AddressSpace for MemoryBus {
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize],
             ERAM_BEGIN..=ERAM_END => self.eram[(address - ERAM_BEGIN) as usize],
             OAM_BEGIN..=OAM_END => self.oam[(address - OAM_BEGIN) as usize],
-            0xFEA0..=0xFEFF => 0, // This area is unmapped, reading from it should return 0.
-            IO_BEGIN..=IO_END => self.io[(address - IO_BEGIN) as usize],
+            UNUSED_BEGIN..=UNUSED_END => 0xFF,
+            IO_BEGIN..=IO_END => self.read_io(address),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],
             INTERRUPT_ENABLE => self.ie,
         }

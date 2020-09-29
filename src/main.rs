@@ -29,7 +29,7 @@ fn main() {
 
     println!("Loading cartridge {}...", &path.display());
     let cartridge = Cartridge::from_path(&path).expect("Unable to load cartridge from path");
-    println!("  -> {}", cartridge);
+    println!("  -> {}", &cartridge.meta);
 
     let bus = RefCell::new(MemoryBus::new(cartridge));
     let mut display = Display::new(2, fps_limit).expect("Unable to create sdl2 Display");

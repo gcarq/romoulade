@@ -16,8 +16,12 @@ impl fmt::Display for Registers {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "a: {:#04x}, b: {:#04x}, c: {:#04x}, d: {:#04x}, e: {:#04x}, h: {:#04x}, l: {:#04x} | f: {}",
-            self.a, self.b, self.c, self.d, self.e, self.h, self.l, self.f
+            "af: {:#06X}, bc: {:#06X}, de: {:#06X}, hl: {:#06X} | f: {}",
+            self.get_af(),
+            self.get_bc(),
+            self.get_de(),
+            self.get_hl(),
+            self.f
         )
     }
 }

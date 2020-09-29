@@ -21,11 +21,6 @@ pub fn half_carry_u8(x: u8, y: u8) -> bool {
     ((x & 0x0F) + (y & 0x0F)) & 0x10 == 0x10
 }
 
-/// Checks if half carry from bit 11 to bit 12 occurred.
-pub fn half_carry_u16(x: u16, y: u16) -> bool {
-    ((x & 0x7FF) + (y & 0x7FF)) & 0x800 == 0x800
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
