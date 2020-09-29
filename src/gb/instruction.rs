@@ -332,7 +332,6 @@ impl Instruction {
             0xfd => Some(Instruction::SET(7, ByteSource::L)),
             0xfe => Some(Instruction::SET(7, ByteSource::HLI)),
             0xff => Some(Instruction::SET(7, ByteSource::A)),
-            _ => None,
         }
     }
 
@@ -806,13 +805,16 @@ impl Instruction {
             0xd0 => Some(Instruction::RET(JumpTest::NotCarry)),
             0xd1 => Some(Instruction::POP(StackTarget::DE)),
             0xd2 => Some(Instruction::JP(JumpTest::NotCarry, WordSource::D16)),
+            0xd3 => None,
             0xd4 => Some(Instruction::CALL(JumpTest::NotCarry)),
             0xd5 => Some(Instruction::PUSH(StackTarget::DE)),
             0xd6 => Some(Instruction::SUB(ByteSource::D8)),
             0xd8 => Some(Instruction::RET(JumpTest::Carry)),
             0xd9 => Some(Instruction::RETI),
             0xda => Some(Instruction::JP(JumpTest::Carry, WordSource::D16)),
+            0xdb => None,
             0xdc => Some(Instruction::CALL(JumpTest::Carry)),
+            0xdd => None,
             0xde => Some(Instruction::SBC(ByteSource::D8)),
             0xdf => Some(Instruction::RST(ResetCode::RST18)),
 
@@ -825,6 +827,8 @@ impl Instruction {
                 LoadByteTarget::CIFF00,
                 ByteSource::A,
             ))),
+            0xe3 => None,
+            0xe4 => None,
             0xe5 => Some(Instruction::PUSH(StackTarget::HL)),
             0xe6 => Some(Instruction::AND(ByteSource::D8)),
             0xe8 => Some(Instruction::ADDSP),
@@ -833,6 +837,9 @@ impl Instruction {
                 LoadByteTarget::D16I,
                 ByteSource::A,
             ))),
+            0xeb => None,
+            0xec => None,
+            0xed => None,
             0xee => Some(Instruction::XOR(ByteSource::D8)),
             0xef => Some(Instruction::RST(ResetCode::RST28)),
 
@@ -846,6 +853,7 @@ impl Instruction {
                 ByteSource::CIFF00,
             ))),
             0xf3 => Some(Instruction::DI),
+            0xf4 => None,
             0xf5 => Some(Instruction::PUSH(StackTarget::AF)),
             0xf6 => Some(Instruction::OR(ByteSource::D8)),
             0xf8 => Some(Instruction::LD(LoadType::IndirectFromSPi8(
@@ -860,6 +868,8 @@ impl Instruction {
                 ByteSource::D16I,
             ))),
             0xfb => Some(Instruction::EI),
+            0xfc => None,
+            0xfd => None,
             0xfe => Some(Instruction::CP(ByteSource::D8)),
             0xff => Some(Instruction::RST(ResetCode::RST38)),
             _ => None,
@@ -922,8 +932,8 @@ pub enum LoadByteTarget {
     DEI,     // value refers to address stored in DE register
     HLI,     // value refers to address stored in HL register
     D16I,    // value refers to address stored in next 16 bits
-    CIFF00,  // value refers to C register + 0xFF00
-    D8IFF00, // value refers to address stored in next 8 bits + 0xFF00
+    CIFF00,  // value refers to C register | 0xFF00
+    D8IFF00, // value refers to address stored in next 8 bits | 0xFF00
 }
 
 #[derive(Debug, PartialEq)]
@@ -940,8 +950,8 @@ pub enum ByteSource {
     DEI,     // value refers to address stored in DE register
     HLI,     // value refers to address stored in HL register
     D16I,    // value refers to address stored in next 16 bits
-    CIFF00,  // value refers to C register + 0xFF00
-    D8IFF00, // value refers to address stored in next 8 bits + 0xFF00
+    CIFF00,  // value refers to C register | 0xFF00
+    D8IFF00, // value refers to address stored in next 8 bits | 0xFF00
 }
 
 impl ByteSource {
@@ -963,9 +973,9 @@ impl ByteSource {
                 let address = cpu.consume_word();
                 cpu.read(address)
             }
-            ByteSource::CIFF00 => cpu.read(u16::from(cpu.r.c).wrapping_add(0xFF00)),
+            ByteSource::CIFF00 => cpu.read(u16::from(cpu.r.c) | 0xFF00),
             ByteSource::D8IFF00 => {
-                let address = u16::from(cpu.consume_byte()).wrapping_add(0xFF00);
+                let address = u16::from(cpu.consume_byte()) | 0xFF00;
                 cpu.read(address)
             }
         }

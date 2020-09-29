@@ -154,7 +154,18 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             0x005d => println!("Turning on LCD and showing Background..."),
             0x0062..=0x00fd => {}
             0x00fe => println!("Done with processing boot ROM. Switching to Cartridge..."),
-            0x0100..=0xffff => self.print_registers(opcode, Some(instruction)),
+            0x0100 => {
+                // FIXME: ugly hack to get a reproducible debugging state:
+                //assert_eq!(self.r.get_af(), 0x1180, "AF is invalid");
+                //assert_eq!(self.r.get_bc(), 0x0000, "BC is invalid");
+                //assert_eq!(self.r.get_de(), 0xFF56, "DE is invalid");
+                //assert_eq!(self.r.get_hl(), 0x000D, "HL is invalid");
+                self.r.set_af(0x1180);
+                self.r.set_bc(0x0000);
+                self.r.set_de(0xFF56);
+                self.r.set_hl(0x000D);
+            }
+            0x0101..=0xffff => self.print_registers(opcode, Some(instruction)),
             _ => {}
         }
     }
@@ -357,12 +368,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         // See if we had a carry/borrow for the high nibble in the last
         // operation
         if self.r.f.carry {
-            adjust |= 0b0110_0000;
+            adjust |= 0x60;
         }
         // See if we had a carry/borrow for the low nibble in the last
         // operation
         if self.r.f.half_carry {
-            adjust |= 0b0000_0110
+            adjust |= 0x06
         }
 
         let result = if self.r.f.negative {
@@ -374,11 +385,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             // Additions are a bit more tricky because we might have
             // to adjust even if we haven't overflowed (and no carry
             // is present). For instance: 0x08 + 0x04 -> 0x0c.
-            if self.r.a & 0b0000_1111 > 0x09 {
-                adjust |= 0b0000_0110;
+            if self.r.a & 0x0F > 0x09 {
+                adjust |= 0x06;
             }
             if self.r.a > 0x99 {
-                adjust |= 0b0110_0000;
+                adjust |= 0x60;
             }
             self.r.a.wrapping_add(adjust)
         };
@@ -439,12 +450,13 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.r.f.negative = true;
             }
             IncDecTarget::HLI => {
-                let value = self.read(self.r.get_hl());
+                let hl = self.r.get_hl();
+                let value = self.read(hl);
                 self.r.f.half_carry = value.trailing_zeros() >= 4;
-                let value = value.wrapping_sub(1);
-                self.r.f.zero = value == 0;
+                let result = value.wrapping_sub(1);
+                self.write(hl, result);
+                self.r.f.zero = result == 0;
                 self.r.f.negative = true;
-                self.write(self.r.get_hl(), value);
             }
             IncDecTarget::BC => self.r.set_bc(self.r.get_bc().wrapping_sub(1)),
             IncDecTarget::DE => self.r.set_de(self.r.get_de().wrapping_sub(1)),
@@ -477,58 +489,59 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 let result = self.r.a.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u8(self.r.a, 1);
+                self.r.f.half_carry = self.r.a & 0x0F == 0x0F;
                 self.r.a = result;
             }
             IncDecTarget::B => {
                 let result = self.r.b.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u8(self.r.b, 1);
+                self.r.f.half_carry = self.r.b & 0x0F == 0x0F;
                 self.r.b = result;
             }
             IncDecTarget::C => {
                 let result = self.r.c.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u8(self.r.c, 1);
+                self.r.f.half_carry = self.r.c & 0x0F == 0x0F;
                 self.r.c = result;
             }
             IncDecTarget::D => {
                 let result = self.r.d.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u8(self.r.d, 1);
+                self.r.f.half_carry = self.r.d & 0x0F == 0x0F;
                 self.r.d = result;
             }
             IncDecTarget::E => {
                 let result = self.r.e.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u8(self.r.e, 1);
+                self.r.f.half_carry = self.r.e & 0x0F == 0x0F;
                 self.r.e = result;
             }
             IncDecTarget::H => {
                 let result = self.r.h.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u8(self.r.h, 1);
+                self.r.f.half_carry = self.r.h & 0x0F == 0x0F;
                 self.r.h = result;
             }
             IncDecTarget::L => {
                 let result = self.r.l.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u8(self.r.l, 1);
+                self.r.f.half_carry = self.r.l & 0x0F == 0x0F;
                 self.r.l = result;
             }
             IncDecTarget::HLI => {
-                let value = self.read(self.r.get_hl());
+                let hl = self.r.get_hl();
+                let value = self.read(hl);
                 let result = value.wrapping_add(1);
                 self.r.f.zero = result == 0;
                 self.r.f.negative = false;
-                self.r.f.half_carry = utils::half_carry_u8(value, 1);
-                self.write(self.r.get_hl(), result);
+                self.r.f.half_carry = value & 0x0F == 0x0F;
+                self.write(hl, result);
             }
             IncDecTarget::BC => self.r.set_bc(self.r.get_bc().wrapping_add(1)),
             IncDecTarget::DE => self.r.set_de(self.r.get_de().wrapping_add(1)),
@@ -556,21 +569,24 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles JR instructions
     fn handle_jr(&mut self, test: JumpTest) -> u16 {
         let should_jump = test.resolve_value(self);
-        if !should_jump {
-            self.clock.advance(8);
-            return self.pc.wrapping_add(2);
-        }
 
-        self.clock.advance(12);
-        // TODO: this seems incorrect. Maybe cast with `as *const i8 as i8`?
-        let offset = self.consume_byte() as i8;
-        let pc = (self.pc as i32).wrapping_add(offset as i32);
-        (pc as u16).wrapping_add(1)
+        if should_jump {
+            self.clock.advance(12);
+            let offset = self.consume_byte() as i8;
+            (self.pc as i16).wrapping_add(1).wrapping_add(offset as i16) as u16
+        } else {
+            self.clock.advance(8);
+            // If we don't jump we need to still move the program
+            // counter forward by 2 since the rel jump instruction is
+            // 2 bytes wide (1 byte for tag and 1 bytes for jump address)
+            self.pc.wrapping_add(2)
+        }
     }
 
     /// Handles JP instructions
     fn handle_jp(&mut self, test: JumpTest, source: WordSource) -> u16 {
         let should_jump = test.resolve_value(self);
+
         if should_jump {
             return match source {
                 WordSource::HL => {
@@ -642,11 +658,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                     LoadByteTarget::HLI => self.r.get_hl(),
                     LoadByteTarget::CIFF00 => {
                         self.clock.advance(8);
-                        u16::from(self.r.c).wrapping_add(0xFF00)
+                        u16::from(self.r.c) | 0xFF00
                     }
                     LoadByteTarget::D8IFF00 => {
                         self.clock.advance(4);
-                        u16::from(self.consume_byte()).wrapping_add(0xFF00)
+                        u16::from(self.consume_byte()) | 0xFF00
                     }
                     _ => unimplemented!(),
                 };
@@ -714,8 +730,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             LoadType::FromIndirectAInc(source) => {
-                let value = source.resolve_value(self);
-                self.r.a = value;
+                self.r.a = source.resolve_value(self);
                 match source {
                     ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_add(1)),
                     _ => unimplemented!(),
@@ -725,8 +740,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             LoadType::FromIndirectADec(source) => {
-                let value = source.resolve_value(self);
-                self.r.a = value;
+                self.r.a = source.resolve_value(self);
                 match source {
                     ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_sub(1)),
                     _ => unimplemented!(),
@@ -838,8 +852,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Rotate n left through Carry flag.
     fn handle_rl(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
+        let carry = value & 0x80 != 0;
         let result = (value << 1) | self.r.f.carry as u8;
-        let carry = utils::bit_at(value, 7);
         self.r.f.update(result == 0, false, false, carry);
         source.write_direct(self, result);
 
@@ -853,7 +867,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RLA instruction
     /// Rotate A left through carry
     fn handle_rla(&mut self) -> u16 {
-        let new_carry = utils::bit_at(self.r.a, 7);
+        let new_carry = (self.r.a >> 7) != 0;
         self.r.a = (self.r.a << 1) | self.r.f.carry as u8;
         self.r.f.update(false, false, false, new_carry);
         self.clock.advance(4);
@@ -864,7 +878,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Rotates register to the left and updates CPU flags
     fn handle_rlc(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
-        let carry = utils::bit_at(value, 7);
+        let carry = value & 0x80 != 0;
         let result = (value << 1) | (value >> 7);
         self.r.f.update(result == 0, false, false, carry);
         source.write_direct(self, result);
@@ -889,7 +903,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_rr(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
         let carry = value & 0x01 != 0;
-        let result = (value >> 1) | ((self.r.f.carry as u8) << 7);
+        let result = (value >> 1) | (u8::from(self.r.f.carry) << 7);
         source.write_direct(self, result);
         self.r.f.update(result == 0, false, false, carry);
 
@@ -903,8 +917,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RRA instruction
     fn handle_rra(&mut self) -> u16 {
         let carry = self.r.a & 0x01 != 0;
-        let result = (self.r.a >> 1) | ((self.r.f.carry as u8) << 7);
-        self.r.a = result;
+        self.r.a = (self.r.a >> 1) | (u8::from(self.r.f.carry) << 7);
         self.r.f.update(false, false, false, carry);
         self.clock.advance(4);
         self.pc.wrapping_add(1)
@@ -913,8 +926,9 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RRC instructions
     fn handle_rrc(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
-        let carry = utils::bit_at(value, 0);
+        let carry = value & 0x01 != 0;
         let result = (value >> 1) | (value << 7);
+
         self.r.f.update(result == 0, false, false, carry);
         source.write_direct(self, result);
 
@@ -927,7 +941,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles RCAA instruction
     fn handle_rrca(&mut self) -> u16 {
-        let carry = self.r.a & 1;
+        let carry = self.r.a & 0x01;
         self.r.a = (self.r.a >> 1) | (carry << 7);
         self.r.f.update(false, false, false, carry != 0);
         self.clock.advance(4);
@@ -992,7 +1006,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles SLA instructions
     fn handle_sla(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
-        let carry = utils::bit_at(value, 7);
+        let carry = value & 0x80 != 0;
         let result = value << 1;
         self.r.f.update(result == 0, false, false, carry);
         source.write_direct(self, result);
@@ -1007,8 +1021,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles SRA instructions
     fn handle_sra(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
+        let carry = value & 0x01 != 0;
         let result = (value >> 1) | (value & 0x80);
-        let carry = utils::bit_at(value, 0);
         self.r.f.update(result == 0, false, false, carry);
         source.write_direct(self, result);
 
@@ -1068,9 +1082,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles SWAP instructions
     fn handle_swap(&mut self, source: ByteSource) -> u16 {
         let value = source.resolve_value(self);
-        let result = (value & 0x0F) << 4 | (value & 0xF0) >> 4;
-        self.r.f.update(result == 0, false, false, false);
-        source.write_direct(self, result);
+        self.r.f.update(value == 0, false, false, false);
+        source.write_direct(self, (value << 4) | (value >> 4));
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
