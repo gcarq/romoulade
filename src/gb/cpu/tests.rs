@@ -508,6 +508,32 @@ fn test_rra() {
 }
 
 #[test]
+fn test_rst() {
+    // RST 00h
+
+    // Expected execution
+    // op: 0x00 -> NOP
+    // op: 0xC7 -> RST(RST00)
+    // op: 0x04 -> INC(B)
+    // op: 0xC9 -> RET(Always)
+    // op: 0x0C -> INC(C)
+    let bus = RefCell::new(MockBus::new(
+        [0x04, 0xc9, 0x00, 0xC7, 0x0C, 0x00, 0x00, 0x00].into(),
+    ));
+    let mut cpu = CPU::new(&bus);
+
+    assert_eq!(cpu.sp, 0);
+    cpu.pc = 0x02;
+    cpu.sp = 0x07;
+
+    let ticks: u32 = (0..5).map(|_| cpu.step()).sum();
+    assert_eq!(cpu.r.b, 0x01);
+    assert_eq!(cpu.r.c, 0x01);
+    assert_eq!(cpu.pc, 0x05);
+    assert_eq!(ticks, 48);
+}
+
+#[test]
 fn test_sbc_carry() {
     // SBC A, D8
     let bus = RefCell::new(MockBus::new([0xde, 0x04].into()));
