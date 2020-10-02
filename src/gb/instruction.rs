@@ -886,7 +886,6 @@ impl Instruction {
             0xfd => None,
             0xfe => Some(Instruction::CP(ByteSource::D8)),
             0xff => Some(Instruction::RST(ResetCode::RST38)),
-            _ => None,
         }
     }
 }

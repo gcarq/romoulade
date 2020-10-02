@@ -222,8 +222,8 @@ impl AddressSpace for Cartridge {
         match address {
             0x0000..=ROM_BANK_N_END => self.handle_banking(address, value),
             CRAM_BEGIN..=CRAM_END => {
-                let address = address + self.cur_ram_bank as u16 * CRAM_SIZE as u16;
-                self.ram[(address - CRAM_BEGIN) as usize] = value
+                let offset = self.cur_ram_bank as u16 * CRAM_SIZE as u16;
+                self.ram[usize::from(address - CRAM_BEGIN + offset)] = value
             }
             _ => unimplemented!("Trying to write byte to ROM: {:#06x}", address),
         }
@@ -233,12 +233,12 @@ impl AddressSpace for Cartridge {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_0_END => self.rom[address as usize],
             ROM_BANK_N_BEGIN..=ROM_BANK_N_END => {
-                let address = address + self.cur_rom_bank as u16 * ROM_BANK_N_SIZE as u16;
-                self.rom[(address - ROM_BANK_N_BEGIN) as usize]
+                let offset = self.cur_rom_bank as u16 * ROM_BANK_N_SIZE as u16;
+                self.rom[usize::from(address - ROM_BANK_N_BEGIN + offset)]
             }
             CRAM_BEGIN..=CRAM_END => {
-                let address = address + self.cur_ram_bank as u16 * CRAM_SIZE as u16;
-                self.ram[(address - CRAM_BEGIN) as usize]
+                let offset = self.cur_ram_bank as u16 * CRAM_SIZE as u16;
+                self.ram[usize::from(address - CRAM_BEGIN + offset)]
             }
             _ => unimplemented!("Trying to read byte from ROM: {:#06x}", address),
         }

@@ -18,7 +18,7 @@ At this point it is capable of processing the Original Gameboy [Bootstrap ROM](h
 | 04-op r,imm           | ✅      | Passed           |
 | 05-op rp              | ✅      | Passed           |
 | 06-ld r,r             | ✅      | Passed           |
-| 07-jr,jp,call,ret,rst |         | Crash            |
+| 07-jr,jp,call,ret,rst | ✅      | Passed           |
 | 08-misc instrs        | ✅      | Passed           |
 | 09-op r,r             | ✅      | Passed           |
 | 10-bit ops            | ✅      | Passed           |

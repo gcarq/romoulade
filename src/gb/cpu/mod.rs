@@ -142,21 +142,21 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     fn log(&mut self, opcode: u8, instruction: &Instruction) {
         match self.pc {
-            0x0000 => println!("Setup Stack..."),
-            0x0003 => println!("Setup VRAM..."),
-            0x000c => println!("Setup Sound..."),
-            0x001d => println!("Setup BG palette..."),
-            0x0021 => println!("Loading logo data from cart into Video RAM..."),
-            0x0040 => println!("Setup background tilemap..."),
-            0x005d => println!("Turning on LCD and showing Background..."),
-            0x0062..=0x00fd => {}
-            0x00fe => println!("Done with processing boot ROM. Switching to Cartridge..."),
+            //0x0000 => println!("Setup Stack..."),
+            //0x0003 => println!("Setup VRAM..."),
+            //0x000c => println!("Setup Sound..."),
+            //0x001d => println!("Setup BG palette..."),
+            //0x0021 => println!("Loading logo data from cart into Video RAM..."),
+            //0x0040 => println!("Setup background tilemap..."),
+            //0x005d => println!("Turning on LCD and showing Background..."),
+            //0x0062..=0x00fd => {}
             0x0100 => {
                 assert_eq!(self.r.get_af(), 0x01B0, "AF is invalid, boot ROM failure!");
                 assert_eq!(self.r.get_bc(), 0x0013, "BC is invalid, boot ROM failure!");
                 assert_eq!(self.r.get_de(), 0x00D8, "DE is invalid, boot ROM failure!");
                 assert_eq!(self.r.get_hl(), 0x014D, "HL is invalid, boot ROM failure!");
                 assert_eq!(self.sp, 0xFFFE, "SP is invalid, boot ROM failure!");
+                println!("Done with processing boot ROM. Switching to Cartridge...");
             }
             0x0101..=0xffff => self.print_registers(opcode, Some(instruction)),
             _ => {}
@@ -600,9 +600,8 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                     ByteSource::D16I => self.clock.advance(12),
                     _ => {}
                 }
-                match target {
-                    LoadByteTarget::HLI => self.clock.advance(4),
-                    _ => {}
+                if let LoadByteTarget::HLI = target {
+                    self.clock.advance(4)
                 }
                 self.clock.advance(4);
                 self.pc.wrapping_add(1)
