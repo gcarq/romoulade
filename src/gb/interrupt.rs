@@ -40,11 +40,12 @@ impl convert::From<IRQ> for u8 {
 
 pub struct IRQHandler<'a, T: AddressSpace> {
     cpu: &'a RefCell<CPU<'a, T>>,
+    bus: &'a RefCell<T>,
 }
 
 impl<'a, T: AddressSpace> IRQHandler<'a, T> {
-    pub fn new(cpu: &'a RefCell<CPU<'a, T>>) -> Self {
-        Self { cpu }
+    pub fn new(cpu: &'a RefCell<CPU<'a, T>>, bus: &'a RefCell<T>) -> Self {
+        Self { cpu, bus }
     }
 
     /// Handles pending interrupt requests
@@ -87,12 +88,14 @@ impl<'a, T: AddressSpace> IRQHandler<'a, T> {
             IRQ::Joypad => self.cpu.borrow_mut().pc = 0x60,
         }
     }
+}
 
+impl<'a, T: AddressSpace> AddressSpace for IRQHandler<'a, T> {
     fn write(&mut self, address: u16, value: u8) {
-        self.cpu.borrow_mut().bus.borrow_mut().write(address, value);
+        self.bus.borrow_mut().write(address, value);
     }
 
     fn read(&self, address: u16) -> u8 {
-        self.cpu.borrow_mut().bus.borrow().read(address)
+        self.bus.borrow().read(address)
     }
 }

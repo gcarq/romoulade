@@ -19,7 +19,7 @@ pub struct CPU<'a, T: AddressSpace> {
     pub sp: u16,   // Stack Pointer
     pub ime: bool, // Interrupt Master Enable
     pub is_halted: bool,
-    pub bus: &'a RefCell<T>, // TODO: make me private
+    bus: &'a RefCell<T>,
     clock: Clock,
 }
 
