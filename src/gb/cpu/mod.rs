@@ -344,40 +344,25 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles DAA instruction
     fn handle_daa(&mut self) -> u16 {
-        let mut adjust = 0;
-        // See if we had a carry/borrow for the high nibble in the last
-        // operation
-        if self.r.f.carry {
-            adjust |= 0x60;
-        }
-        // See if we had a carry/borrow for the low nibble in the last
-        // operation
-        if self.r.f.half_carry {
-            adjust |= 0x06
-        }
-
-        let result = if self.r.f.negative {
-            // If the operation was a subtraction we're done since we
-            // can never end up in the A-F range by subtracting
-            // without generating a (half)carry.
-            self.r.a.wrapping_sub(adjust)
+        if self.r.f.negative {
+            if self.r.f.carry {
+                self.r.a = self.r.a.wrapping_sub(0x60);
+            }
+            if self.r.f.half_carry {
+                self.r.a = self.r.a.wrapping_sub(0x06);
+            }
         } else {
-            // Additions are a bit more tricky because we might have
-            // to adjust even if we haven't overflowed (and no carry
-            // is present). For instance: 0x08 + 0x04 -> 0x0c.
-            if self.r.a & 0x0F > 0x09 {
-                adjust |= 0x06;
+            if self.r.f.carry || self.r.a > 0x99 {
+                self.r.a = self.r.a.wrapping_add(0x60);
+                self.r.f.carry = true;
             }
-            if self.r.a > 0x99 {
-                adjust |= 0x60;
+            if self.r.f.half_carry || (self.r.a & 0x0F) > 0x09 {
+                self.r.a = self.r.a.wrapping_add(0x06);
             }
-            self.r.a.wrapping_add(adjust)
-        };
-
-        self.r.a = result;
-        self.r.f.zero = result == 0;
+        }
+        self.r.f.zero = self.r.a == 0;
         self.r.f.half_carry = false;
-        self.r.f.carry = adjust & 0x60 != 0;
+
         self.clock.advance(4);
         self.pc.wrapping_add(1)
     }
