@@ -1,12 +1,13 @@
 # Romoulade
 
-Experimental Gameboy ([DMG-01](https://en.wikipedia.org/wiki/Game_Boy)) implementation in Rust.
+Experimental Gameboy Emulator implementation in Rust.
 
 
 ## State
 
 This emulator is not production ready and mainly a emulation exploration project.
 At this point it is capable of processing the Original Gameboy [Bootstrap ROM](https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM).
+
 
 ### Blargg's CPU test results
 
@@ -30,12 +31,13 @@ At this point it is capable of processing the Original Gameboy [Bootstrap ROM](h
 ```sh
 $ git clone https://github.com/gcarq/romoulade
 $ emerge media-libs/libsdl2 # pacman -S sdl2; apt install libsdl2-dev
-$ cd romouldate
+$ cd romoulade
 $ cargo run -- <path_to_rom>
 ```
 
 This repository is open to contributions.
 The code should follow the Rust style guideline.
+
 
 ## Dependencies
 
@@ -44,8 +46,8 @@ The code should follow the Rust style guideline.
 
 ## TODOs
 
- - Finish ROM banking
- - Implement missing instruction tests
+ - ROM banking: Implement MBC2+
+ - Increase instruction test coverage
  - Finish Pixel Processing Unit
  - Implement Sound Processing Unit
  - Pass [Test ROMs](https://gbdev.gg8.se/files/roms/blargg-gb-tests/)
