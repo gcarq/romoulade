@@ -143,7 +143,6 @@ impl MemoryBus {
 
 impl AddressSpace for MemoryBus {
     fn write(&mut self, address: u16, value: u8) {
-        // TODO: Implement DMA Transfer if address == 0xFF46
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.vram[(address - VRAM_BEGIN) as usize] = value,

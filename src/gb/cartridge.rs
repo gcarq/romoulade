@@ -110,10 +110,6 @@ impl Cartridge {
         file.read_exact(&mut buffer)?;
         let meta = Metadata::from_buf(&buffer);
 
-        /*if meta.cgb_flag != 0x80 {
-            unimplemented!("TODO: only GB games are supported for now!");
-        }*/
-
         Ok(Self {
             meta,
             rom: buffer,
@@ -179,7 +175,7 @@ impl Cartridge {
         }
     }
 
-    // TODO:
+    /// Change ROM banking mode (lower 5 bits)
     fn change_low_rom_bank(&mut self, value: u8) {
         if self.meta.banking == BankingMode::MBC2 {
             self.cur_rom_bank = value & 0x0F;
@@ -193,7 +189,7 @@ impl Cartridge {
         self.sanitize_rom_bank();
     }
 
-    // TODO:
+    /// Change ROM banking mode (bits 5 & 6)
     fn change_hi_rom_bank(&mut self, value: u8) {
         // Turn of the upper 3 bits of the current bank
         // and turn of the lower 5 bits of the passed value

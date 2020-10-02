@@ -23,7 +23,6 @@ pub struct Display {
 
 impl Display {
     /// Creates a new display with the given int upscale.
-    /// TODO: make upscale float
     pub fn new(upscale: u8, fps_limit: u32) -> Result<Self, Box<dyn error::Error>> {
         let sdl = sdl2::init()?;
         let up = 1 << (upscale as usize);
