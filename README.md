@@ -45,7 +45,6 @@ The code should follow the Rust style guideline.
 ## TODOs
 
  - Finish ROM banking
- - Implement missing instructions
  - Implement missing instruction tests
  - Finish Pixel Processing Unit
  - Implement Sound Processing Unit
