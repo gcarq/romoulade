@@ -48,6 +48,7 @@ impl<'a, T: AddressSpace> IRQHandler<'a, T> {
     }
 
     /// Handles pending interrupt requests
+    /// TODO: implement HALT instruction bug (Section 4.10): https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
     pub fn handle(&mut self) {
         let requests = self.read(INTERRUPT_FLAG);
         if requests == 0 {

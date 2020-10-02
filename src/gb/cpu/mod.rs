@@ -428,6 +428,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             IncDecTarget::HL => self.r.set_hl(self.r.get_hl().wrapping_sub(1)),
             IncDecTarget::SP => self.sp = self.sp.wrapping_sub(1),
         }
+
         match target {
             IncDecTarget::HLI => self.clock.advance(12),
             IncDecTarget::BC | IncDecTarget::DE | IncDecTarget::HL | IncDecTarget::SP => {
@@ -435,7 +436,6 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             }
             _ => self.clock.advance(4),
         }
-
         self.pc.wrapping_add(1)
     }
 
@@ -573,14 +573,14 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 
     /// Handles LD instructions
-    fn handle_ld(&mut self, load_type: LoadType) -> u16 {
+    fn handle_ld(&mut self, load_type: Load) -> u16 {
         match load_type {
-            LoadType::Byte(target, source) => {
+            Load::Byte(target, source) => {
                 let value = source.resolve_value(self);
                 match target {
                     LoadByteTarget::A => self.r.a = value,
                     LoadByteTarget::B => self.r.b = value,
-                    LoadByteTarget::CIFF00 => self.r.c = value,
+                    LoadByteTarget::C => self.r.c = value,
                     LoadByteTarget::D => self.r.d = value,
                     LoadByteTarget::E => self.r.e = value,
                     LoadByteTarget::H => self.r.h = value,
@@ -592,17 +592,22 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 // Each I/O operation takes 4 additional cycles,
                 // that means if both source and target involve I/O
                 // it takes 12 cycles in total.
-                match (source, target) {
-                    (ByteSource::D8, LoadByteTarget::HLI) => self.clock.advance(12),
-                    (ByteSource::D8, _) => self.clock.advance(8),
-                    (ByteSource::HLI, _) => self.clock.advance(8),
-                    (_, LoadByteTarget::HLI) => self.clock.advance(8),
-                    (_, _) => self.clock.advance(4),
+                match source {
+                    ByteSource::CIFF00 => self.clock.advance(4),
+                    ByteSource::D8 => self.clock.advance(4),
+                    ByteSource::D8IFF00 => self.clock.advance(8),
+                    ByteSource::HLI => self.clock.advance(4),
+                    ByteSource::D16I => self.clock.advance(12),
+                    _ => {}
                 }
-
+                match target {
+                    LoadByteTarget::HLI => self.clock.advance(4),
+                    _ => {}
+                }
+                self.clock.advance(4);
                 self.pc.wrapping_add(1)
             }
-            LoadType::Word(target, source) => {
+            Load::Word(target, source) => {
                 let value = source.resolve_value(self);
                 match target {
                     LoadWordTarget::BC => self.r.set_bc(value),
@@ -614,7 +619,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.clock.advance(12);
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFrom(target, source) => {
+            Load::IndirectFrom(target, source) => {
                 let value = source.resolve_value(self);
                 let addr = match target {
                     LoadByteTarget::BCI => self.r.get_bc(),
@@ -635,7 +640,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFromAInc(target) => {
+            Load::IndirectFromAInc(target) => {
                 let addr = match target {
                     LoadByteTarget::HLI => self.r.get_hl(),
                     _ => unimplemented!(),
@@ -649,7 +654,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFromADec(target) => {
+            Load::IndirectFromADec(target) => {
                 let addr = match target {
                     LoadByteTarget::HLI => self.r.get_hl(),
                     _ => unimplemented!(),
@@ -662,10 +667,9 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFromWord(target, source) => {
+            Load::IndirectFromWord(target, source) => {
                 let value = source.resolve_value(self);
                 match target {
-                    LoadWordTarget::SP => self.sp = value,
                     LoadWordTarget::D16I => {
                         let address = self.consume_word();
                         self.write(address, value as u8);
@@ -679,22 +683,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 }
                 self.pc.wrapping_add(1)
             }
-            LoadType::FromIndirect(target, source) => {
-                let value = source.resolve_value(self);
-                match target {
-                    LoadByteTarget::A => self.r.a = value,
-                    LoadByteTarget::E => self.r.e = value,
-                    _ => unimplemented!(),
-                }
-                match source {
-                    ByteSource::D16I => self.clock.advance(16),
-                    ByteSource::D8IFF00 => self.clock.advance(12),
-                    _ => self.clock.advance(8),
-                }
-
-                self.pc.wrapping_add(1)
-            }
-            LoadType::FromIndirectAInc(source) => {
+            Load::FromIndirectAInc(source) => {
                 self.r.a = source.resolve_value(self);
                 match source {
                     ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_add(1)),
@@ -704,7 +693,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
-            LoadType::FromIndirectADec(source) => {
+            Load::FromIndirectADec(source) => {
                 self.r.a = source.resolve_value(self);
                 match source {
                     ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_sub(1)),
@@ -714,7 +703,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.clock.advance(8);
                 self.pc.wrapping_add(1)
             }
-            LoadType::IndirectFromSPi8(target) => {
+            Load::IndirectFromSPi8(target) => {
                 // TODO: generalize this
                 let sp = self.sp as i32;
                 let n = self.consume_byte() as i8;
