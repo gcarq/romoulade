@@ -905,7 +905,6 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RST instructions
     fn handle_rst(&mut self, code: ResetCode) -> u16 {
         self.clock.advance(16);
-        self.sp = self.sp.wrapping_sub(2);
         self.push(self.pc);
         match code {
             ResetCode::RST00 => 0x00,
