@@ -822,6 +822,7 @@ impl Instruction {
             0xd4 => Some(Instruction::CALL(JumpTest::NotCarry)),
             0xd5 => Some(Instruction::PUSH(StackTarget::DE)),
             0xd6 => Some(Instruction::SUB(ByteSource::D8)),
+            0xd7 => Some(Instruction::RST(ResetCode::RST10)),
             0xd8 => Some(Instruction::RET(JumpTest::Carry)),
             0xd9 => Some(Instruction::RETI),
             0xda => Some(Instruction::JP(JumpTest::Carry, WordSource::D16)),
@@ -844,6 +845,7 @@ impl Instruction {
             0xe4 => None,
             0xe5 => Some(Instruction::PUSH(StackTarget::HL)),
             0xe6 => Some(Instruction::AND(ByteSource::D8)),
+            0xe7 => Some(Instruction::RST(ResetCode::RST20)),
             0xe8 => Some(Instruction::ADDSP),
             0xe9 => Some(Instruction::JP(JumpTest::Always, WordSource::HL)),
             0xea => Some(Instruction::LD(Load::IndirectFrom(
@@ -869,6 +871,7 @@ impl Instruction {
             0xf4 => None,
             0xf5 => Some(Instruction::PUSH(StackTarget::AF)),
             0xf6 => Some(Instruction::OR(ByteSource::D8)),
+            0xf7 => Some(Instruction::RST(ResetCode::RST30)),
             0xf8 => Some(Instruction::LD(Load::IndirectFromSPi8(LoadWordTarget::HL))),
             0xf9 => Some(Instruction::LD(Load::Word(
                 LoadWordTarget::SP,
@@ -1062,7 +1065,10 @@ pub enum StackTarget {
 pub enum ResetCode {
     RST00,
     RST08,
+    RST10,
     RST18,
+    RST20,
     RST28,
+    RST30,
     RST38,
 }
