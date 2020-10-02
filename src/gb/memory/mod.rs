@@ -76,6 +76,12 @@ impl MemoryBus {
         }
     }
 
+    /// Writes to Echo RAM, effectively mirroring to Working RAM
+    fn write_eram(&mut self, address: u16, value: u8) {
+        self.eram[(address - ERAM_BEGIN) as usize] = value;
+        self.wram[(address - ERAM_SIZE as u16 - WRAM_BEGIN) as usize] = value;
+    }
+
     /// TODO: document unmapped I/O registers
     /// https://gbdev.gg8.se/wiki/articles/CGB_Registers#FF6C_-_Bit_0_.28Read.2FWrite.29_-_CGB_Mode_Only
     fn read_io(&self, address: u16) -> u8 {
@@ -143,11 +149,7 @@ impl AddressSpace for MemoryBus {
             VRAM_BEGIN..=VRAM_END => self.vram[(address - VRAM_BEGIN) as usize] = value,
             CRAM_BEGIN..=CRAM_END => self.cartridge.write(address, value),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize] = value,
-            ERAM_BEGIN..=ERAM_END => {
-                // Mirrors Working RAM
-                self.eram[(address - ERAM_BEGIN) as usize] = value;
-                self.wram[(address - ERAM_SIZE as u16 - WRAM_BEGIN) as usize] = value;
-            }
+            ERAM_BEGIN..=ERAM_END => self.write_eram(address, value),
             OAM_BEGIN..=OAM_END => self.oam[(address - OAM_BEGIN) as usize] = value,
             UNUSED_BEGIN..=UNUSED_END => {}
             IO_BEGIN..=IO_END => self.write_io(address, value),
