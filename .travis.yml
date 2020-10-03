@@ -9,6 +9,7 @@ addons:
     packages:
       - libelf-dev
       - libdw-dev
+      - libsdl2-dev
       - binutils-dev # optional: only required for the --verify flag of coveralls
 
 cache: cargo
