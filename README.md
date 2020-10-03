@@ -1,5 +1,5 @@
 # Romoulade
-[![Build Status](https://travis-ci.org/gcarq/romoulade.svg?branch=master)](https://travis-ci.org/gcarq/romoulade) [![Coverage Status](https://coveralls.io/repos/github/gcarq/romoulade/badge.svg?branch=master)](https://coveralls.io/github/gcarq/romoulade?branch=master)
+[![Build Status](https://travis-ci.org/gcarq/romoulade.svg?branch=master)](https://travis-ci.org/gcarq/romoulade)
 
 Experimental Gameboy Emulator implementation in Rust.
 
