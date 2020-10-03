@@ -9,14 +9,16 @@ pub enum Instruction {
     ADC(ByteSource),          // Add n + Carry flag to A
     AND(ByteSource),          // Logically AND n with A, result in A
     BIT(u8, ByteSource),      // Test bit b in register r
-    INC(IncDecTarget),        // Increment register n
+    INC(IncDecByteTarget),    // Increment single byte register n
+    INC2(IncDecWordTarget),   // Increment word register n
     CALL(JumpTest), // Push address of next instruction onto stack and then  jump to address nn
     CCF,            // Complement carry flag
     CP(ByteSource), // Compare A with source
     CPL,            // Flips all bits in A register, sets N and H flags
     DAA,            // This instruction is useful when you’re using BCD value
     DI,             // Disables interrupt handling by setting ime = false
-    DEC(IncDecTarget), // Decrement register n
+    DEC(IncDecByteTarget), // Decrement single byte register n
+    DEC2(IncDecWordTarget), // Decrement word register n
     EI,             // Enables interrupt handling by setting ime = true
     HALT,           // Halts and wait for interrupt
     JR(JumpTest),   // Relative jump to given address
@@ -363,9 +365,9 @@ impl Instruction {
                 LoadByteTarget::BCI,
                 ByteSource::A,
             ))),
-            0x03 => Some(Instruction::INC(IncDecTarget::BC)),
-            0x04 => Some(Instruction::INC(IncDecTarget::B)),
-            0x05 => Some(Instruction::DEC(IncDecTarget::B)),
+            0x03 => Some(Instruction::INC2(IncDecWordTarget::BC)),
+            0x04 => Some(Instruction::INC(IncDecByteTarget::B)),
+            0x05 => Some(Instruction::DEC(IncDecByteTarget::B)),
             0x06 => Some(Instruction::LD(Load::Byte(
                 LoadByteTarget::B,
                 ByteSource::D8,
@@ -380,9 +382,9 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::BCI,
             ))),
-            0x0b => Some(Instruction::DEC(IncDecTarget::BC)),
-            0x0c => Some(Instruction::INC(IncDecTarget::C)),
-            0x0d => Some(Instruction::DEC(IncDecTarget::C)),
+            0x0b => Some(Instruction::DEC2(IncDecWordTarget::BC)),
+            0x0c => Some(Instruction::INC(IncDecByteTarget::C)),
+            0x0d => Some(Instruction::DEC(IncDecByteTarget::C)),
             0x0e => Some(Instruction::LD(Load::Byte(
                 LoadByteTarget::C,
                 ByteSource::D8,
@@ -398,9 +400,9 @@ impl Instruction {
                 LoadByteTarget::DEI,
                 ByteSource::A,
             ))),
-            0x13 => Some(Instruction::INC(IncDecTarget::DE)),
-            0x14 => Some(Instruction::INC(IncDecTarget::D)),
-            0x15 => Some(Instruction::DEC(IncDecTarget::D)),
+            0x13 => Some(Instruction::INC2(IncDecWordTarget::DE)),
+            0x14 => Some(Instruction::INC(IncDecByteTarget::D)),
+            0x15 => Some(Instruction::DEC(IncDecByteTarget::D)),
             0x16 => Some(Instruction::LD(Load::Byte(
                 LoadByteTarget::D,
                 ByteSource::D8,
@@ -412,9 +414,9 @@ impl Instruction {
                 LoadByteTarget::A,
                 ByteSource::DEI,
             ))),
-            0x1b => Some(Instruction::DEC(IncDecTarget::DE)),
-            0x1c => Some(Instruction::INC(IncDecTarget::E)),
-            0x1d => Some(Instruction::DEC(IncDecTarget::E)),
+            0x1b => Some(Instruction::DEC2(IncDecWordTarget::DE)),
+            0x1c => Some(Instruction::INC(IncDecByteTarget::E)),
+            0x1d => Some(Instruction::DEC(IncDecByteTarget::E)),
             0x1e => Some(Instruction::LD(Load::Byte(
                 LoadByteTarget::E,
                 ByteSource::D8,
@@ -427,9 +429,9 @@ impl Instruction {
                 WordSource::D16,
             ))),
             0x22 => Some(Instruction::LD(Load::IndirectFromAInc(LoadByteTarget::HLI))),
-            0x23 => Some(Instruction::INC(IncDecTarget::HL)),
-            0x24 => Some(Instruction::INC(IncDecTarget::H)),
-            0x25 => Some(Instruction::DEC(IncDecTarget::H)),
+            0x23 => Some(Instruction::INC2(IncDecWordTarget::HL)),
+            0x24 => Some(Instruction::INC(IncDecByteTarget::H)),
+            0x25 => Some(Instruction::DEC(IncDecByteTarget::H)),
             0x26 => Some(Instruction::LD(Load::Byte(
                 LoadByteTarget::H,
                 ByteSource::D8,
@@ -438,9 +440,9 @@ impl Instruction {
             0x28 => Some(Instruction::JR(JumpTest::Zero)),
             0x29 => Some(Instruction::ADDHL(WordSource::HL)),
             0x2a => Some(Instruction::LD(Load::FromIndirectAInc(ByteSource::HLI))),
-            0x2b => Some(Instruction::DEC(IncDecTarget::HL)),
-            0x2c => Some(Instruction::INC(IncDecTarget::L)),
-            0x2d => Some(Instruction::DEC(IncDecTarget::L)),
+            0x2b => Some(Instruction::DEC2(IncDecWordTarget::HL)),
+            0x2c => Some(Instruction::INC(IncDecByteTarget::L)),
+            0x2d => Some(Instruction::DEC(IncDecByteTarget::L)),
             0x2e => Some(Instruction::LD(Load::Byte(
                 LoadByteTarget::L,
                 ByteSource::D8,
@@ -453,9 +455,9 @@ impl Instruction {
                 WordSource::D16,
             ))),
             0x32 => Some(Instruction::LD(Load::IndirectFromADec(LoadByteTarget::HLI))),
-            0x33 => Some(Instruction::INC(IncDecTarget::SP)),
-            0x34 => Some(Instruction::INC(IncDecTarget::HLI)),
-            0x35 => Some(Instruction::DEC(IncDecTarget::HLI)),
+            0x33 => Some(Instruction::INC2(IncDecWordTarget::SP)),
+            0x34 => Some(Instruction::INC(IncDecByteTarget::HLI)),
+            0x35 => Some(Instruction::DEC(IncDecByteTarget::HLI)),
             0x36 => Some(Instruction::LD(Load::Byte(
                 LoadByteTarget::HLI,
                 ByteSource::D8,
@@ -464,9 +466,9 @@ impl Instruction {
             0x38 => Some(Instruction::JR(JumpTest::Carry)),
             0x39 => Some(Instruction::ADDHL(WordSource::SP)),
             0x3a => Some(Instruction::LD(Load::FromIndirectADec(ByteSource::HLI))),
-            0x3b => Some(Instruction::DEC(IncDecTarget::SP)),
-            0x3c => Some(Instruction::INC(IncDecTarget::A)),
-            0x3d => Some(Instruction::DEC(IncDecTarget::A)),
+            0x3b => Some(Instruction::DEC2(IncDecWordTarget::SP)),
+            0x3c => Some(Instruction::INC(IncDecByteTarget::A)),
+            0x3d => Some(Instruction::DEC(IncDecByteTarget::A)),
             0x3e => Some(Instruction::LD(Load::Byte(
                 LoadByteTarget::A,
                 ByteSource::D8,
@@ -891,7 +893,7 @@ impl Instruction {
 }
 
 #[derive(Debug)]
-pub enum IncDecTarget {
+pub enum IncDecByteTarget {
     A,
     B,
     C,
@@ -899,11 +901,67 @@ pub enum IncDecTarget {
     E,
     H,
     L,
+    HLI,
+}
+
+impl IncDecByteTarget {
+    /// Resolves the referring value
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
+        match *self {
+            IncDecByteTarget::A => cpu.r.a,
+            IncDecByteTarget::B => cpu.r.b,
+            IncDecByteTarget::C => cpu.r.c,
+            IncDecByteTarget::D => cpu.r.d,
+            IncDecByteTarget::E => cpu.r.e,
+            IncDecByteTarget::H => cpu.r.h,
+            IncDecByteTarget::L => cpu.r.l,
+            IncDecByteTarget::HLI => cpu.read(cpu.r.get_hl()),
+        }
+    }
+
+    /// Writes to the the referring register or memory location
+    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u8) {
+        match *self {
+            IncDecByteTarget::A => cpu.r.a = value,
+            IncDecByteTarget::B => cpu.r.b = value,
+            IncDecByteTarget::C => cpu.r.c = value,
+            IncDecByteTarget::D => cpu.r.d = value,
+            IncDecByteTarget::E => cpu.r.e = value,
+            IncDecByteTarget::H => cpu.r.h = value,
+            IncDecByteTarget::L => cpu.r.l = value,
+            IncDecByteTarget::HLI => cpu.write(cpu.r.get_hl(), value),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum IncDecWordTarget {
     BC,
     DE,
     HL,
     SP,
-    HLI,
+}
+
+impl IncDecWordTarget {
+    /// Resolves the referring value
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u16 {
+        match *self {
+            IncDecWordTarget::BC => cpu.r.get_bc(),
+            IncDecWordTarget::DE => cpu.r.get_de(),
+            IncDecWordTarget::HL => cpu.r.get_hl(),
+            IncDecWordTarget::SP => cpu.sp,
+        }
+    }
+
+    /// Writes to the the referring register
+    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u16) {
+        match *self {
+            IncDecWordTarget::BC => cpu.r.set_bc(value),
+            IncDecWordTarget::DE => cpu.r.set_de(value),
+            IncDecWordTarget::HL => cpu.r.set_hl(value),
+            IncDecWordTarget::SP => cpu.sp = value,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -917,7 +975,7 @@ pub enum JumpTest {
 
 impl JumpTest {
     /// Resolves the referring value
-    pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> bool {
+    pub fn resolve<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> bool {
         match *self {
             JumpTest::NotZero => !cpu.r.f.zero,
             JumpTest::Zero => cpu.r.f.zero,
@@ -965,7 +1023,7 @@ pub enum ByteSource {
 
 impl ByteSource {
     /// Resolves the referring value
-    pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
         match *self {
             ByteSource::A => cpu.r.a,
             ByteSource::B => cpu.r.b,
@@ -991,7 +1049,7 @@ impl ByteSource {
     }
 
     /// Writes value to a register or an address referred by a register
-    pub fn write_direct<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u8) {
+    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u8) {
         match *self {
             ByteSource::A => cpu.r.a = value,
             ByteSource::B => cpu.r.b = value,
@@ -1028,7 +1086,7 @@ pub enum WordSource {
 
 impl WordSource {
     /// Resolves the referring value
-    pub fn resolve_value<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u16 {
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u16 {
         match *self {
             WordSource::BC => cpu.r.get_bc(),
             WordSource::DE => cpu.r.get_de(),

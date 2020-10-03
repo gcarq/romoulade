@@ -104,10 +104,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             Instruction::CPL => self.handle_cpl(),
             Instruction::DAA => self.handle_daa(),
             Instruction::DI => self.handle_interrupt(false),
-            Instruction::DEC(target) => self.handle_dec(target),
+            Instruction::DEC(target) => self.handle_dec_byte(target),
+            Instruction::DEC2(target) => self.handle_dec_word(target),
             Instruction::EI => self.handle_interrupt(true),
             Instruction::HALT => self.handle_halt(),
-            Instruction::INC(target) => self.handle_inc(target),
+            Instruction::INC(target) => self.handle_inc_byte(target),
+            Instruction::INC2(target) => self.handle_inc_word(target),
             Instruction::JR(test) => self.handle_jr(test),
             Instruction::JP(test, source) => self.handle_jp(test, source),
             Instruction::LD(load_type) => self.handle_ld(load_type),
@@ -198,7 +200,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles ADD instructions
     fn handle_add(&mut self, source: ByteSource) -> u16 {
-        let source_value = source.resolve_value(self);
+        let source_value = source.read(self);
         let (new_value, did_overflow) = self.r.a.overflowing_add(source_value);
         // Half Carry is set if adding the lower nibbles of the value and register A
         // together result in a value bigger than 0xF. If the result is larger than 0xF
@@ -222,7 +224,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles ADD HL, nn instructions
     fn handle_add_hl(&mut self, source: WordSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let hl = self.r.get_hl();
         let (result, overflow) = hl.overflowing_add(value);
 
@@ -253,7 +255,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles ADC instructions
     fn handle_adc(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let half_carry = ((self.r.a & 0x0F) + (value & 0x0F) + self.r.f.carry as u8) > 0x0F;
 
         let (result, overflow) = self.r.a.overflowing_add(value);
@@ -272,7 +274,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles AND instructions
     fn handle_and(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         self.r.a &= value;
         self.r.f.update(self.r.a == 0, false, true, false);
         self.clock.advance(4);
@@ -281,7 +283,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles BIT instructions
     fn handle_bit(&mut self, bit: u8, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         self.r.f.zero = !utils::bit_at(value, bit);
         self.r.f.negative = false;
         self.r.f.half_carry = true;
@@ -294,7 +296,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handle CALL instructions
     fn handle_call(&mut self, test: JumpTest) -> u16 {
-        let should_jump = test.resolve_value(self);
+        let should_jump = test.resolve(self);
         let next_pc = self.pc.wrapping_add(3);
         if should_jump {
             self.clock.advance(24);
@@ -317,7 +319,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles CP instructions
     fn handle_cp(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let result = u32::from(self.r.a).wrapping_sub(u32::from(value));
 
         self.r.f.zero = result as u8 == 0;
@@ -367,75 +369,27 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.pc.wrapping_add(1)
     }
 
-    /// Handles DEC instructions
-    /// TODO: refactor me
-    fn handle_dec(&mut self, target: IncDecTarget) -> u16 {
+    /// Handles DEC instructions for bytes
+    fn handle_dec_byte(&mut self, target: IncDecByteTarget) -> u16 {
+        let value = target.read(self);
+        let result = value.wrapping_sub(1);
+        target.write(self, result);
+        self.r.f.half_carry = value.trailing_zeros() >= 4;
+        self.r.f.zero = result == 0;
+        self.r.f.negative = true;
         match target {
-            IncDecTarget::A => {
-                self.r.f.half_carry = self.r.a.trailing_zeros() >= 4;
-                self.r.a = self.r.a.wrapping_sub(1);
-                self.r.f.zero = self.r.a == 0;
-                self.r.f.negative = true;
-            }
-            IncDecTarget::B => {
-                self.r.f.half_carry = self.r.b.trailing_zeros() >= 4;
-                self.r.b = self.r.b.wrapping_sub(1);
-                self.r.f.zero = self.r.b == 0;
-                self.r.f.negative = true;
-            }
-            IncDecTarget::C => {
-                self.r.f.half_carry = self.r.c.trailing_zeros() >= 4;
-                self.r.c = self.r.c.wrapping_sub(1);
-
-                self.r.f.zero = self.r.c == 0;
-                self.r.f.negative = true;
-            }
-            IncDecTarget::D => {
-                self.r.f.half_carry = self.r.d.trailing_zeros() >= 4;
-                self.r.d = self.r.d.wrapping_sub(1);
-                self.r.f.zero = self.r.d == 0;
-                self.r.f.negative = true;
-            }
-            IncDecTarget::E => {
-                self.r.f.half_carry = self.r.e.trailing_zeros() >= 4;
-                self.r.e = self.r.e.wrapping_sub(1);
-                self.r.f.zero = self.r.e == 0;
-                self.r.f.negative = true;
-            }
-            IncDecTarget::H => {
-                self.r.f.half_carry = self.r.h.trailing_zeros() >= 4;
-                self.r.h = self.r.h.wrapping_sub(1);
-                self.r.f.zero = self.r.h == 0;
-                self.r.f.negative = true;
-            }
-            IncDecTarget::L => {
-                self.r.f.half_carry = self.r.l.trailing_zeros() >= 4;
-                self.r.l = self.r.l.wrapping_sub(1);
-                self.r.f.zero = self.r.l == 0;
-                self.r.f.negative = true;
-            }
-            IncDecTarget::HLI => {
-                let hl = self.r.get_hl();
-                let value = self.read(hl);
-                self.r.f.half_carry = value.trailing_zeros() >= 4;
-                let result = value.wrapping_sub(1);
-                self.write(hl, result);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = true;
-            }
-            IncDecTarget::BC => self.r.set_bc(self.r.get_bc().wrapping_sub(1)),
-            IncDecTarget::DE => self.r.set_de(self.r.get_de().wrapping_sub(1)),
-            IncDecTarget::HL => self.r.set_hl(self.r.get_hl().wrapping_sub(1)),
-            IncDecTarget::SP => self.sp = self.sp.wrapping_sub(1),
-        }
-
-        match target {
-            IncDecTarget::HLI => self.clock.advance(12),
-            IncDecTarget::BC | IncDecTarget::DE | IncDecTarget::HL | IncDecTarget::SP => {
-                self.clock.advance(8)
-            }
+            IncDecByteTarget::HLI => self.clock.advance(12),
             _ => self.clock.advance(4),
         }
+        self.pc.wrapping_add(1)
+    }
+
+    /// Handles DEC instructions for words
+    fn handle_dec_word(&mut self, target: IncDecWordTarget) -> u16 {
+        let value = target.read(self);
+        let result = value.wrapping_sub(1);
+        target.write(self, result);
+        self.clock.advance(8);
         self.pc.wrapping_add(1)
     }
 
@@ -446,81 +400,27 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         self.pc.wrapping_add(1)
     }
 
-    /// Handles INC instructions
-    /// TODO: refactor me
-    fn handle_inc(&mut self, target: IncDecTarget) -> u16 {
+    /// Handles INC instructions for bytes
+    fn handle_inc_byte(&mut self, target: IncDecByteTarget) -> u16 {
+        let value = target.read(self);
+        let result = value.wrapping_add(1);
+        target.write(self, result);
+        self.r.f.half_carry = value & 0x0F == 0x0F;
+        self.r.f.zero = result == 0;
+        self.r.f.negative = false;
         match target {
-            IncDecTarget::A => {
-                let result = self.r.a.wrapping_add(1);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.a & 0x0F == 0x0F;
-                self.r.a = result;
-            }
-            IncDecTarget::B => {
-                let result = self.r.b.wrapping_add(1);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.b & 0x0F == 0x0F;
-                self.r.b = result;
-            }
-            IncDecTarget::C => {
-                let result = self.r.c.wrapping_add(1);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.c & 0x0F == 0x0F;
-                self.r.c = result;
-            }
-            IncDecTarget::D => {
-                let result = self.r.d.wrapping_add(1);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.d & 0x0F == 0x0F;
-                self.r.d = result;
-            }
-            IncDecTarget::E => {
-                let result = self.r.e.wrapping_add(1);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.e & 0x0F == 0x0F;
-                self.r.e = result;
-            }
-            IncDecTarget::H => {
-                let result = self.r.h.wrapping_add(1);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.h & 0x0F == 0x0F;
-                self.r.h = result;
-            }
-            IncDecTarget::L => {
-                let result = self.r.l.wrapping_add(1);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = self.r.l & 0x0F == 0x0F;
-                self.r.l = result;
-            }
-            IncDecTarget::HLI => {
-                let hl = self.r.get_hl();
-                let value = self.read(hl);
-                let result = value.wrapping_add(1);
-                self.r.f.zero = result == 0;
-                self.r.f.negative = false;
-                self.r.f.half_carry = value & 0x0F == 0x0F;
-                self.write(hl, result);
-            }
-            IncDecTarget::BC => self.r.set_bc(self.r.get_bc().wrapping_add(1)),
-            IncDecTarget::DE => self.r.set_de(self.r.get_de().wrapping_add(1)),
-            IncDecTarget::HL => self.r.set_hl(self.r.get_hl().wrapping_add(1)),
-            IncDecTarget::SP => self.sp = self.sp.wrapping_add(1),
-        }
-
-        match target {
-            IncDecTarget::HLI => self.clock.advance(12),
-            IncDecTarget::BC | IncDecTarget::DE | IncDecTarget::HL | IncDecTarget::SP => {
-                self.clock.advance(8)
-            }
+            IncDecByteTarget::HLI => self.clock.advance(12),
             _ => self.clock.advance(4),
         }
+        self.pc.wrapping_add(1)
+    }
+
+    /// Handles INC instructions for words
+    fn handle_inc_word(&mut self, target: IncDecWordTarget) -> u16 {
+        let value = target.read(self);
+        let result = value.wrapping_add(1);
+        target.write(self, result);
+        self.clock.advance(8);
         self.pc.wrapping_add(1)
     }
 
@@ -533,7 +433,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles JR instructions
     fn handle_jr(&mut self, test: JumpTest) -> u16 {
-        let should_jump = test.resolve_value(self);
+        let should_jump = test.resolve(self);
 
         if should_jump {
             self.clock.advance(12);
@@ -550,7 +450,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles JP instructions
     fn handle_jp(&mut self, test: JumpTest, source: WordSource) -> u16 {
-        let should_jump = test.resolve_value(self);
+        let should_jump = test.resolve(self);
 
         if should_jump {
             return match source {
@@ -576,7 +476,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_ld(&mut self, load_type: Load) -> u16 {
         match load_type {
             Load::Byte(target, source) => {
-                let value = source.resolve_value(self);
+                let value = source.read(self);
                 match target {
                     LoadByteTarget::A => self.r.a = value,
                     LoadByteTarget::B => self.r.b = value,
@@ -607,7 +507,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             Load::Word(target, source) => {
-                let value = source.resolve_value(self);
+                let value = source.read(self);
                 match target {
                     LoadWordTarget::BC => self.r.set_bc(value),
                     LoadWordTarget::DE => self.r.set_de(value),
@@ -619,7 +519,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             Load::IndirectFrom(target, source) => {
-                let value = source.resolve_value(self);
+                let value = source.read(self);
                 let addr = match target {
                     LoadByteTarget::BCI => self.r.get_bc(),
                     LoadByteTarget::DEI => self.r.get_de(),
@@ -667,7 +567,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             Load::IndirectFromWord(target, source) => {
-                let value = source.resolve_value(self);
+                let value = source.read(self);
                 match target {
                     LoadWordTarget::D16I => {
                         let address = self.consume_word();
@@ -683,7 +583,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             Load::FromIndirectAInc(source) => {
-                self.r.a = source.resolve_value(self);
+                self.r.a = source.read(self);
                 match source {
                     ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_add(1)),
                     _ => unimplemented!(),
@@ -693,7 +593,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
                 self.pc.wrapping_add(1)
             }
             Load::FromIndirectADec(source) => {
-                self.r.a = source.resolve_value(self);
+                self.r.a = source.read(self);
                 match source {
                     ByteSource::HLI => self.r.set_hl(self.r.get_hl().wrapping_sub(1)),
                     _ => unimplemented!(),
@@ -731,7 +631,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles OR instructions
     fn handle_or(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         self.r.a |= value;
         self.r.f.update(self.r.a == 0, false, false, false);
 
@@ -771,9 +671,9 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles RES instructions
     fn handle_res(&mut self, bit: u8, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let result = utils::set_bit(value, bit, false);
-        source.write_direct(self, result);
+        source.write(self, result);
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -784,7 +684,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles RET instruction
     fn handle_ret(&mut self, test: JumpTest) -> u16 {
-        let should_jump = test.resolve_value(self);
+        let should_jump = test.resolve(self);
         if should_jump {
             self.clock.advance(20);
             self.pop()
@@ -804,11 +704,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RL instructions
     /// Rotate n left through Carry flag.
     fn handle_rl(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let carry = value & 0x80 != 0;
         let result = (value << 1) | self.r.f.carry as u8;
         self.r.f.update(result == 0, false, false, carry);
-        source.write_direct(self, result);
+        source.write(self, result);
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -830,11 +730,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles RLC instructions
     /// Rotates register to the left and updates CPU flags
     fn handle_rlc(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let carry = value & 0x80 != 0;
         let result = (value << 1) | (value >> 7);
         self.r.f.update(result == 0, false, false, carry);
-        source.write_direct(self, result);
+        source.write(self, result);
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -854,10 +754,10 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles RR instructions
     fn handle_rr(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let carry = value & 0x01 != 0;
         let result = (value >> 1) | (u8::from(self.r.f.carry) << 7);
-        source.write_direct(self, result);
+        source.write(self, result);
         self.r.f.update(result == 0, false, false, carry);
 
         match source {
@@ -878,12 +778,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles RRC instructions
     fn handle_rrc(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let carry = value & 0x01 != 0;
         let result = (value >> 1) | (value << 7);
 
         self.r.f.update(result == 0, false, false, carry);
-        source.write_direct(self, result);
+        source.write(self, result);
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -920,7 +820,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles SBC instructions
     fn handle_sbc(&mut self, source: ByteSource) -> u16 {
         let a = self.r.a as u32;
-        let value = source.resolve_value(self) as u32;
+        let value = source.read(self) as u32;
         let result = a.wrapping_sub(value).wrapping_sub(self.r.f.carry as u32);
         self.r.a = result as u8;
         self.r.f.update(
@@ -947,9 +847,9 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles SET instructions
     fn handle_set(&mut self, bit: u8, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let result = utils::set_bit(value, bit, true);
-        source.write_direct(self, result);
+        source.write(self, result);
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -960,11 +860,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles SLA instructions
     fn handle_sla(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let carry = value & 0x80 != 0;
         let result = value << 1;
         self.r.f.update(result == 0, false, false, carry);
-        source.write_direct(self, result);
+        source.write(self, result);
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -975,11 +875,11 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles SRA instructions
     fn handle_sra(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let carry = value & 0x01 != 0;
         let result = (value >> 1) | (value & 0x80);
         self.r.f.update(result == 0, false, false, carry);
-        source.write_direct(self, result);
+        source.write(self, result);
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -990,10 +890,10 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles SRL instructions
     fn handle_srl(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         let carry = value & 0x01 != 0;
         let result = value >> 1;
-        source.write_direct(self, result);
+        source.write(self, result);
         self.r.f.update(result == 0, false, false, carry);
 
         match source {
@@ -1013,7 +913,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// Handles SUB instructions
     fn handle_sub(&mut self, source: ByteSource) -> u16 {
         let a = u16::from(self.r.a);
-        let value = u16::from(source.resolve_value(self));
+        let value = u16::from(source.read(self));
         let result = a.wrapping_sub(value);
 
         let carry_bits = a ^ value ^ result;
@@ -1032,9 +932,9 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles SWAP instructions
     fn handle_swap(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         self.r.f.update(value == 0, false, false, false);
-        source.write_direct(self, (value << 4) | (value >> 4));
+        source.write(self, (value << 4) | (value >> 4));
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -1045,7 +945,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles XOR instructions
     fn handle_xor(&mut self, source: ByteSource) -> u16 {
-        let value = source.resolve_value(self);
+        let value = source.read(self);
         self.r.a ^= value;
         self.r.f.update(self.r.a == 0, false, false, false);
         match source {
