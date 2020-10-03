@@ -1,11 +1,10 @@
 use crate::gb::instruction::*;
+use crate::gb::memory::constants::BOOT_END;
 use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
 use crate::utils;
 use registers::Registers;
 use std::cell::RefCell;
-use std::thread;
-use std::time::Duration;
 
 mod registers;
 #[cfg(test)]
@@ -40,53 +39,41 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     /// next instruction and current CPU state (halted, stopped, etc.).
     pub fn step(&mut self) -> u32 {
         self.clock.reset();
-
         if self.is_halted {
             self.clock.advance(4);
             return self.clock.ticks();
         }
 
-        let mut opcode = self.read(self.pc);
-        let prefixed = opcode == 0xCB;
-        if prefixed {
-            opcode = self.read(self.pc + 1);
-        }
+        self.sanity_check(self.pc);
+        // Read next opcode from memory
+        let opcode = self.read(self.pc);
+        let (opcode, prefixed) = match opcode == 0xCB {
+            true => (self.read(self.pc + 1), true),
+            false => (opcode, false),
+        };
 
-        let next_pc = match Instruction::from_byte(opcode, prefixed) {
-            Some(instruction) => {
-                self.log(opcode, &instruction);
-                self.execute(instruction)
-            }
+        // Parse instruction from opcode, execute it and update program counter
+        self.pc = match Instruction::from_byte(opcode, prefixed) {
+            Some(instruction) => self.execute(instruction),
             None => {
-                self.print_registers(opcode, None);
                 let description = format!("0x{}{:02x}", if prefixed { "cb" } else { "" }, opcode);
-                println!(
-                    "Unresolved instruction found for: {}.\nHALTED!",
-                    description
-                );
-                loop {
-                    thread::sleep(Duration::from_millis(10));
-                }
+                panic!("Unresolved instruction: {}.\nHALTED!", description);
             }
         };
-        self.pc = next_pc;
         self.clock.ticks()
     }
 
-    /// Prints the current registers, pointers with opcode and resolved instruction
-    fn print_registers(&self, opcode: u8, instruction: Option<&Instruction>) {
+    /*/// Prints the current registers, pointers with opcode and resolved instruction
+    fn print_ctx(&self, opcode: u8, instruction: &Instruction) {
         println!(
             "{} | pc: {:<5} sp: {:<5} | op: {:#04X} -> {}",
             self.r,
             format!("{:#06X}", self.pc),
             format!("{:#06X}", self.sp),
             opcode,
-            match instruction {
-                Some(i) => format!("{:?}", i),
-                None => "????".to_string(),
-            }
+            instruction
         );
-    }
+    }*/
 
     /// Executes the given instruction, advances the internal clock
     /// and returns the updated program counter.
@@ -142,26 +129,16 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
         }
     }
 
-    fn log(&mut self, opcode: u8, instruction: &Instruction) {
-        match self.pc {
-            //0x0000 => println!("Setup Stack..."),
-            //0x0003 => println!("Setup VRAM..."),
-            //0x000c => println!("Setup Sound..."),
-            //0x001d => println!("Setup BG palette..."),
-            //0x0021 => println!("Loading logo data from cart into Video RAM..."),
-            //0x0040 => println!("Setup background tilemap..."),
-            //0x005d => println!("Turning on LCD and showing Background..."),
-            //0x0062..=0x00fd => {}
-            0x0100 => {
-                assert_eq!(self.r.get_af(), 0x01B0, "AF is invalid, boot ROM failure!");
-                assert_eq!(self.r.get_bc(), 0x0013, "BC is invalid, boot ROM failure!");
-                assert_eq!(self.r.get_de(), 0x00D8, "DE is invalid, boot ROM failure!");
-                assert_eq!(self.r.get_hl(), 0x014D, "HL is invalid, boot ROM failure!");
-                assert_eq!(self.sp, 0xFFFE, "SP is invalid, boot ROM failure!");
-                println!("Done with processing boot ROM. Switching to Cartridge...");
-            }
-            0x0101..=0xffff => self.print_registers(opcode, Some(instruction)),
-            _ => {}
+    /// Sanity check to verify boot ROM executed successfully
+    fn sanity_check(&self, address: u16) {
+        // TODO: make check more robust, might be possible that we read from that address later on as well.
+        if address == BOOT_END + 1 {
+            assert_eq!(self.r.get_af(), 0x01B0, "AF is invalid, boot ROM failure!");
+            assert_eq!(self.r.get_bc(), 0x0013, "BC is invalid, boot ROM failure!");
+            assert_eq!(self.r.get_de(), 0x00D8, "DE is invalid, boot ROM failure!");
+            assert_eq!(self.r.get_hl(), 0x014D, "HL is invalid, boot ROM failure!");
+            assert_eq!(self.sp, 0xFFFE, "SP is invalid, boot ROM failure!");
+            println!("Done with processing boot ROM. Switching to Cartridge...");
         }
     }
 
