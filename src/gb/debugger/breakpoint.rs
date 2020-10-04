@@ -1,4 +1,5 @@
 use crate::gb::debugger::utils::centered_rect;
+use std::collections::BTreeSet;
 use std::error::Error;
 use termion::event::Key;
 use tui::backend::Backend;
@@ -8,7 +9,7 @@ use tui::Frame;
 use unicode_width::UnicodeWidthStr;
 
 pub struct BreakpointHandler {
-    pub breakpoints: Vec<u16>,
+    pub breakpoints: BTreeSet<u16>,
     pub active: bool,
     pub input: String,
 }
@@ -16,7 +17,7 @@ pub struct BreakpointHandler {
 impl BreakpointHandler {
     pub fn new() -> Self {
         Self {
-            breakpoints: Vec::new(),
+            breakpoints: BTreeSet::new(),
             active: false,
             input: String::new(),
         }
@@ -42,11 +43,12 @@ impl BreakpointHandler {
         assert!(self.active);
         match key {
             Key::Char('\n') => {
-                let address = self.parse_input()?;
-                self.breakpoints.push(address);
-                self.breakpoints.sort();
-                self.active = false;
+                if let Ok(address) = self.parse_input() {
+                    self.breakpoints.insert(address);
+                    self.active = false;
+                }
             }
+
             Key::Char(c) => {
                 self.input.push(c);
             }
@@ -60,7 +62,7 @@ impl BreakpointHandler {
 
     /// Checks if a given address is marked as breakpoint
     pub fn contains(&self, address: u16) -> bool {
-        self.breakpoints.iter().any(|bp| bp == &address)
+        self.breakpoints.contains(&address)
     }
 
     fn parse_input(&mut self) -> Result<u16, Box<dyn Error>> {
