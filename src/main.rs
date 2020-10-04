@@ -8,6 +8,7 @@ use crate::gb::timer::Timer;
 use crate::gb::{debugger, AddressSpace, DISPLAY_REFRESH_RATE};
 use clap::{App, Arg, ArgMatches};
 use std::cell::RefCell;
+use std::error::Error;
 use std::path::Path;
 
 #[macro_use]
@@ -18,7 +19,7 @@ extern crate bitflags;
 mod gb;
 mod utils;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let matches = parse_args();
     let path = Path::new(matches.value_of("rom").unwrap());
 
@@ -40,9 +41,10 @@ fn main() {
     let mut timer = Timer::new(&bus);
 
     match debug {
-        true => debugger::emulate(&cpu, &bus, &mut ppu, &mut timer, &mut irq_handler),
+        true => debugger::emulate(&cpu, &bus, &mut ppu, &mut timer, &mut irq_handler)?,
         false => emulate(&cpu, &mut ppu, &mut timer, &mut irq_handler),
     }
+    Ok(())
 }
 
 /// Starts the emulating loop

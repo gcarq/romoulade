@@ -10,6 +10,8 @@ edition = "2018"
 clap = "2.33.3"
 bitflags = "1.2.1"
 sdl2 = "^0.34"
+tui = "0.12.0"
+termion = "1.5.5"
 
 [profile.dev]
 opt-level = 2
