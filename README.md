@@ -26,6 +26,13 @@ At this point it is capable of processing the Original Gameboy [Bootstrap ROM](h
 | 10-bit ops            | ✅      | Passed           |
 | 11-op a,(hl)          | ✅      | Passed           |
 
+## Debugger
+
+Passing `--debug` starts a simple debugger,
+this feature is WIP and might just not work.
+
+![Debugger](https://i.imgur.com/ui3tFwm.png)
+
 
 ## Usage
 ```
