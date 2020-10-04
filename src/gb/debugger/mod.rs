@@ -34,6 +34,7 @@ pub struct Debugger<'a, T: AddressSpace> {
     timer: &'a mut Timer<'a>,
     irq_handler: &'a mut IRQHandler<'a, T>,
     bp_handler: BreakpointHandler,
+    memory_offset: u16,
 }
 
 impl<'a, T: AddressSpace> Debugger<'a, T> {
@@ -52,6 +53,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             timer,
             irq_handler,
             bp_handler: BreakpointHandler::new(),
+            memory_offset: 0,
         }
     }
 
@@ -61,53 +63,14 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         let stdout = AlternateScreen::from(stdout);
         let backend = TermionBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
-
         let events = Events::new();
 
         loop {
             terminal.draw(|f| {
-                // Defines root vertical layout
-                let root = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints(
-                        [
-                            Constraint::Percentage(80),
-                            Constraint::Length(6),
-                            Constraint::Length(2),
-                        ]
-                        .as_ref(),
-                    )
-                    .split(f.size());
-
-                // Defines layout for assembly and breakpoints view
-                let upper = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .margin(1)
-                    .constraints([Constraint::Percentage(90), Constraint::Length(10)].as_ref())
-                    .split(root[0]);
-                // Defines layout for register views
-                let middle = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .horizontal_margin(1)
-                    .constraints(
-                        [
-                            Constraint::Length(14),
-                            Constraint::Length(16),
-                            Constraint::Length(41),
-                            Constraint::Length(14),
-                            Constraint::Percentage(50),
-                        ]
-                        .as_ref(),
-                    )
-                    .split(root[1]);
-                // Defines layout for help view
-                let lower = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .margin(1)
-                    .constraints([Constraint::Percentage(100)].as_ref())
-                    .split(root[2]);
+                let (upper, middle, lower) = self.create_layouts(f);
                 self.draw_assembly(f, upper[0]);
-                self.draw_breakpoints(f, upper[1]);
+                self.draw_memory(f, upper[1]);
+                self.draw_breakpoints(f, upper[2]);
                 self.draw_cpu_registers(f, middle[0]);
                 self.draw_cpu_flags(f, middle[1]);
                 self.draw_ppu_flags(f, middle[2]);
@@ -139,12 +102,62 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         Ok(())
     }
 
+    /// Creates and returns layouts for upper, middle and lower sections.
+    fn create_layouts<B: Backend>(&self, f: &mut Frame<B>) -> (Vec<Rect>, Vec<Rect>, Vec<Rect>) {
+        // Defines root vertical layout
+        let root = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(
+                [
+                    Constraint::Percentage(80),
+                    Constraint::Length(6),
+                    Constraint::Length(2),
+                ]
+                .as_ref(),
+            )
+            .split(f.size());
+        // Defines layout for assembly, memory and breakpoints widget
+        let upper = Layout::default()
+            .direction(Direction::Horizontal)
+            .margin(1)
+            .constraints(
+                [
+                    Constraint::Percentage(45),
+                    Constraint::Percentage(45),
+                    Constraint::Percentage(10),
+                ]
+                .as_ref(),
+            )
+            .split(root[0]);
+        // Defines layout for register widget
+        let middle = Layout::default()
+            .direction(Direction::Horizontal)
+            .horizontal_margin(1)
+            .constraints(
+                [
+                    Constraint::Length(14),
+                    Constraint::Length(16),
+                    Constraint::Length(41),
+                    Constraint::Length(14),
+                    Constraint::Percentage(50),
+                ]
+                .as_ref(),
+            )
+            .split(root[1]);
+        // Defines layout for help view
+        let lower = Layout::default()
+            .direction(Direction::Horizontal)
+            .margin(1)
+            .constraints([Constraint::Percentage(100)].as_ref())
+            .split(root[2]);
+        (upper, middle, lower)
+    }
+
     /// Draws assembly widget
     fn draw_assembly<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
         // Read next instructions to display
         let (selected, instructions) = self.read_instructions(area.height * 2);
 
-        // Create list widget
         let list = List::new(instructions)
             .block(Block::default().title("Assembly").borders(Borders::ALL))
             .style(Style::default().fg(Color::White))
@@ -157,14 +170,44 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         f.render_stateful_widget(list, area, &mut state);
     }
 
+    /// Draws memory widget
+    fn draw_memory<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+        let count = area.height;
+        let bus = self.bus.borrow();
+
+        // Read memory region to display
+        let memory = (self.memory_offset..self.memory_offset + count * 16)
+            .step_by(16)
+            .map(|offset| {
+                ListItem::new(Spans::from(vec![
+                    Span::styled(
+                        format!("{:#06x}:  ", offset),
+                        Style::default().bg(Color::Black).fg(Color::Cyan),
+                    ),
+                    Span::raw(
+                        (offset..offset + 16)
+                            .map(|l| format!("{:02x}", bus.read(l)))
+                            .collect::<Vec<String>>()
+                            .join(" "),
+                    ),
+                ]))
+            })
+            .collect::<Vec<ListItem>>();
+
+        let list = List::new(memory)
+            .block(Block::default().title("Memory").borders(Borders::ALL))
+            .style(Style::default().fg(Color::White));
+        f.render_widget(list, area);
+    }
+
     /// Draws CPU registers
     fn draw_cpu_registers<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
         let r = self.cpu.borrow().r;
         let text = vec![
-            Spans::from(format!(" AF: {:#06X}", r.get_af())),
-            Spans::from(format!(" BC: {:#06X}", r.get_bc())),
-            Spans::from(format!(" DE: {:#06X}", r.get_de())),
-            Spans::from(format!(" HL: {:#06X}", r.get_hl())),
+            Spans::from(format!(" AF: {:#06x}", r.get_af())),
+            Spans::from(format!(" BC: {:#06x}", r.get_bc())),
+            Spans::from(format!(" DE: {:#06x}", r.get_de())),
+            Spans::from(format!(" HL: {:#06x}", r.get_hl())),
         ];
         let block = Block::default().title("CPU Reg.").borders(Borders::ALL);
         let registers = Paragraph::new(text)
@@ -295,7 +338,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             }
             // Collect bytes for this instruction as string
             let bytes = (pc..new_pc)
-                .map(|i| format!("{:02X}", self.bus.borrow().read(i)))
+                .map(|i| format!("{:02x}", self.bus.borrow().read(i)))
                 .collect::<Vec<String>>()
                 .join(" ");
             frames.push(self.format_instruction(pc, &bytes, instruction));
@@ -322,7 +365,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             None => Span::styled(" DATA", Style::default().fg(Color::Red)),
         };
         ListItem::new(Spans::from(vec![
-            Span::styled(format!("{:#06X}:  ", pc), address_style),
+            Span::styled(format!("{:#06x}:  ", pc), address_style),
             Span::styled(format!("{:<10}", bytes), bytes_style),
             instruction_span,
         ]))
