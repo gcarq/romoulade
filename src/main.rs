@@ -7,9 +7,12 @@ use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::PPU;
 use crate::gb::timer::Timer;
 use crate::gb::{AddressSpace, DISPLAY_REFRESH_RATE};
+use backtrace::Backtrace;
 use clap::{App, Arg, ArgMatches};
 use std::cell::RefCell;
 use std::error::Error;
+use std::panic;
+use std::panic::PanicInfo;
 use std::path::Path;
 
 #[macro_use]
@@ -21,6 +24,10 @@ mod gb;
 mod utils;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    panic::set_hook(Box::new(|info| {
+        panic_hook(info);
+    }));
+
     let matches = parse_args();
     let path = Path::new(matches.value_of("rom").unwrap());
 
@@ -90,4 +97,28 @@ fn parse_args() -> ArgMatches<'static> {
                 .long("no-fps-limit"),
         )
         .get_matches()
+}
+
+fn panic_hook(info: &PanicInfo<'_>) {
+    if cfg!(debug_assertions) {
+        let location = info.location().unwrap();
+
+        let msg = match info.payload().downcast_ref::<&'static str>() {
+            Some(s) => *s,
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &s[..],
+                None => "Box<Any>",
+            },
+        };
+
+        let stacktrace: String = format!("{:?}", Backtrace::new()).replace('\n', "\n\r");
+
+        println!(
+            "{}thread '<unnamed>' panicked at '{}', {}\n\r{}",
+            termion::screen::ToMainScreen,
+            msg,
+            location,
+            stacktrace
+        );
+    }
 }

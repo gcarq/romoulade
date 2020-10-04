@@ -1,8 +1,10 @@
+mod breakpoint;
 mod event;
 pub mod format;
 mod utils;
 
 use crate::gb::cpu::CPU;
+use crate::gb::debugger::breakpoint::BreakpointHandler;
 use crate::gb::debugger::event::{Event, Events};
 use crate::gb::debugger::utils::{format_instruction, resolve_byte_length};
 use crate::gb::instruction::Instruction;
@@ -30,6 +32,7 @@ pub struct Debugger<'a, T: AddressSpace> {
     ppu: &'a mut PPU<'a>,
     timer: &'a mut Timer<'a>,
     irq_handler: &'a mut IRQHandler<'a, T>,
+    bp_handler: BreakpointHandler,
 }
 
 impl<'a, T: AddressSpace> Debugger<'a, T> {
@@ -47,6 +50,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             ppu,
             timer,
             irq_handler,
+            bp_handler: BreakpointHandler::new(),
         }
     }
 
@@ -61,24 +65,46 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
 
         loop {
             terminal.draw(|f| {
+                // Defines root layout
                 let root = Layout::default()
                     .direction(Direction::Vertical)
-                    .margin(1)
-                    .constraints([Constraint::Percentage(95), Constraint::Percentage(5)].as_ref())
+                    .constraints(
+                        [
+                            Constraint::Percentage(75),
+                            Constraint::Length(6),
+                            Constraint::Length(2),
+                        ]
+                        .as_ref(),
+                    )
                     .split(f.size());
 
-                let chunks = Layout::default()
-                    .constraints([Constraint::Percentage(80), Constraint::Length(4)].as_ref())
+                // Defines layout for assembly and breakpoints view
+                let upper = Layout::default()
+                    .direction(Direction::Horizontal)
+                    .margin(1)
+                    .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
                     .split(root[0]);
 
-                self.draw_assembly(f, chunks[0]);
-                self.draw_registers(f, chunks[1]);
-                self.draw_help(f, root[1]);
+                self.draw_assembly(f, upper[0]);
+                self.draw_breakpoints(f, upper[1]);
+                self.draw_registers(f, root[1]);
+                self.draw_help(f, root[2]);
+                if self.bp_handler.active {
+                    self.bp_handler.show_dialog(f);
+                }
             })?;
 
             match events.next()? {
                 Event::Input(input) => match input {
                     Key::Ctrl('c') => break,
+                    Key::F(2) => {
+                        while !self.bp_handler.contains(self.cpu.borrow().pc) {
+                            let cycles = self.cpu.borrow_mut().step();
+                            self.timer.step(cycles);
+                            self.ppu.step(cycles);
+                            self.irq_handler.handle();
+                        }
+                    }
                     Key::F(3) => {
                         // Step over next instruction
                         let cycles = self.cpu.borrow_mut().step();
@@ -86,6 +112,9 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                         self.ppu.step(cycles);
                         self.irq_handler.handle();
                     }
+                    Key::Esc if self.bp_handler.active => self.bp_handler.active = false,
+                    Key::F(4) => self.bp_handler.active = !self.bp_handler.active,
+                    key if self.bp_handler.active => self.bp_handler.handle_dialog_input(key)?,
                     _ => {}
                 },
             }
@@ -96,7 +125,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
     /// Draws instruction list
     fn draw_assembly<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
         // Read next instructions to display
-        let (selected, instructions) = self.read_instructions();
+        let (selected, instructions) = self.read_instructions(area.height * 2);
 
         // Create list widget
         let list = List::new(instructions)
@@ -106,7 +135,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             .highlight_symbol(">> ");
 
         let mut state = ListState::default();
-        state.select(Some(selected));
+        state.select(Some(usize::from(selected)));
 
         f.render_stateful_widget(list, area, &mut state);
     }
@@ -150,11 +179,37 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         f.render_widget(flags, chunks[1]);
     }
 
+    fn draw_breakpoints<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+        // Create list widget
+        let list = List::new(
+            self.bp_handler
+                .breakpoints
+                .iter()
+                .map(|a| ListItem::new(format!(" {:#06X}", a)))
+                .collect::<Vec<ListItem>>(),
+        )
+        .block(Block::default().title("Breakpoints").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White))
+        .highlight_style(
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::ITALIC),
+        );
+        let mut state = ListState::default();
+        let pc = self.cpu.borrow().pc;
+        state.select(self.bp_handler.breakpoints.iter().position(|a| a == &pc));
+        f.render_stateful_widget(list, area, &mut state);
+    }
+
     /// Draws the static help text
     fn draw_help<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
         let text = Spans::from(vec![
+            Span::styled("F2", Style::default().bg(Color::Gray).fg(Color::Black)),
+            Span::raw(" Run     "),
             Span::styled("F3", Style::default().bg(Color::Gray).fg(Color::Black)),
             Span::raw(" Step    "),
+            Span::styled("F4", Style::default().bg(Color::Gray).fg(Color::Black)),
+            Span::raw(" Set Breakpoint    "),
             Span::styled("^C", Style::default().bg(Color::Gray).fg(Color::Black)),
             Span::raw(" Quit    "),
         ]);
@@ -167,31 +222,36 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         f.render_widget(paragraph, area);
     }
 
-    /// Reads next instructions and returns a vector of formatted Strings
-    fn read_instructions(&self) -> (usize, Vec<ListItem>) {
+    /// Reads next n instructions and returns a tuple
+    /// with the index of the current pc and a vector of formatted Strings.
+    fn read_instructions(&self, count: u16) -> (u16, Vec<ListItem>) {
         let cpu_pc = self.cpu.borrow().pc;
-        let mut pc = cpu_pc;
+        let mut pc = cpu_pc.saturating_sub(count / 2);
         let mut frames = Vec::with_capacity(100);
         let mut current = 0;
-        for i in 0..100 {
+        for i in 0..count {
             let (instruction, new_pc) = self.step(pc);
-            if cpu_pc == pc {
-                current = i;
+            // Check if the instruction is an actual instruction or random data
+            // TODO: maybe show byte code even if its not a valid instruction?
+            if let Some(instruction) = instruction {
+                if cpu_pc == pc {
+                    current = i;
+                }
+                // Collect bytes for this instruction as string
+                let bytes = (pc..new_pc)
+                    .map(|i| format!("{:02X}", self.bus.borrow().read(i)))
+                    .collect::<Vec<String>>()
+                    .join(" ");
+                frames.push(format_instruction(pc, &bytes, instruction));
+                pc = new_pc;
             }
-            // Collect bytes for this instruction as string
-            let bytes = (pc..new_pc)
-                .map(|i| format!("{:02X}", self.bus.borrow().read(i)))
-                .collect::<Vec<String>>()
-                .join(" ");
-            frames.push(format_instruction(pc, &bytes, instruction));
-            pc = new_pc;
         }
         (current, frames)
     }
 
     /// Emulates one CPU step without executing it.
     /// Returns a tuple with the instruction and the updated program counter.
-    fn step(&self, pc: u16) -> (Instruction, u16) {
+    fn step(&self, pc: u16) -> (Option<Instruction>, u16) {
         // Read next opcode from memory
         let opcode = self.bus.borrow().read(pc);
         let (opcode, prefixed) = match opcode == 0xCB {
@@ -202,13 +262,10 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         // Parse instruction from opcode and return it together with the next program counter
         match Instruction::from_byte(opcode, prefixed) {
             Some(instruction) => (
-                instruction,
+                Some(instruction),
                 pc + resolve_byte_length(opcode, prefixed) as u16,
             ),
-            None => {
-                let description = format!("0x{}{:02x}", if prefixed { "cb" } else { "" }, opcode);
-                panic!("Unresolved instruction: {}.\nHALTED!", description);
-            }
+            None => (None, pc),
         }
     }
 }
