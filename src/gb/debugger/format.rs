@@ -27,6 +27,10 @@ impl fmt::Display for Instruction {
             Instruction::HALT => write!(f, "HALT"),
             Instruction::JR(test) => write!(f, "JR {}i8", test),
             Instruction::JP(test, source) => write!(f, "JR {}{}", test, source),
+            Instruction::LD(Load::IndirectFromAInc(LoadByteTarget::HLI)) => write!(f, "(HL+),A"),
+            Instruction::LD(Load::IndirectFromADec(LoadByteTarget::HLI)) => write!(f, "(HL-),A"),
+            Instruction::LD(Load::FromIndirectAInc(ByteSource::HLI)) => write!(f, "A,(HL+)",),
+            Instruction::LD(Load::FromIndirectADec(ByteSource::HLI)) => write!(f, "A,(HL-)",),
             Instruction::LD(load) => write!(f, "LD {}", load),
             Instruction::NOP => write!(f, "NOP"),
             Instruction::OR(source) => write!(f, "OR A,{}", source),
@@ -135,12 +139,9 @@ impl fmt::Display for Load {
             Load::Byte(target, source) => write!(f, "{},{}", target, source),
             Load::Word(target, source) => write!(f, "{},{}", target, source),
             Load::IndirectFrom(target, source) => write!(f, "{},{}", target, source),
-            Load::IndirectFromAInc(target) => write!(f, "{}+,A", target), // TODO: fix formatting
-            Load::IndirectFromADec(target) => write!(f, "{}-,A", target), // TODO: fix formatting
-            Load::FromIndirectAInc(source) => write!(f, "A,{}+", source), // TODO: fix formatting
-            Load::FromIndirectADec(source) => write!(f, "A,{}-", source), // TODO: fix formatting
             Load::IndirectFromWord(target, source) => write!(f, "{},{}", target, source),
             Load::IndirectFromSPi8(target) => write!(f, "{},SP+i8", target),
+            _ => panic!(),
         }
     }
 }
