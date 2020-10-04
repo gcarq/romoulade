@@ -27,6 +27,25 @@ At this point it is capable of processing the Original Gameboy [Bootstrap ROM](h
 | 11-op a,(hl)          | ✅      | Passed           |
 
 
+## Usage
+```
+romoulade 0.1.0
+gcarq <egger.m@protonmail.com>
+Experimental GB Emulator
+
+USAGE:
+    romoulade [FLAGS] <ROM>
+
+FLAGS:
+        --debug           Enable debugger
+    -h, --help            Prints help information
+        --no-fps-limit    Disable fps limit for debugging purposes
+    -V, --version         Prints version information
+
+ARGS:
+    <ROM>    Path of the ROM to load
+```
+
 ## Development
 
 ```sh
