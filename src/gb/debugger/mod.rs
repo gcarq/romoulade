@@ -66,7 +66,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
 
         loop {
             terminal.draw(|f| {
-                // Defines root layout
+                // Defines root vertical layout
                 let root = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints(
@@ -83,7 +83,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                 let upper = Layout::default()
                     .direction(Direction::Horizontal)
                     .margin(1)
-                    .constraints([Constraint::Percentage(80), Constraint::Percentage(20)].as_ref())
+                    .constraints([Constraint::Percentage(90), Constraint::Length(10)].as_ref())
                     .split(root[0]);
                 // Defines layout for register views
                 let middle = Layout::default()

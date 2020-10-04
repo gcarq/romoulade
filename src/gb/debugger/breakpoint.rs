@@ -1,4 +1,4 @@
-use crate::gb::debugger::utils::centered_rect;
+use crate::gb::debugger::utils::centered_rect_abs;
 use std::collections::BTreeSet;
 use std::error::Error;
 use termion::event::Key;
@@ -26,7 +26,7 @@ impl BreakpointHandler {
     /// Shows "Add Breakpoint" dialog
     /// TODO: create dialog with fixed minimum size
     pub fn show_dialog<B: Backend>(&mut self, f: &mut Frame<B>) {
-        let area = centered_rect(20, 10, f.size());
+        let area = centered_rect_abs(18, 3, f.size());
         let input = Paragraph::new(format!("> {}", self.input))
             .style(Style::default().fg(Color::Yellow))
             .block(
