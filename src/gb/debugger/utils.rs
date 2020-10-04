@@ -3,12 +3,17 @@ use tui::style::{Color, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::ListItem;
 
-/// Colorizes the given instruction and returns a TUI compatible ListItem
-pub fn colorize_instruction(pc: u16, instruction: Instruction) -> ListItem<'static> {
+/// Formats and colorizes the given instruction (including raw bytes)
+/// and returns a TUI compatible ListItem.
+pub fn format_instruction(pc: u16, bytes: &str, instruction: Instruction) -> ListItem<'static> {
     ListItem::new(Spans::from(vec![
         Span::styled(
-            format!("{:#06X}: ", pc),
+            format!("{:#06X}:  ", pc),
             Style::default().bg(Color::Black).fg(Color::Cyan),
+        ),
+        Span::styled(
+            format!("{:<10}", bytes),
+            Style::default().bg(Color::Black).fg(Color::Gray),
         ),
         Span::raw(format!(" {}", instruction)),
     ]))

@@ -4,7 +4,7 @@ mod utils;
 
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::event::{Event, Events};
-use crate::gb::debugger::utils::{colorize_instruction, resolve_byte_length};
+use crate::gb::debugger::utils::{format_instruction, resolve_byte_length};
 use crate::gb::instruction::Instruction;
 use crate::gb::interrupt::IRQHandler;
 use crate::gb::memory::MemoryBus;
@@ -178,7 +178,12 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             if cpu_pc == pc {
                 current = i;
             }
-            frames.push(colorize_instruction(pc, instruction));
+            // Collect bytes for this instruction as string
+            let bytes = (pc..new_pc)
+                .map(|i| format!("{:02X}", self.bus.borrow().read(i)))
+                .collect::<Vec<String>>()
+                .join(" ");
+            frames.push(format_instruction(pc, &bytes, instruction));
             pc = new_pc;
         }
         (current, frames)
