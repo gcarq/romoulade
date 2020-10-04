@@ -293,26 +293,22 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
     fn read_instructions(&self, count: u16) -> (u16, Vec<ListItem>) {
         let cpu_pc = self.cpu.borrow().pc;
         let mut pc = cpu_pc;
-        let mut frames = Vec::with_capacity(100);
-        let mut current = 0;
+        let mut frames = Vec::with_capacity(usize::from(count));
+        let mut pc_index = 0;
         for i in 0..count {
             let (instruction, new_pc) = self.step(pc);
-            // Check if the instruction is an actual instruction or random data
-            // TODO: maybe show byte code even if its not a valid instruction?
-            if let Some(instruction) = instruction {
-                if cpu_pc == pc {
-                    current = i;
-                }
-                // Collect bytes for this instruction as string
-                let bytes = (pc..new_pc)
-                    .map(|i| format!("{:02X}", self.bus.borrow().read(i)))
-                    .collect::<Vec<String>>()
-                    .join(" ");
-                frames.push(self.format_instruction(pc, &bytes, instruction));
-                pc = new_pc;
+            if cpu_pc == pc {
+                pc_index = i;
             }
+            // Collect bytes for this instruction as string
+            let bytes = (pc..new_pc)
+                .map(|i| format!("{:02X}", self.bus.borrow().read(i)))
+                .collect::<Vec<String>>()
+                .join(" ");
+            frames.push(self.format_instruction(pc, &bytes, instruction));
+            pc = new_pc;
         }
-        (current, frames)
+        (pc_index, frames)
     }
 
     /// Formats and colorizes the given instruction (including raw bytes)
@@ -321,18 +317,21 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         &self,
         pc: u16,
         bytes: &str,
-        instruction: Instruction,
+        instruction: Option<Instruction>,
     ) -> ListItem<'static> {
         let address_style = match self.bp_handler.contains(pc) {
             true => Style::default().bg(Color::Black).fg(Color::Red),
             false => Style::default().bg(Color::Black).fg(Color::Cyan),
         };
-
         let bytes_style = Style::default().bg(Color::Black).fg(Color::Gray);
+        let instruction_span = match instruction {
+            Some(i) => Span::raw(format!(" {}", i)),
+            None => Span::styled(" DATA", Style::default().fg(Color::Red)),
+        };
         ListItem::new(Spans::from(vec![
             Span::styled(format!("{:#06X}:  ", pc), address_style),
             Span::styled(format!("{:<10}", bytes), bytes_style),
-            Span::raw(format!(" {}", instruction)),
+            instruction_span,
         ]))
     }
 
