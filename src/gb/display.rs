@@ -116,10 +116,7 @@ impl Display {
         self.canvas.present();
         for event in self.event_pump.poll_iter() {
             match event {
-                sdl2::event::Event::Quit { .. } => {
-                    println!("Got Event::Quit");
-                    process::exit(0)
-                }
+                sdl2::event::Event::Quit { .. } => process::exit(0),
                 _ => {}
             }
         }

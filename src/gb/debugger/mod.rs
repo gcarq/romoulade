@@ -93,8 +93,9 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                         [
                             Constraint::Length(14),
                             Constraint::Length(16),
-                            Constraint::Length(42),
-                            Constraint::Percentage(60),
+                            Constraint::Length(41),
+                            Constraint::Length(14),
+                            Constraint::Percentage(50),
                         ]
                         .as_ref(),
                     )
@@ -110,6 +111,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                 self.draw_cpu_registers(f, middle[0]);
                 self.draw_cpu_flags(f, middle[1]);
                 self.draw_ppu_flags(f, middle[2]);
+                self.draw_timer_registers(f, middle[3]);
                 self.draw_help(f, lower[0]);
                 if self.bp_handler.active {
                     self.bp_handler.show_dialog(f);
@@ -171,7 +173,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             Spans::from(format!(" DE: {:#06X}", r.get_de())),
             Spans::from(format!(" HL: {:#06X}", r.get_hl())),
         ];
-        let block = Block::default().title("CPU Register").borders(Borders::ALL);
+        let block = Block::default().title("CPU Reg.").borders(Borders::ALL);
         let registers = Paragraph::new(text)
             .block(block)
             .style(Style::default().fg(Color::White).bg(Color::Black));
@@ -199,31 +201,49 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         let bus = self.bus.borrow();
         let text = vec![
             Spans::from(Span::raw(format!(
-                " LCDC: {:#04x}    LY:  {:#04x}    OBP0:  {:#04x}",
+                " LCDC: {:#04x}    LY:  {:#04x}    OBP0: {:#04x}",
                 bus.read(PPU_LCDC),
                 bus.read(PPU_LY),
                 bus.read(PPU_OBP0)
             ))),
             Spans::from(Span::raw(format!(
-                " STAT: {:#04x}    LCY: {:#04x}    OBP1:  {:#04x}",
+                " STAT: {:#04x}    LCY: {:#04x}    OBP1: {:#04x}",
                 bus.read(PPU_STAT),
                 bus.read(PPU_LYC),
                 bus.read(PPU_OBP1)
             ))),
             Spans::from(Span::raw(format!(
-                " SCY:  {:#04x}    DMA: {:#04x}    WY:    {:#04x}",
+                " SCY:  {:#04x}    DMA: {:#04x}    WY:   {:#04x}",
                 bus.read(PPU_SCY),
                 bus.read(PPU_DMA),
                 bus.read(PPU_WY)
             ))),
             Spans::from(Span::raw(format!(
-                " SCX:  {:#04x}    BGP: {:#04x}    WX:    {:#04x}",
+                " SCX:  {:#04x}    BGP: {:#04x}    WX:   {:#04x}",
                 bus.read(PPU_SCX),
                 bus.read(PPU_BGP),
                 bus.read(PPU_WX)
             ))),
         ];
-        let block = Block::default().title("PPU Register").borders(Borders::ALL);
+        let block = Block::default()
+            .title("PPU Registers")
+            .borders(Borders::ALL);
+        let registers = Paragraph::new(text)
+            .block(block)
+            .style(Style::default().fg(Color::White).bg(Color::Black));
+        f.render_widget(registers, area);
+    }
+
+    /// Draws Timer registers
+    fn draw_timer_registers<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+        let bus = self.bus.borrow();
+        let text = vec![
+            Spans::from(format!(" DIV:  {:#04x}", bus.read(TIMER_DIVIDER))),
+            Spans::from(format!(" TIMA: {:#04x}", bus.read(TIMER_COUNTER))),
+            Spans::from(format!(" TMA:  {:#04x}", bus.read(TIMER_MODULO))),
+            Spans::from(format!(" TAC:  {:#04x}", bus.read(TIMER_CTRL))),
+        ];
+        let block = Block::default().title("Timer Reg.").borders(Borders::ALL);
         let registers = Paragraph::new(text)
             .block(block)
             .style(Style::default().fg(Color::White).bg(Color::Black));

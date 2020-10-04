@@ -70,7 +70,7 @@ impl<'a, T: AddressSpace> IRQHandler<'a, T> {
     }
 
     fn service_interrupts(&mut self, interrupt: IRQ) {
-        println!("Serving interrupt: {:?}...", interrupt);
+        // TODO: debug log: println!("Serving interrupt: {:?}...", interrupt);
         self.cpu.borrow_mut().ime = false;
 
         // Clear interrupt request

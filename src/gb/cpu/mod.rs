@@ -138,7 +138,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
             assert_eq!(self.r.get_de(), 0x00D8, "DE is invalid, boot ROM failure!");
             assert_eq!(self.r.get_hl(), 0x014D, "HL is invalid, boot ROM failure!");
             assert_eq!(self.sp, 0xFFFE, "SP is invalid, boot ROM failure!");
-            println!("Done with processing boot ROM. Switching to Cartridge...");
+            //TODO: debug log: println!("Done with processing boot ROM. Switching to Cartridge...");
         }
     }
 
