@@ -6,7 +6,7 @@ mod utils;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::breakpoint::BreakpointHandler;
 use crate::gb::debugger::event::{Event, Events};
-use crate::gb::debugger::utils::{format_instruction, resolve_byte_length};
+use crate::gb::debugger::utils::resolve_byte_length;
 use crate::gb::instruction::Instruction;
 use crate::gb::interrupt::IRQHandler;
 use crate::gb::memory::constants::*;
@@ -288,11 +288,32 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                     .map(|i| format!("{:02X}", self.bus.borrow().read(i)))
                     .collect::<Vec<String>>()
                     .join(" ");
-                frames.push(format_instruction(pc, &bytes, instruction));
+                frames.push(self.format_instruction(pc, &bytes, instruction));
                 pc = new_pc;
             }
         }
         (current, frames)
+    }
+
+    /// Formats and colorizes the given instruction (including raw bytes)
+    /// and returns a TUI compatible ListItem.
+    fn format_instruction(
+        &self,
+        pc: u16,
+        bytes: &str,
+        instruction: Instruction,
+    ) -> ListItem<'static> {
+        let address_style = match self.bp_handler.contains(pc) {
+            true => Style::default().bg(Color::Black).fg(Color::Red),
+            false => Style::default().bg(Color::Black).fg(Color::Cyan),
+        };
+
+        let bytes_style = Style::default().bg(Color::Black).fg(Color::Gray);
+        ListItem::new(Spans::from(vec![
+            Span::styled(format!("{:#06X}:  ", pc), address_style),
+            Span::styled(format!("{:<10}", bytes), bytes_style),
+            Span::raw(format!(" {}", instruction)),
+        ]))
     }
 
     /// Emulates one CPU step without executing it.
