@@ -123,18 +123,11 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                     Key::Ctrl('c') => break,
                     Key::F(2) => {
                         while !self.bp_handler.contains(self.cpu.borrow().pc) {
-                            let cycles = self.cpu.borrow_mut().step();
-                            self.timer.step(cycles);
-                            self.ppu.step(cycles);
-                            self.irq_handler.handle();
+                            self.execute();
                         }
                     }
                     Key::F(3) => {
-                        // Step over next instruction
-                        let cycles = self.cpu.borrow_mut().step();
-                        self.timer.step(cycles);
-                        self.ppu.step(cycles);
-                        self.irq_handler.handle();
+                        self.execute();
                     }
                     Key::Esc if self.bp_handler.active => self.bp_handler.active = false,
                     Key::F(4) => self.bp_handler.active = !self.bp_handler.active,
@@ -296,7 +289,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         let mut frames = Vec::with_capacity(usize::from(count));
         let mut pc_index = 0;
         for i in 0..count {
-            let (instruction, new_pc) = self.step(pc);
+            let (instruction, new_pc) = self.simulate_step(pc);
             if cpu_pc == pc {
                 pc_index = i;
             }
@@ -335,9 +328,9 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         ]))
     }
 
-    /// Emulates one CPU step without executing it.
+    /// Simulates one CPU step without executing it.
     /// Returns a tuple with the instruction and the updated program counter.
-    fn step(&self, pc: u16) -> (Option<Instruction>, u16) {
+    fn simulate_step(&self, pc: u16) -> (Option<Instruction>, u16) {
         // Read next opcode from memory
         let opcode = self.bus.borrow().read(pc);
         let (opcode, prefixed) = match opcode == 0xCB {
@@ -353,5 +346,13 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             ),
             None => (None, pc),
         }
+    }
+
+    /// Executes a single step
+    fn execute(&mut self) {
+        let cycles = self.cpu.borrow_mut().step();
+        self.timer.step(cycles);
+        self.ppu.step(cycles);
+        self.irq_handler.handle();
     }
 }
