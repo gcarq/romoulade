@@ -1,4 +1,20 @@
-// Use binary search to access the map:
+use crate::gb::instruction::Instruction;
+use tui::style::{Color, Style};
+use tui::text::{Span, Spans};
+use tui::widgets::ListItem;
+
+/// Colorizes the given instruction and returns a TUI compatible ListItem
+pub fn colorize_instruction(pc: u16, instruction: Instruction) -> ListItem<'static> {
+    ListItem::new(Spans::from(vec![
+        Span::styled(
+            format!("{:#06X}: ", pc),
+            Style::default().bg(Color::Black).fg(Color::Cyan),
+        ),
+        Span::raw(format!(" {}", instruction)),
+    ]))
+}
+
+/// Resolves the instruction byte length for the given opcode
 pub fn resolve_byte_length(opcode: u8, prefixed: bool) -> u8 {
     // All prefixed opcodes have a length of 2 bytes
     if prefixed {

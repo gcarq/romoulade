@@ -1,11 +1,12 @@
 use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
+use crate::gb::debugger::Debugger;
 use crate::gb::display::Display;
 use crate::gb::interrupt::IRQHandler;
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::PPU;
 use crate::gb::timer::Timer;
-use crate::gb::{debugger, AddressSpace, DISPLAY_REFRESH_RATE};
+use crate::gb::{AddressSpace, DISPLAY_REFRESH_RATE};
 use clap::{App, Arg, ArgMatches};
 use std::cell::RefCell;
 use std::error::Error;
@@ -41,7 +42,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut timer = Timer::new(&bus);
 
     match debug {
-        true => debugger::emulate(&cpu, &bus, &mut ppu, &mut timer, &mut irq_handler)?,
+        true => {
+            let mut debugger = Debugger::new(&cpu, &bus, &mut ppu, &mut timer, &mut irq_handler);
+            debugger.emulate()?
+        }
         false => emulate(&cpu, &mut ppu, &mut timer, &mut irq_handler),
     }
     Ok(())
