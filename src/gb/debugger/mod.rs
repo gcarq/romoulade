@@ -21,7 +21,7 @@ use tui::backend::TermionBackend;
 use tui::layout::{Alignment, Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
-use tui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
+use tui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
 use tui::Terminal;
 
 /// Starts the debugger and the emulating loop
@@ -48,18 +48,19 @@ pub fn emulate<T: AddressSpace>(
                 .split(f.size());
 
             // Read next instructions to display
-            let instructions = read_instructions(cpu.borrow().pc, &bus)
-                .into_iter()
-                .map(ListItem::new)
-                .collect::<Vec<ListItem>>();
+            let (selected, instructions) = read_instructions(cpu.borrow().pc, &bus);
 
             // Create list widget
             let list = List::new(instructions)
                 .block(Block::default().title("Debugger").borders(Borders::ALL))
                 .style(Style::default().fg(Color::White))
                 .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
-                .highlight_symbol(">>");
-            f.render_widget(list, layout[0]);
+                .highlight_symbol(">> ");
+
+            let mut state = ListState::default();
+            state.select(Some(selected));
+
+            f.render_stateful_widget(list, layout[0], &mut state);
 
             let paragraph = Paragraph::new(help_text())
                 .style(Style::default().bg(Color::Black).fg(Color::White))
@@ -87,15 +88,29 @@ pub fn emulate<T: AddressSpace>(
 }
 
 /// Reads next instructions and returns a vector of formatted Strings
-fn read_instructions(pc: u16, bus: &RefCell<MemoryBus>) -> Vec<String> {
-    let mut pc = pc;
+fn read_instructions(pc: u16, bus: &RefCell<MemoryBus>) -> (usize, Vec<ListItem>) {
+    let mut cur_pc = pc;
     let mut frames = Vec::with_capacity(100);
-    for _ in 0..100 {
-        let (instruction, new_pc) = step(pc, &bus);
-        frames.push(format!("{:#06X}: {}", pc, instruction));
-        pc = new_pc;
+    let mut current = 0;
+    for i in 0..100 {
+        let (instruction, new_pc) = step(cur_pc, &bus);
+        if cur_pc == pc {
+            current = i;
+        }
+        frames.push(colorize_instruction(cur_pc, instruction));
+        cur_pc = new_pc;
     }
-    frames
+    (current, frames)
+}
+
+fn colorize_instruction(pc: u16, instruction: Instruction) -> ListItem<'static> {
+    ListItem::new(Spans::from(vec![
+        Span::styled(
+            format!("{:#06X}: ", pc),
+            Style::default().bg(Color::Black).fg(Color::Cyan),
+        ),
+        Span::raw(format!(" {}", instruction)),
+    ]))
 }
 
 /// Emulates one CPU step without executing it.
