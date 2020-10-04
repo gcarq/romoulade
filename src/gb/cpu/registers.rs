@@ -1,6 +1,7 @@
 use std::{convert, fmt};
 
 /// Holds all CPU registers
+#[derive(Copy, Clone)]
 pub struct Registers {
     pub a: u8,
     pub b: u8,

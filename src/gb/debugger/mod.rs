@@ -61,14 +61,19 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
 
         loop {
             terminal.draw(|f| {
-                let layout = Layout::default()
+                let root = Layout::default()
                     .direction(Direction::Vertical)
                     .margin(1)
                     .constraints([Constraint::Percentage(95), Constraint::Percentage(5)].as_ref())
                     .split(f.size());
 
-                self.draw_instructions(f, layout[0]);
-                self.draw_help(f, layout[1]);
+                let chunks = Layout::default()
+                    .constraints([Constraint::Percentage(80), Constraint::Length(4)].as_ref())
+                    .split(root[0]);
+
+                self.draw_assembly(f, chunks[0]);
+                self.draw_registers(f, chunks[1]);
+                self.draw_help(f, root[1]);
             })?;
 
             match events.next()? {
@@ -89,13 +94,13 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
     }
 
     /// Draws instruction list
-    fn draw_instructions<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+    fn draw_assembly<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
         // Read next instructions to display
         let (selected, instructions) = self.read_instructions();
 
         // Create list widget
         let list = List::new(instructions)
-            .block(Block::default().title("Debugger").borders(Borders::ALL))
+            .block(Block::default().title("Assembly").borders(Borders::ALL))
             .style(Style::default().fg(Color::White))
             .highlight_style(Style::default().add_modifier(Modifier::ITALIC))
             .highlight_symbol(">> ");
@@ -104,6 +109,45 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         state.select(Some(selected));
 
         f.render_stateful_widget(list, area, &mut state);
+    }
+
+    /// Draws registers
+    fn draw_registers<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+        let chunks = Layout::default()
+            .constraints(
+                [
+                    Constraint::Length(14),
+                    Constraint::Length(16),
+                    Constraint::Percentage(60),
+                ]
+                .as_ref(),
+            )
+            .direction(Direction::Horizontal)
+            .split(area);
+
+        let r = self.cpu.borrow().r;
+
+        // Render register list
+        let registers = List::new(vec![
+            ListItem::new(format!(" AF: {:#06X}", r.get_af())),
+            ListItem::new(format!(" BC: {:#06X}", r.get_bc())),
+            ListItem::new(format!(" DE: {:#06X}", r.get_de())),
+            ListItem::new(format!(" HL: {:#06X}", r.get_hl())),
+        ])
+        .block(Block::default().title("Registers").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White));
+        f.render_widget(registers, chunks[0]);
+
+        // Render flags list
+        let flags = List::new(vec![
+            ListItem::new(format!(" Zero:      {}", r.f.zero as u8)),
+            ListItem::new(format!(" Negative:  {}", r.f.negative as u8)),
+            ListItem::new(format!(" HalfCarry: {}", r.f.half_carry as u8)),
+            ListItem::new(format!(" Carry:     {}", r.f.carry as u8)),
+        ])
+        .block(Block::default().title("Flags").borders(Borders::ALL))
+        .style(Style::default().fg(Color::White));
+        f.render_widget(flags, chunks[1]);
     }
 
     /// Draws the static help text
