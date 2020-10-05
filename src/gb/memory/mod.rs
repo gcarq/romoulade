@@ -97,8 +97,8 @@ impl MemoryBus {
             0xFF6C..=0xFF6F => 0xFF,
             CGB_WRAM_BANK => 0xFF,
             0xFF71..=0xFF75 => 0xFF,
-            PCM_AMPLITUDES12 => unimplemented!(),
-            PCM_AMPLITUDES34 => unimplemented!(),
+            PCM_AMPLITUDES12 => 0xFF, //TODO: implement me
+            PCM_AMPLITUDES34 => 0xFF, //TODO: implement me
             0xFF78..=0xFF7F => 0xFF,
             _ => self.io[(address - IO_BEGIN) as usize],
         }

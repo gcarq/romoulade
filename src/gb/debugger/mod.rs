@@ -73,8 +73,9 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                 self.draw_breakpoints(f, upper[2]);
                 self.draw_cpu_registers(f, middle[0]);
                 self.draw_cpu_flags(f, middle[1]);
-                self.draw_ppu_flags(f, middle[2]);
-                self.draw_timer_registers(f, middle[3]);
+                self.draw_interrupts(f, middle[2]);
+                self.draw_ppu_flags(f, middle[3]);
+                self.draw_timer_registers(f, middle[4]);
                 self.draw_help(f, lower[0]);
                 if self.bp_handler.active {
                     self.bp_handler.show_dialog(f);
@@ -92,9 +93,11 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                     Key::F(3) => {
                         self.execute();
                     }
-                    Key::Esc if self.bp_handler.active => self.bp_handler.active = false,
                     Key::F(4) => self.bp_handler.active = !self.bp_handler.active,
+                    Key::Esc if self.bp_handler.active => self.bp_handler.active = false,
                     key if self.bp_handler.active => self.bp_handler.handle_dialog_input(key)?,
+                    Key::PageUp => self.memory_offset = self.memory_offset.wrapping_sub(20 * 16),
+                    Key::PageDown => self.memory_offset = self.memory_offset.wrapping_add(20 * 16),
                     _ => {}
                 },
             }
@@ -109,7 +112,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             .direction(Direction::Vertical)
             .constraints(
                 [
-                    Constraint::Percentage(80),
+                    Constraint::Percentage(74),
                     Constraint::Length(6),
                     Constraint::Length(2),
                 ]
@@ -122,8 +125,8 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             .margin(1)
             .constraints(
                 [
-                    Constraint::Percentage(45),
-                    Constraint::Percentage(45),
+                    Constraint::Percentage(40),
+                    Constraint::Percentage(50),
                     Constraint::Percentage(10),
                 ]
                 .as_ref(),
@@ -135,8 +138,9 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             .horizontal_margin(1)
             .constraints(
                 [
-                    Constraint::Length(14),
+                    Constraint::Length(26),
                     Constraint::Length(16),
+                    Constraint::Length(14),
                     Constraint::Length(41),
                     Constraint::Length(14),
                     Constraint::Percentage(50),
@@ -147,7 +151,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         // Defines layout for help view
         let lower = Layout::default()
             .direction(Direction::Horizontal)
-            .margin(1)
+            .horizontal_margin(1)
             .constraints([Constraint::Percentage(100)].as_ref())
             .split(root[2]);
         (upper, middle, lower)
@@ -176,7 +180,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         let bus = self.bus.borrow();
 
         // Read memory region to display
-        let memory = (self.memory_offset..self.memory_offset + count * 16)
+        let memory = (self.memory_offset..self.memory_offset.saturating_add(count * 16))
             .step_by(16)
             .map(|offset| {
                 ListItem::new(Spans::from(vec![
@@ -185,7 +189,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                         Style::default().bg(Color::Black).fg(Color::Cyan),
                     ),
                     Span::raw(
-                        (offset..offset + 16)
+                        (offset..offset.saturating_add(16))
                             .map(|l| format!("{:02x}", bus.read(l)))
                             .collect::<Vec<String>>()
                             .join(" "),
@@ -202,12 +206,12 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
 
     /// Draws CPU registers
     fn draw_cpu_registers<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
-        let r = self.cpu.borrow().r;
+        let cpu = self.cpu.borrow();
         let text = vec![
-            Spans::from(format!(" AF: {:#06x}", r.get_af())),
-            Spans::from(format!(" BC: {:#06x}", r.get_bc())),
-            Spans::from(format!(" DE: {:#06x}", r.get_de())),
-            Spans::from(format!(" HL: {:#06x}", r.get_hl())),
+            Spans::from(format!(" AF: {:#06x}  SP: {:#06x}", cpu.r.get_af(), cpu.sp)),
+            Spans::from(format!(" BC: {:#06x}", cpu.r.get_bc())),
+            Spans::from(format!(" DE: {:#06x}", cpu.r.get_de())),
+            Spans::from(format!(" HL: {:#06x}", cpu.r.get_hl())),
         ];
         let block = Block::default().title("CPU Reg.").borders(Borders::ALL);
         let registers = Paragraph::new(text)
@@ -286,13 +290,29 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
         f.render_widget(registers, area);
     }
 
+    /// Draws Timer registers
+    fn draw_interrupts<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
+        let bus = self.bus.borrow();
+        let text = vec![
+            Spans::from(format!(" IME: {}", self.cpu.borrow().ime)),
+            Spans::from("      JSTLV"),
+            Spans::from(format!(" IF:  {:05b}", bus.read(INTERRUPT_FLAG) & 0x1F)),
+            Spans::from(format!(" IE:  {:05b}", bus.read(INTERRUPT_ENABLE) & 0x1F)),
+        ];
+        let block = Block::default().title("Interrupts").borders(Borders::ALL);
+        let registers = Paragraph::new(text)
+            .block(block)
+            .style(Style::default().fg(Color::White).bg(Color::Black));
+        f.render_widget(registers, area);
+    }
+
     fn draw_breakpoints<B: Backend>(&mut self, f: &mut Frame<B>, area: Rect) {
         // Create list widget
         let list = List::new(
             self.bp_handler
                 .breakpoints
                 .iter()
-                .map(|a| ListItem::new(format!(" {:#06X}", a)))
+                .map(|a| ListItem::new(format!(" {:#06x}", a)))
                 .collect::<Vec<ListItem>>(),
         )
         .block(Block::default().title("Breakpoints").borders(Borders::ALL))
@@ -313,6 +333,11 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
             Span::raw(" Step    "),
             Span::styled("F4", Style::default().bg(Color::Gray).fg(Color::Black)),
             Span::raw(" Set Breakpoint    "),
+            Span::styled(
+                "PgUp/PgDn",
+                Style::default().bg(Color::Gray).fg(Color::Black),
+            ),
+            Span::raw(" Navigate Memory    "),
             Span::styled("^C", Style::default().bg(Color::Gray).fg(Color::Black)),
             Span::raw(" Quit    "),
         ]);

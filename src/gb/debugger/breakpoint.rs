@@ -4,7 +4,7 @@ use std::error::Error;
 use termion::event::Key;
 use tui::backend::Backend;
 use tui::style::{Color, Style};
-use tui::widgets::{Block, Borders, Paragraph};
+use tui::widgets::{Block, Borders, Clear, Paragraph};
 use tui::Frame;
 use unicode_width::UnicodeWidthStr;
 
@@ -34,6 +34,7 @@ impl BreakpointHandler {
                     .borders(Borders::ALL)
                     .title("Add Breakpoint"),
             );
+        f.render_widget(Clear, area);
         f.render_widget(input, area);
         f.set_cursor(area.x + self.input.width() as u16 + 3, area.y + 1);
         self.active = true;
