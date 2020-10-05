@@ -31,7 +31,7 @@ At this point it is capable of processing the Original Gameboy [Bootstrap ROM](h
 Passing `--debug` starts a simple debugger,
 this feature is WIP and might just not work.
 
-![Debugger](https://i.imgur.com/ui3tFwm.png)
+![Debugger](https://i.imgur.com/c6XeizK.png)
 
 
 ## Usage
