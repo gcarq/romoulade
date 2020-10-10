@@ -160,9 +160,14 @@ impl<'a> PPU<'a> {
         let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
         let x = self.read(PPU_SCX).wrapping_add(self.x);
 
+        let bg_address = match self.read_ctrl().contains(LCDControl::BG_MAP) {
+            true => 0x9C00,
+            false => 0x9800,
+        };
+
         let tile_row = u16::from(y / 8) * 32;
         let tile_column = u16::from(x / 8);
-        let tile_map_row_addr = 0x9800 + tile_row + tile_column;
+        let tile_map_row_addr = bg_address + tile_row + tile_column;
 
         let tile_line = y % 8;
         self.fetcher.start(tile_map_row_addr, tile_line);
