@@ -1,6 +1,6 @@
-use crate::gb::memory::constants::{PPU_BGP, VRAM_BEGIN};
+use crate::gb::memory::constants::{PPU_BGP, PPU_LCDC};
 use crate::gb::memory::MemoryBus;
-use crate::gb::ppu::Color;
+use crate::gb::ppu::{Color, LCDControl};
 use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
 use std::cell::RefCell;
@@ -79,14 +79,13 @@ pub enum FetcherState {
 pub struct Fetcher<'a> {
     pub fifo: VecDeque<Color>, // Pixel FIFO that the PPU will read.
     bus: &'a RefCell<MemoryBus>,
-    clock: Clock,        // Clock cycle counter for timings.
-    state: FetcherState, // Current state of our state machine.
-    map_address: u16,    // Start address of BG/Windows map row.
-    tile_line: u8,       // Y offset (in pixels) in the tile.
-
-    tile_index: u8, // Index of the tile to read in the current row of the background map.
-
-    tile_id: u8,           // Tile number in the tilemap.
+    clock: Clock,          // Clock cycle counter for timings.
+    state: FetcherState,   // Current state of our state machine.
+    map_address: u16,      // Start address of BG/Windows map row.
+    tile_address: u16,     // Memory address to look for tile data.
+    tile_line: u8,         // Y offset (in pixels) in the tile.
+    tile_index: u8,        // Index of the tile to read in the current row of the background map.
+    tile_id: i16,          // Tile number in the tilemap.
     tile_data: [Pixel; 8], // Pixel data for one row of the fetched tile.
 }
 
@@ -99,8 +98,8 @@ impl<'a> Fetcher<'a> {
             state: FetcherState::ReadTileID,
             tile_index: 0,
             map_address: 0,
+            tile_address: 0,
             tile_line: 0,
-
             tile_id: 0,
             tile_data: [Pixel::Zero; 8],
         }
@@ -114,6 +113,11 @@ impl<'a> Fetcher<'a> {
         self.map_address = map_address;
         self.tile_line = tile_line;
         self.state = FetcherState::ReadTileID;
+        self.tile_address = match self.read_ctrl().contains(LCDControl::TILE_SEL) {
+            true => 0x8000,
+            false => 0x8800,
+        };
+
         // Clear FIFO between calls, as it may still contain leftover tile data
         // from the very end of the previous scanline.
         self.fifo.clear();
@@ -133,7 +137,13 @@ impl<'a> Fetcher<'a> {
                 // in the next states to find the address where the tile's actual pixel
                 // data is stored in memory.
                 let address = self.map_address + u16::from(self.tile_index);
-                self.tile_id = self.read(address);
+                // The double casts are very important, because depending on the
+                // memory address we read from the values can be u8 or i8!
+                self.tile_id = match self.tile_address {
+                    0x8000 => self.read(address) as u8 as i16,
+                    0x8800 => self.read(address) as i8 as i16,
+                    _ => unimplemented!(),
+                };
                 self.state = FetcherState::ReadTileData0
             }
             FetcherState::ReadTileData0 => {
@@ -166,9 +176,11 @@ impl<'a> Fetcher<'a> {
     /// which are read in two separate steps.
     pub fn read_tile_line(&mut self, bit_plane: u8) {
         // A tile's graphical data takes 16 bytes (2 bytes per row of 8 pixels).
-        // Tile data starts at address 0x8000 so we first compute an offset to
-        // find out where the data for the tile we want starts.
-        let offset = VRAM_BEGIN + self.tile_id as u16 * 16;
+        let offset = match self.tile_address {
+            0x8000 => self.tile_address + self.tile_id as u16 * 16,
+            0x8800 => self.tile_address + (self.tile_id + 128) as u16 * 16,
+            _ => unimplemented!(),
+        };
 
         // Then, from that starting offset, we compute the final address to read
         // by finding out which of the 8-pixel rows of the tile we want.
@@ -188,6 +200,12 @@ impl<'a> Fetcher<'a> {
                 );
             }
         }
+    }
+
+    // TODO: code duplicate
+    fn read_ctrl(&self) -> LCDControl {
+        LCDControl::from_bits(self.bus.borrow().read(PPU_LCDC))
+            .expect("Got invalid value for LCDControl!")
     }
 
     fn read(&self, address: u16) -> u8 {
