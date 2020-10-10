@@ -1,11 +1,12 @@
 mod fetcher;
 
 use crate::gb::display::Display;
-use crate::gb::memory::constants::{PPU_LCDC, PPU_LY, PPU_SCX, PPU_SCY, PPU_STAT};
+use crate::gb::interrupt::IRQ;
+use crate::gb::memory::constants::{PPU_LCDC, PPU_LY, PPU_LYC, PPU_SCX, PPU_SCY, PPU_STAT};
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
-use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
 use std::cell::RefCell;
 use std::convert;
 
@@ -37,7 +38,7 @@ bitflags! {
 }
 
 /// Represents the first two bits in LCDState
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum LCDMode {
     HBlank = 0x0,
@@ -98,94 +99,110 @@ impl<'a> PPU<'a> {
 
         self.clock.advance(cycles);
 
-        // TODO: handle interrupts
-        match self.lcd_mode() {
-            LCDMode::OAMSearch => {
-                // In this state, the PPU would scan the OAM (Objects Attribute Memory)
-                // from 0xfe00 to 0xfe9f to mix sprite pixels in the current line later.
-                // This always takes 40 ticks.
-                if self.clock.ticks() >= 40 {
-                    // Move to Pixel Transfer state. Initialize the fetcher to start
-                    // reading background tiles from VRAM. The boot ROM does nothing
-                    // fancy with map addresses, so we just give the fetcher the base
-                    // address of the row of tiles we need in video RAM, adjusted with
-                    // the value in our vertical scrolling register.
-                    //
-                    // In the present case, we only need to figure out in which row of
-                    // the background map our current line (at position Y) is. Then we
-                    // start fetching pixels from that row's address in VRAM, and for
-                    // each tile, we can tell which 8-pixel line to fetch by computing
-                    // Y modulo 8.
-                    self.x = 0;
-                    // TODO: add case for drawing windows
-                    let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
-                    let x = self.read(PPU_SCX).wrapping_add(self.x);
+        let state = self.read_stat();
+        let cur_mode = self.lcd_mode();
+        let (mode, irq) = match cur_mode {
+            // In this state, the PPU would scan the OAM (Objects Attribute Memory)
+            // from 0xfe00 to 0xfe9f to mix sprite pixels in the current line later.
+            // This always takes 40 ticks.
+            LCDMode::OAMSearch if self.clock.ticks() >= 40 => {
+                // Move to Pixel Transfer state. Initialize the fetcher to start
+                // reading background tiles from VRAM. The boot ROM does nothing
+                // fancy with map addresses, so we just give the fetcher the base
+                // address of the row of tiles we need in video RAM, adjusted with
+                // the value in our vertical scrolling register.
+                //
+                // In the present case, we only need to figure out in which row of
+                // the background map our current line (at position Y) is. Then we
+                // start fetching pixels from that row's address in VRAM, and for
+                // each tile, we can tell which 8-pixel line to fetch by computing
+                // Y modulo 8.
+                self.x = 0;
+                // TODO: add case for drawing windows
+                let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
+                let x = self.read(PPU_SCX).wrapping_add(self.x);
 
-                    let tile_row = u16::from(y / 8) * 32;
-                    let tile_column = u16::from(x / 8);
-                    let tile_map_row_addr = 0x9800 + tile_row + tile_column;
+                let tile_row = u16::from(y / 8) * 32;
+                let tile_column = u16::from(x / 8);
+                let tile_map_row_addr = 0x9800 + tile_row + tile_column;
 
-                    let tile_line = y % 8;
-                    self.fetcher.start(tile_map_row_addr, tile_line);
-                    self.set_lcd_mode(LCDMode::PixelTransfer);
-                }
+                let tile_line = y % 8;
+                self.fetcher.start(tile_map_row_addr, tile_line);
+                (LCDMode::PixelTransfer, false)
             }
             LCDMode::PixelTransfer => {
                 // Fetch pixel data into our pixel FIFO.
                 self.fetcher.step();
-
                 // Stop here if the FIFO isn't holding at least 8 pixels. This will
                 // be used to mix in sprite data when we implement these. It also
                 // guarantees the FIFO will always have data to Pop() later.
                 if self.fetcher.fifo.len() <= 8 {
-                    return;
-                }
-
-                // Put a pixel from the FIFO on screen if we have any.
-                if let Some(color) = self.fetcher.fifo.pop_front() {
-                    self.display.write_pixel(self.x, self.read(PPU_LY), color);
-                }
-
-                // Check when the scanline is complete (160 pixels).
-                self.x += 1;
-                if self.x == SCREEN_WIDTH {
-                    self.set_lcd_mode(LCDMode::HBlank);
-                }
-            }
-            LCDMode::HBlank => {
-                // Nothing much to do here but wait the proper number of clock cycles.
-                // A full scanline takes 456 clock cycles to complete. At the end of a
-                // scanline, the PPU goes back to the initial OAM Search state.
-                // When we reach line 144, we switch to VBlank state instead.
-                if self.clock.ticks() >= 456 {
-                    self.clock.reset();
-                    // TODO: use wrapping_Add
-                    self.write(PPU_LY, self.read(PPU_LY) + 1);
-                    if self.read(PPU_LY) == SCREEN_HEIGHT {
-                        self.display.render_screen();
-                        self.set_lcd_mode(LCDMode::VBlank);
-                        self.write_stat(self.read_stat() | LCDState::V_BLANK_INT);
-                    } else {
-                        self.set_lcd_mode(LCDMode::OAMSearch);
+                    (LCDMode::PixelTransfer, false)
+                } else {
+                    // Put a pixel from the FIFO on screen if we have any.
+                    if let Some(color) = self.fetcher.fifo.pop_front() {
+                        self.display.write_pixel(self.x, self.read(PPU_LY), color);
+                    }
+                    // Check when the scanline is complete (160 pixels).
+                    self.x = self.x.wrapping_add(1);
+                    match self.x == SCREEN_WIDTH {
+                        true => (LCDMode::HBlank, state.contains(LCDState::H_BLANK_INT)),
+                        false => (LCDMode::PixelTransfer, false),
                     }
                 }
             }
-            LCDMode::VBlank => {
-                // Nothing much to do here either. VBlank is when the CPU is supposed to
-                // do stuff that takes time. It takes as many cycles as would be needed
-                // to keep displaying scanlines up to line 153.
-                if self.clock.ticks() >= 456 {
-                    self.clock.reset();
-                    self.write(PPU_LY, self.read(PPU_LY) + 1);
-                    if self.read(PPU_LY) == 153 {
-                        // End of VBlank, back to initial state.
-                        self.write(PPU_LY, 0);
-                        self.set_lcd_mode(LCDMode::OAMSearch);
-                    }
+            // Nothing much to do here but wait the proper number of clock cycles.
+            // A full scanline takes 456 clock cycles to complete. At the end of a
+            // scanline, the PPU goes back to the initial OAM Search state.
+            // When we reach line 144, we switch to VBlank state instead.
+            LCDMode::HBlank if self.clock.ticks() >= 456 => {
+                self.clock.reset();
+                self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
+                if self.read(PPU_LY) == SCREEN_HEIGHT {
+                    self.display.render_screen();
+                    self.write_stat(self.read_stat() | LCDState::V_BLANK_INT);
+                    (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT))
+                } else {
+                    (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
                 }
             }
+            // Nothing much to do here either. VBlank is when the CPU is supposed to
+            // do stuff that takes time. It takes as many cycles as would be needed
+            // to keep displaying scanlines up to line 153.
+            LCDMode::VBlank if self.clock.ticks() >= 456 => {
+                self.clock.reset();
+                self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
+                if self.read(PPU_LY) == VERTICAL_BLANK_SCAN_LINE_MAX {
+                    self.write(PPU_LY, 0);
+                    (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
+                } else {
+                    (LCDMode::VBlank, false)
+                }
+            }
+            // No mode change occurred
+            mode => (mode, false),
+        };
+
+        // handle pending interrupts if mode changed
+        if mode != cur_mode && irq {
+            self.bus.borrow_mut().irq(IRQ::LCD);
         }
-        self.clock.advance(1);
+        self.set_lcd_mode(mode);
+
+        self.handle_coincidence_flag();
+    }
+
+    /// Checks the coincidence flag and requests an interrupt if required
+    fn handle_coincidence_flag(&mut self) {
+        let state = self.read_stat();
+        if self.read(PPU_LY) == self.read(PPU_LYC) {
+            if state.contains(LCDState::LY_INT) {
+                self.bus.borrow_mut().irq(IRQ::LCD);
+            }
+            self.write_stat(state - LCDState::LYC_STAT);
+        } else {
+            self.write_stat(state | LCDState::LYC_STAT);
+        }
     }
 
     /// Fetches the current LCD_MODE from PPU_STAT register
