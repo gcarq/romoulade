@@ -99,86 +99,22 @@ impl<'a> PPU<'a> {
 
         self.clock.advance(cycles);
 
-        let state = self.read_stat();
         let cur_mode = self.lcd_mode();
         let (mode, irq) = match cur_mode {
             // In this state, the PPU would scan the OAM (Objects Attribute Memory)
             // from 0xfe00 to 0xfe9f to mix sprite pixels in the current line later.
             // This always takes 40 ticks.
-            LCDMode::OAMSearch if self.clock.ticks() >= 40 => {
-                // Move to Pixel Transfer state. Initialize the fetcher to start
-                // reading background tiles from VRAM. The boot ROM does nothing
-                // fancy with map addresses, so we just give the fetcher the base
-                // address of the row of tiles we need in video RAM, adjusted with
-                // the value in our vertical scrolling register.
-                //
-                // In the present case, we only need to figure out in which row of
-                // the background map our current line (at position Y) is. Then we
-                // start fetching pixels from that row's address in VRAM, and for
-                // each tile, we can tell which 8-pixel line to fetch by computing
-                // Y modulo 8.
-                self.x = 0;
-                // TODO: add case for drawing windows
-                let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
-                let x = self.read(PPU_SCX).wrapping_add(self.x);
-
-                let tile_row = u16::from(y / 8) * 32;
-                let tile_column = u16::from(x / 8);
-                let tile_map_row_addr = 0x9800 + tile_row + tile_column;
-
-                let tile_line = y % 8;
-                self.fetcher.start(tile_map_row_addr, tile_line);
-                (LCDMode::PixelTransfer, false)
-            }
-            LCDMode::PixelTransfer => {
-                // Fetch pixel data into our pixel FIFO.
-                self.fetcher.step();
-                // Stop here if the FIFO isn't holding at least 8 pixels. This will
-                // be used to mix in sprite data when we implement these. It also
-                // guarantees the FIFO will always have data to Pop() later.
-                if self.fetcher.fifo.len() <= 8 {
-                    (LCDMode::PixelTransfer, false)
-                } else {
-                    // Put a pixel from the FIFO on screen if we have any.
-                    if let Some(color) = self.fetcher.fifo.pop_front() {
-                        self.display.write_pixel(self.x, self.read(PPU_LY), color);
-                    }
-                    // Check when the scanline is complete (160 pixels).
-                    self.x = self.x.wrapping_add(1);
-                    match self.x == SCREEN_WIDTH {
-                        true => (LCDMode::HBlank, state.contains(LCDState::H_BLANK_INT)),
-                        false => (LCDMode::PixelTransfer, false),
-                    }
-                }
-            }
+            LCDMode::OAMSearch if self.clock.ticks() >= 40 => self.handle_oam_search(),
+            LCDMode::PixelTransfer => self.handle_pixel_transfer(),
             // Nothing much to do here but wait the proper number of clock cycles.
             // A full scanline takes 456 clock cycles to complete. At the end of a
             // scanline, the PPU goes back to the initial OAM Search state.
             // When we reach line 144, we switch to VBlank state instead.
-            LCDMode::HBlank if self.clock.ticks() >= 456 => {
-                self.clock.reset();
-                self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
-                if self.read(PPU_LY) == SCREEN_HEIGHT {
-                    self.display.render_screen();
-                    self.write_stat(self.read_stat() | LCDState::V_BLANK_INT);
-                    (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT))
-                } else {
-                    (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
-                }
-            }
+            LCDMode::HBlank if self.clock.ticks() >= 456 => self.handle_hblank(),
             // Nothing much to do here either. VBlank is when the CPU is supposed to
             // do stuff that takes time. It takes as many cycles as would be needed
             // to keep displaying scanlines up to line 153.
-            LCDMode::VBlank if self.clock.ticks() >= 456 => {
-                self.clock.reset();
-                self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
-                if self.read(PPU_LY) == VERTICAL_BLANK_SCAN_LINE_MAX {
-                    self.write(PPU_LY, 0);
-                    (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
-                } else {
-                    (LCDMode::VBlank, false)
-                }
-            }
+            LCDMode::VBlank if self.clock.ticks() >= 456 => self.handle_vblank(),
             // No mode change occurred
             mode => (mode, false),
         };
@@ -192,7 +128,7 @@ impl<'a> PPU<'a> {
         self.handle_coincidence_flag();
     }
 
-    /// Checks the coincidence flag and requests an interrupt if required
+    /// Checks the coincidence flag and requests an interrupt if required.
     fn handle_coincidence_flag(&mut self) {
         let state = self.read_stat();
         if self.read(PPU_LY) == self.read(PPU_LYC) {
@@ -205,8 +141,91 @@ impl<'a> PPU<'a> {
         }
     }
 
+    /// Handles the OAMSearch mode.
+    /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
+    fn handle_oam_search(&mut self) -> (LCDMode, bool) {
+        // Move to Pixel Transfer state. Initialize the fetcher to start
+        // reading background tiles from VRAM. The boot ROM does nothing
+        // fancy with map addresses, so we just give the fetcher the base
+        // address of the row of tiles we need in video RAM, adjusted with
+        // the value in our vertical scrolling register.
+        //
+        // In the present case, we only need to figure out in which row of
+        // the background map our current line (at position Y) is. Then we
+        // start fetching pixels from that row's address in VRAM, and for
+        // each tile, we can tell which 8-pixel line to fetch by computing
+        // Y modulo 8.
+        self.x = 0;
+        // TODO: add case for drawing windows
+        let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
+        let x = self.read(PPU_SCX).wrapping_add(self.x);
+
+        let tile_row = u16::from(y / 8) * 32;
+        let tile_column = u16::from(x / 8);
+        let tile_map_row_addr = 0x9800 + tile_row + tile_column;
+
+        let tile_line = y % 8;
+        self.fetcher.start(tile_map_row_addr, tile_line);
+        (LCDMode::PixelTransfer, false)
+    }
+
+    /// Handles the HBlank mode.
+    /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
+    fn handle_hblank(&mut self) -> (LCDMode, bool) {
+        self.clock.reset();
+        self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
+
+        let state = self.read_stat();
+        if self.read(PPU_LY) == SCREEN_HEIGHT {
+            self.display.render_screen();
+            self.write_stat(self.read_stat() | LCDState::V_BLANK_INT);
+            return (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT));
+        }
+        (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
+    }
+
+    /// Handles the VBlank mode.
+    /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
+    fn handle_vblank(&mut self) -> (LCDMode, bool) {
+        self.clock.reset();
+        self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
+
+        let state = self.read_stat();
+        if self.read(PPU_LY) == VERTICAL_BLANK_SCAN_LINE_MAX {
+            self.write(PPU_LY, 0);
+            return (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT));
+        }
+        (LCDMode::VBlank, false)
+    }
+
+    /// Handles the PixelTransfer mode.
+    /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
+    fn handle_pixel_transfer(&mut self) -> (LCDMode, bool) {
+        // Fetch pixel data into our pixel FIFO.
+        self.fetcher.step();
+        // Stop here if the FIFO isn't holding at least 8 pixels. This will
+        // be used to mix in sprite data when we implement these. It also
+        // guarantees the FIFO will always have data to Pop() later.
+        if self.fetcher.fifo.len() <= 8 {
+            return (LCDMode::PixelTransfer, false);
+        }
+        // Put a pixel from the FIFO on screen if we have any.
+        if let Some(color) = self.fetcher.fifo.pop_front() {
+            self.display.write_pixel(self.x, self.read(PPU_LY), color);
+        }
+        // Check when the scanline is complete (160 pixels).
+        self.x = self.x.wrapping_add(1);
+        match self.x == SCREEN_WIDTH {
+            true => (
+                LCDMode::HBlank,
+                self.read_stat().contains(LCDState::H_BLANK_INT),
+            ),
+            false => (LCDMode::PixelTransfer, false),
+        }
+    }
+
     /// Fetches the current LCD_MODE from PPU_STAT register
-    pub fn lcd_mode(&self) -> LCDMode {
+    fn lcd_mode(&self) -> LCDMode {
         LCDMode::from(self.read(PPU_STAT) & 0b11)
     }
 
