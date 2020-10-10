@@ -184,7 +184,6 @@ impl<'a> PPU<'a> {
         let state = self.read_stat();
         if self.read(PPU_LY) == SCREEN_HEIGHT {
             self.display.render_screen();
-            self.write_stat(self.read_stat() | LCDState::V_BLANK_INT);
             return (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT));
         }
         (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
