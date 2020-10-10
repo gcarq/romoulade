@@ -1,6 +1,6 @@
 use sdl2::video::Window;
 
-use crate::gb::ppu::Color;
+use crate::gb::ppu::misc::Color;
 use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use sdl2::pixels;
 use sdl2::rect::{Point, Rect};

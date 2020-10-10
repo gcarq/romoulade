@@ -1,72 +1,11 @@
 use crate::gb::memory::constants::{PPU_BGP, PPU_LCDC};
 use crate::gb::memory::MemoryBus;
-use crate::gb::ppu::{Color, LCDControl};
+use crate::gb::ppu::misc::{Color, Palette, Pixel};
+use crate::gb::ppu::LCDControl;
 use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::convert;
-
-/// Defines a Palette to colorize a Pixel
-/// Used by bgp, obp0 and obp1 registers
-struct Palette {
-    map: [Color; 4],
-}
-
-impl Palette {
-    pub fn colorize(&self, pixel: Pixel) -> Color {
-        self.map[u8::from(pixel) as usize]
-    }
-}
-
-impl convert::From<u8> for Palette {
-    /// Every two bits in the palette data byte represent a colour.
-    /// Bits 7-6 maps to colour id 11, bits 5-4 map to colour id 10,
-    /// bits 3-2 map to colour id 01 and bits 1-0 map to colour id 00
-    fn from(value: u8) -> Self {
-        Self {
-            map: [
-                Color::from(value & 0x3),
-                Color::from((value >> 2) & 0x3),
-                Color::from((value >> 4) & 0x3),
-                Color::from((value >> 6) & 0x3),
-            ],
-        }
-    }
-}
-
-/// Represents an non-colorized Pixel
-#[derive(Copy, Clone)]
-#[repr(u8)]
-enum Pixel {
-    Zero = 0x00,
-    One = 0x01,
-    Two = 0x10,
-    Three = 0x11,
-}
-
-impl convert::From<Pixel> for u8 {
-    fn from(value: Pixel) -> u8 {
-        match value {
-            Pixel::Zero => 0b00,
-            Pixel::One => 0b01,
-            Pixel::Two => 0b10,
-            Pixel::Three => 0b11,
-        }
-    }
-}
-
-impl convert::From<u8> for Pixel {
-    fn from(value: u8) -> Self {
-        match value {
-            0b00 => Pixel::Zero,
-            0b01 => Pixel::One,
-            0b10 => Pixel::Two,
-            0b11 => Pixel::Three,
-            _ => unimplemented!(),
-        }
-    }
-}
 
 #[repr(u8)]
 pub enum FetcherState {
@@ -76,6 +15,8 @@ pub enum FetcherState {
     PushToFIFO,
 }
 
+/// Implements the PixelPipeline Fetcher outlined in "Ultimate Gamboy Talk",
+/// it runs at half the speed of the PPU (every 2 clock cycles).
 pub struct Fetcher<'a> {
     pub fifo: VecDeque<Color>, // Pixel FIFO that the PPU will read.
     bus: &'a RefCell<MemoryBus>,
@@ -124,7 +65,6 @@ impl<'a> Fetcher<'a> {
     }
 
     pub fn step(&mut self) {
-        // The Fetcher runs at half the speed of the PPU (every 2 clock cycles).
         self.clock.advance(1);
         if self.clock.ticks() < 2 {
             return;
@@ -202,7 +142,6 @@ impl<'a> Fetcher<'a> {
         }
     }
 
-    // TODO: code duplicate
     fn read_ctrl(&self) -> LCDControl {
         LCDControl::from_bits(self.bus.borrow().read(PPU_LCDC))
             .expect("Got invalid value for LCDControl!")

@@ -1,8 +1,9 @@
 mod fetcher;
+pub mod misc;
 
 use crate::gb::display::Display;
 use crate::gb::interrupt::IRQ;
-use crate::gb::memory::constants::{PPU_LCDC, PPU_LY, PPU_LYC, PPU_SCX, PPU_SCY, PPU_STAT};
+use crate::gb::memory::constants::*;
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
@@ -92,7 +93,7 @@ impl<'a> PPU<'a> {
 
     pub fn step(&mut self, cycles: u32) {
         if !self.read_ctrl().contains(LCDControl::LCD_EN) {
-            self.set_lcd_mode(LCDMode::OAMSearch);
+            self.set_lcd_mode(LCDMode::VBlank);
             // Screen is off, PPU remains idle.
             return;
         }
@@ -262,39 +263,5 @@ impl<'a> AddressSpace for PPU<'a> {
 
     fn read(&self, address: u16) -> u8 {
         self.bus.borrow().read(address)
-    }
-}
-
-/// Defines a Palette to colorize a Pixel
-/// Used by bgp, obp0 and obp1 registers
-#[derive(Copy, Clone)]
-#[repr(u8)]
-pub enum Color {
-    White = 0x00,
-    LightGrey = 0x01,
-    DarkGrey = 0x10,
-    Black = 0x11,
-}
-
-impl convert::From<Color> for u8 {
-    fn from(value: Color) -> u8 {
-        match value {
-            Color::White => 0b00,
-            Color::LightGrey => 0b01,
-            Color::DarkGrey => 0b10,
-            Color::Black => 0b11,
-        }
-    }
-}
-
-impl convert::From<u8> for Color {
-    fn from(value: u8) -> Self {
-        match value {
-            0b00 => Color::White,
-            0b01 => Color::LightGrey,
-            0b10 => Color::DarkGrey,
-            0b11 => Color::Black,
-            _ => unimplemented!(),
-        }
     }
 }
