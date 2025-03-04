@@ -104,8 +104,8 @@ pub struct Cartridge {
 impl Cartridge {
     /// Creates a new Cartridge from the given Path
     pub fn from_path(path: &Path) -> io::Result<Self> {
-        let mut file = File::open(&path)?;
-        let metadata = fs::metadata(&path)?;
+        let mut file = File::open(path)?;
+        let metadata = fs::metadata(path)?;
         let mut buffer = vec![0; metadata.len() as usize];
         file.read_exact(&mut buffer)?;
         let meta = Metadata::from_buf(&buffer);
@@ -162,8 +162,7 @@ impl Cartridge {
     fn toggle_ram_banking(&mut self, address: u16, value: u8) {
         // If MBC2 is enabled, bit 4 of the address must be zero.
         if self.meta.banking == MBC2 && utils::bit_at(address as u8, 4) {
-            // TODO: implement me
-            panic!("TODO: implement RAM banking while MBC2 is enabled!");
+            todo!("TODO: implement RAM banking while MBC2 is enabled!");
             return;
         }
 
@@ -177,7 +176,7 @@ impl Cartridge {
 
     /// Change ROM banking mode (lower 5 bits)
     fn change_low_rom_bank(&mut self, value: u8) {
-        if self.meta.banking == BankingMode::MBC2 {
+        if self.meta.banking == MBC2 {
             self.cur_rom_bank = value & 0x0F;
             self.sanitize_rom_bank();
             return;

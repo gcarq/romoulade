@@ -90,7 +90,7 @@ impl<'a, T: AddressSpace> IRQHandler<'a, T> {
     }
 }
 
-impl<'a, T: AddressSpace> AddressSpace for IRQHandler<'a, T> {
+impl<T: AddressSpace> AddressSpace for IRQHandler<'_, T> {
     fn write(&mut self, address: u16, value: u8) {
         self.bus.borrow_mut().write(address, value);
     }

@@ -150,7 +150,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Reads the next word and increases pc
     pub fn consume_word(&mut self) -> u16 {
-        u16::from(self.consume_byte()) | u16::from(self.consume_byte()) << 8
+        u16::from(self.consume_byte()) | (u16::from(self.consume_byte()) << 8)
     }
 
     /// Push a u16 value onto the stack
@@ -219,12 +219,12 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_add_sp(&mut self) -> u16 {
         let sp = self.sp as i32;
         let byte = self.consume_byte() as i8 as i32;
-        let result = sp.wrapping_add(byte as i32);
+        let result = sp.wrapping_add(byte);
         self.sp = result as u16;
 
         // Carry and half carry are for the low byte
-        let half_carry = (sp ^ byte as i32 ^ result) & 0x10 != 0;
-        let carry = (sp ^ byte as i32 ^ result) & 0x100 != 0;
+        let half_carry = (sp ^ byte ^ result) & 0x10 != 0;
+        let carry = (sp ^ byte ^ result) & 0x100 != 0;
         self.r.f.update(false, false, half_carry, carry);
         self.clock.advance(16);
         self.pc.wrapping_add(1)
@@ -709,7 +709,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_rlc(&mut self, source: ByteSource) -> u16 {
         let value = source.read(self);
         let carry = value & 0x80 != 0;
-        let result = (value << 1) | (value >> 7);
+        let result = value.rotate_left(1);
         self.r.f.update(result == 0, false, false, carry);
         source.write(self, result);
 
@@ -757,7 +757,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_rrc(&mut self, source: ByteSource) -> u16 {
         let value = source.read(self);
         let carry = value & 0x01 != 0;
-        let result = (value >> 1) | (value << 7);
+        let result = value.rotate_right(1);
 
         self.r.f.update(result == 0, false, false, carry);
         source.write(self, result);
@@ -882,7 +882,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
 
     /// Handles STOP instruction
     fn handle_stop(&mut self) -> u16 {
-        panic!("STOP is not implemented");
+        todo!("STOP is not implemented");
         self.clock.advance(4);
         self.pc.wrapping_add(2)
     }
@@ -911,7 +911,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     fn handle_swap(&mut self, source: ByteSource) -> u16 {
         let value = source.read(self);
         self.r.f.update(value == 0, false, false, false);
-        source.write(self, (value << 4) | (value >> 4));
+        source.write(self, value.rotate_right(4));
 
         match source {
             ByteSource::HLI => self.clock.advance(16),
@@ -935,7 +935,7 @@ impl<'a, T: AddressSpace> CPU<'a, T> {
     }
 }
 
-impl<'a, T: AddressSpace> AddressSpace for CPU<'a, T> {
+impl<T: AddressSpace> AddressSpace for CPU<'_, T> {
     fn write(&mut self, address: u16, value: u8) {
         self.bus.borrow_mut().write(address, value);
     }

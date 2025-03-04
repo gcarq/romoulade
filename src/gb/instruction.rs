@@ -919,7 +919,7 @@ impl IncDecByteTarget {
         }
     }
 
-    /// Writes to the the referring register or memory location
+    /// Writes to the referring register or memory location
     pub fn write<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u8) {
         match *self {
             IncDecByteTarget::A => cpu.r.a = value,
@@ -953,7 +953,7 @@ impl IncDecWordTarget {
         }
     }
 
-    /// Writes to the the referring register
+    /// Writes to the referring register
     pub fn write<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u16) {
         match *self {
             IncDecWordTarget::BC => cpu.r.set_bc(value),

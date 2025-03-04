@@ -1,3 +1,9 @@
+#![allow(clippy::upper_case_acronyms)]
+
+#[macro_use]
+extern crate bitflags;
+#[macro_use]
+extern crate clap;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::Debugger;
@@ -12,13 +18,8 @@ use clap::{App, Arg, ArgMatches};
 use std::cell::RefCell;
 use std::error::Error;
 use std::panic;
-use std::panic::PanicInfo;
+use std::panic::PanicHookInfo;
 use std::path::Path;
-
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate bitflags;
 
 mod gb;
 mod utils;
@@ -38,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let debug = matches.is_present("debug");
 
     println!("Loading cartridge {}...", &path.display());
-    let cartridge = Cartridge::from_path(&path).expect("Unable to load cartridge from path");
+    let cartridge = Cartridge::from_path(path).expect("Unable to load cartridge from path");
     println!("  -> {}", &cartridge.meta);
 
     let bus = RefCell::new(MemoryBus::new(cartridge));
@@ -99,7 +100,7 @@ fn parse_args() -> ArgMatches<'static> {
         .get_matches()
 }
 
-fn panic_hook(info: &PanicInfo<'_>) {
+fn panic_hook(info: &PanicHookInfo<'_>) {
     if cfg!(debug_assertions) {
         let location = info.location().unwrap();
 

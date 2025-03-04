@@ -80,7 +80,7 @@ impl<'a> Fetcher<'a> {
                 // The double casts are very important, because depending on the
                 // memory address we read from the values can be u8 or i8!
                 self.tile_id = match self.tile_address {
-                    0x8000 => self.read(address) as u8 as i16,
+                    0x8000 => self.read(address) as i16,
                     0x8800 => self.read(address) as i8 as i16,
                     _ => unimplemented!(),
                 };
@@ -136,7 +136,7 @@ impl<'a> Fetcher<'a> {
                 self.tile_data[bit_pos] = Pixel::from((pixel_data >> bit_pos) & 1);
             } else {
                 self.tile_data[bit_pos] = Pixel::from(
-                    u8::from(self.tile_data[bit_pos]) | ((pixel_data >> bit_pos) & 1) << 1,
+                    u8::from(self.tile_data[bit_pos]) | (((pixel_data >> bit_pos) & 1) << 1)
                 );
             }
         }

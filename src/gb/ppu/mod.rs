@@ -85,7 +85,7 @@ impl<'a> PPU<'a> {
         Self {
             clock: Clock::new(),
             bus,
-            fetcher: Fetcher::new(&bus),
+            fetcher: Fetcher::new(bus),
             display,
             x: 0,
         }
@@ -176,7 +176,7 @@ impl<'a> PPU<'a> {
     }
 
     /// Handles the HBlank mode.
-    /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
+    /// Returns a tuple with the new LCDMode and whether an interrupt has been requested.
     fn handle_hblank(&mut self) -> (LCDMode, bool) {
         self.clock.reset();
         self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
@@ -255,7 +255,7 @@ impl<'a> PPU<'a> {
     }
 }
 
-impl<'a> AddressSpace for PPU<'a> {
+impl AddressSpace for PPU<'_> {
     fn write(&mut self, address: u16, value: u8) {
         self.bus.borrow_mut().write(address, value);
     }

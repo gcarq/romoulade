@@ -100,8 +100,7 @@ impl Display {
 
         while self
             .last_second_frames
-            .front()
-            .map_or(false, |t| *t < a_second_ago)
+            .front().is_some_and(|t| *t < a_second_ago)
         {
             self.last_second_frames.pop_front();
         }
@@ -115,10 +114,7 @@ impl Display {
     fn update(&mut self) {
         self.canvas.present();
         for event in self.event_pump.poll_iter() {
-            match event {
-                sdl2::event::Event::Quit { .. } => process::exit(0),
-                _ => {}
-            }
+            if let sdl2::event::Event::Quit { .. } = event { process::exit(0) }
         }
     }
 }

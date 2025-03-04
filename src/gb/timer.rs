@@ -86,7 +86,7 @@ impl<'a> Timer<'a> {
     }
 }
 
-impl<'a> AddressSpace for Timer<'a> {
+impl AddressSpace for Timer<'_> {
     fn write(&mut self, address: u16, value: u8) {
         self.bus.borrow_mut().write(address, value)
     }

@@ -1,4 +1,4 @@
-use std::{convert, fmt};
+use std::fmt;
 
 /// Holds all CPU registers
 #[derive(Copy, Clone)]
@@ -29,7 +29,7 @@ impl fmt::Display for Registers {
 
 impl Registers {
     pub fn get_af(&self) -> u16 {
-        (self.a as u16) << 8 | u8::from(self.f) as u16
+        ((self.a as u16) << 8) | u8::from(self.f) as u16
     }
 
     pub fn set_af(&mut self, value: u16) {
@@ -39,7 +39,7 @@ impl Registers {
     }
 
     pub fn get_bc(&self) -> u16 {
-        (self.b as u16) << 8 | self.c as u16
+        ((self.b as u16) << 8) | self.c as u16
     }
 
     pub fn set_bc(&mut self, value: u16) {
@@ -48,7 +48,7 @@ impl Registers {
     }
 
     pub fn get_de(&self) -> u16 {
-        (self.d as u16) << 8 | self.e as u16
+        ((self.d as u16) << 8) | self.e as u16
     }
 
     pub fn set_de(&mut self, value: u16) {
@@ -57,7 +57,7 @@ impl Registers {
     }
 
     pub fn get_hl(&self) -> u16 {
-        (self.h as u16) << 8 | self.l as u16
+        ((self.h as u16) << 8) | self.l as u16
     }
 
     pub fn set_hl(&mut self, value: u16) {
@@ -123,16 +123,16 @@ impl fmt::Display for FlagsRegister {
     }
 }
 
-impl convert::From<FlagsRegister> for u8 {
+impl From<FlagsRegister> for u8 {
     fn from(flag: FlagsRegister) -> u8 {
-        (if flag.zero { 1 } else { 0 }) << ZERO_FLAG_BYTE_POSITION
-            | (if flag.negative { 1 } else { 0 }) << NEGATIVE_FLAG_BYTE_POSITION
-            | (if flag.half_carry { 1 } else { 0 }) << HALF_CARRY_FLAG_BYTE_POSITION
-            | (if flag.carry { 1 } else { 0 }) << CARRY_FLAG_BYTE_POSITION
+        ((if flag.zero { 1 } else { 0 }) << ZERO_FLAG_BYTE_POSITION)
+            | ((if flag.negative { 1 } else { 0 }) << NEGATIVE_FLAG_BYTE_POSITION)
+            | ((if flag.half_carry { 1 } else { 0 }) << HALF_CARRY_FLAG_BYTE_POSITION)
+            | ((if flag.carry { 1 } else { 0 }) << CARRY_FLAG_BYTE_POSITION)
     }
 }
 
-impl convert::From<u8> for FlagsRegister {
+impl From<u8> for FlagsRegister {
     fn from(byte: u8) -> Self {
         let zero = ((byte >> ZERO_FLAG_BYTE_POSITION) & 0b1) != 0;
         let subtract = ((byte >> NEGATIVE_FLAG_BYTE_POSITION) & 0b1) != 0;
