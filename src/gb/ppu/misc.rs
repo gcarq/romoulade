@@ -1,5 +1,3 @@
-use std::convert;
-
 /// Defines a Palette to colorize a Pixel
 /// used by bgp, obp0 and obp1 registers.
 pub struct Palette {
@@ -12,7 +10,7 @@ impl Palette {
     }
 }
 
-impl convert::From<u8> for Palette {
+impl From<u8> for Palette {
     /// Every two bits in the palette data byte represent a colour.
     /// Bits 7-6 maps to colour id 11, bits 5-4 map to colour id 10,
     /// bits 3-2 map to colour id 01 and bits 1-0 map to colour id 00
@@ -38,7 +36,7 @@ pub enum Pixel {
     Three = 0x11,
 }
 
-impl convert::From<Pixel> for u8 {
+impl From<Pixel> for u8 {
     fn from(value: Pixel) -> u8 {
         match value {
             Pixel::Zero => 0b00,
@@ -49,7 +47,7 @@ impl convert::From<Pixel> for u8 {
     }
 }
 
-impl convert::From<u8> for Pixel {
+impl From<u8> for Pixel {
     fn from(value: u8) -> Self {
         match value {
             0b00 => Pixel::Zero,
@@ -72,7 +70,7 @@ pub enum Color {
     Black = 0x11,
 }
 
-impl convert::From<Color> for u8 {
+impl From<Color> for u8 {
     fn from(value: Color) -> u8 {
         match value {
             Color::White => 0b00,
@@ -83,7 +81,7 @@ impl convert::From<Color> for u8 {
     }
 }
 
-impl convert::From<u8> for Color {
+impl From<u8> for Color {
     fn from(value: u8) -> Self {
         match value {
             0b00 => Color::White,

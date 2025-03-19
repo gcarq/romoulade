@@ -8,7 +8,7 @@ use crate::utils;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use std::{convert, fmt, fs, io};
+use std::{fmt, fs, io};
 
 /// This area of memory contains ROM title
 const TITLE_BEGIN: u16 = 0x0134;
@@ -40,7 +40,7 @@ pub enum BankingMode {
     MBC2, // Ram Baking is not used in MBC2!
 }
 
-impl convert::From<u8> for BankingMode {
+impl From<u8> for BankingMode {
     fn from(value: u8) -> Self {
         match value {
             0 => BankingMode::None,

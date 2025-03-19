@@ -3,7 +3,6 @@ use crate::gb::memory::constants::{INTERRUPT_ENABLE, INTERRUPT_FLAG};
 use crate::gb::AddressSpace;
 use crate::utils;
 use bitflags::_core::cell::RefCell;
-use std::convert;
 
 /// Represents an interrupt request
 #[derive(Debug, Copy, Clone)]
@@ -15,7 +14,7 @@ pub enum IRQ {
     Joypad = 4,
 }
 
-impl convert::From<u8> for IRQ {
+impl From<u8> for IRQ {
     fn from(value: u8) -> Self {
         match value {
             0 => IRQ::VBlank,
@@ -27,7 +26,7 @@ impl convert::From<u8> for IRQ {
     }
 }
 
-impl convert::From<IRQ> for u8 {
+impl From<IRQ> for u8 {
     fn from(value: IRQ) -> u8 {
         match value {
             IRQ::VBlank => 0,

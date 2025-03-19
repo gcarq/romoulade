@@ -9,7 +9,6 @@ use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
 use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
 use std::cell::RefCell;
-use std::convert;
 
 bitflags! {
     /// Represents PPU_LCDC at 0xFF40
@@ -48,7 +47,7 @@ pub enum LCDMode {
     PixelTransfer = 0x3,
 }
 
-impl convert::From<LCDMode> for u8 {
+impl From<LCDMode> for u8 {
     fn from(value: LCDMode) -> u8 {
         match value {
             LCDMode::HBlank => 0b00,
@@ -59,7 +58,7 @@ impl convert::From<LCDMode> for u8 {
     }
 }
 
-impl convert::From<u8> for LCDMode {
+impl From<u8> for LCDMode {
     fn from(value: u8) -> Self {
         match value {
             0b00 => LCDMode::HBlank,
