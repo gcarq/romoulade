@@ -1,30 +1,28 @@
 # Romoulade
-[![Build Status](https://travis-ci.org/gcarq/romoulade.svg?branch=master)](https://travis-ci.org/gcarq/romoulade)
 
 Experimental Gameboy Emulator implementation in Rust.
-
 
 ## State
 
 This emulator is not production ready and mainly a emulation exploration project.
-At this point it is capable of processing the Original Gameboy [Bootstrap ROM](https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM).
-
+At this point it is capable of processing the Original
+Gameboy [Bootstrap ROM](https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM).
 
 ### Blargg's CPU test results
 
-| Test No.              | Result  | Remark           |
-| --------------------- | ------- | ---------------- |
-| 01-special            | ✅      | Passed           |
-| 02-interrupts         | ✅      | Passed           |
-| 03-op sp,hl           | ✅      | Passed           |
-| 04-op r,imm           | ✅      | Passed           |
-| 05-op rp              | ✅      | Passed           |
-| 06-ld r,r             | ✅      | Passed           |
-| 07-jr,jp,call,ret,rst | ✅      | Passed           |
-| 08-misc instrs        | ✅      | Passed           |
-| 09-op r,r             | ✅      | Passed           |
-| 10-bit ops            | ✅      | Passed           |
-| 11-op a,(hl)          | ✅      | Passed           |
+| Test No.              | Result | Remark |
+|-----------------------|--------|--------|
+| 01-special            | ✅      | Passed |
+| 02-interrupts         | ✅      | Passed |
+| 03-op sp,hl           | ✅      | Passed |
+| 04-op r,imm           | ✅      | Passed |
+| 05-op rp              | ✅      | Passed |
+| 06-ld r,r             | ✅      | Passed |
+| 07-jr,jp,call,ret,rst | ✅      | Passed |
+| 08-misc instrs        | ✅      | Passed |
+| 09-op r,r             | ✅      | Passed |
+| 10-bit ops            | ✅      | Passed |
+| 11-op a,(hl)          | ✅      | Passed |
 
 ## Debugger
 
@@ -33,8 +31,8 @@ this feature is WIP and might just not work.
 
 ![Debugger](https://i.imgur.com/c6XeizK.png)
 
-
 ## Usage
+
 ```
 romoulade 0.1.0
 gcarq <egger.m@protonmail.com>
@@ -65,7 +63,6 @@ $ cargo run -- <path_to_rom>
 This repository is open to contributions.
 The code should follow the Rust style guideline.
 
-
 ## Dependencies
 
 * Rust
@@ -73,13 +70,12 @@ The code should follow the Rust style guideline.
 
 ## TODOs
 
- - ROM banking: Implement MBC2+
- - Increase instruction test coverage
- - Finish Pixel Processing Unit
- - Implement Sound Processing Unit
- - Pass [Test ROMs](https://gbdev.gg8.se/files/roms/blargg-gb-tests/)
- - ...
-
+- ROM banking: Implement MBC2+
+- Increase instruction test coverage
+- Finish Pixel Processing Unit
+- Implement Sound Processing Unit
+- Pass [Test ROMs](https://gbdev.gg8.se/files/roms/blargg-gb-tests/)
+- ...
 
 ## Resources
 
