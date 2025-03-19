@@ -2,7 +2,6 @@ use crate::gb::bus::constants::{
     CRAM_BEGIN, CRAM_END, CRAM_SIZE, ROM_BANK_0_BEGIN, ROM_BANK_0_END, ROM_BANK_N_BEGIN,
     ROM_BANK_N_END, ROM_BANK_N_SIZE,
 };
-use crate::gb::cartridge::BankingMode::MBC2;
 use crate::gb::AddressSpace;
 use crate::utils;
 use std::fs::File;
@@ -161,7 +160,7 @@ impl Cartridge {
     /// Enables or disables RAM banking.
     fn toggle_ram_banking(&mut self, address: u16, value: u8) {
         // If MBC2 is enabled, bit 4 of the address must be zero.
-        if self.meta.banking == MBC2 && utils::bit_at(address as u8, 4) {
+        if self.meta.banking == BankingMode::MBC2 && utils::bit_at(address as u8, 4) {
             todo!("TODO: implement RAM banking while MBC2 is enabled!");
             return;
         }
@@ -176,7 +175,7 @@ impl Cartridge {
 
     /// Change ROM banking mode (lower 5 bits)
     fn change_low_rom_bank(&mut self, value: u8) {
-        if self.meta.banking == MBC2 {
+        if self.meta.banking == BankingMode::MBC2 {
             self.cur_rom_bank = value & 0x0F;
             self.sanitize_rom_bank();
             return;
@@ -217,8 +216,8 @@ impl AddressSpace for Cartridge {
         match address {
             0x0000..=ROM_BANK_N_END => self.handle_banking(address, value),
             CRAM_BEGIN..=CRAM_END => {
-                let offset = self.cur_ram_bank as u16 * CRAM_SIZE as u16;
-                self.ram[usize::from(address - CRAM_BEGIN + offset)] = value
+                let offset = self.cur_ram_bank as usize * CRAM_SIZE;
+                self.ram[usize::from(address as usize - CRAM_BEGIN as usize + offset)] = value
             }
             _ => unimplemented!("Trying to write byte to ROM: {:#06x}", address),
         }
@@ -228,12 +227,12 @@ impl AddressSpace for Cartridge {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_0_END => self.rom[address as usize],
             ROM_BANK_N_BEGIN..=ROM_BANK_N_END => {
-                let offset = self.cur_rom_bank as u16 * ROM_BANK_N_SIZE as u16;
-                self.rom[usize::from(address - ROM_BANK_N_BEGIN + offset)]
+                let offset = self.cur_rom_bank as usize * ROM_BANK_N_SIZE;
+                self.rom[address as usize - ROM_BANK_N_BEGIN as usize + offset]
             }
             CRAM_BEGIN..=CRAM_END => {
-                let offset = self.cur_ram_bank as u16 * CRAM_SIZE as u16;
-                self.ram[usize::from(address - CRAM_BEGIN + offset)]
+                let offset = self.cur_ram_bank as usize * CRAM_SIZE;
+                self.ram[address as usize - CRAM_BEGIN as usize + offset]
             }
             _ => unimplemented!("Trying to read byte from ROM: {:#06x}", address),
         }
