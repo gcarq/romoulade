@@ -8,7 +8,6 @@ use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
 use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
-use std::cell::RefCell;
 
 bitflags! {
     /// Represents PPU_LCDC at 0xFF40
@@ -73,77 +72,75 @@ impl From<u8> for LCDMode {
 /// Pixel Processing Unit
 pub struct PPU<'a> {
     clock: Clock,
-    bus: &'a RefCell<MemoryBus>,
-    fetcher: Fetcher<'a>,
+    fetcher: Fetcher,
     display: &'a mut Display,
     x: u8,
 }
 
 impl<'a> PPU<'a> {
-    pub fn new(bus: &'a RefCell<MemoryBus>, display: &'a mut Display) -> Self {
+    pub fn new(display: &'a mut Display) -> Self {
         Self {
             clock: Clock::new(),
-            bus,
-            fetcher: Fetcher::new(bus),
+            fetcher: Fetcher::new(),
             display,
             x: 0,
         }
     }
 
-    pub fn step(&mut self, cycles: u32) {
-        if !self.read_ctrl().contains(LCDControl::LCD_EN) {
-            self.set_lcd_mode(LCDMode::VBlank);
+    pub fn step(&mut self, bus: &mut MemoryBus, cycles: u32) {
+        if !self.read_ctrl(bus).contains(LCDControl::LCD_EN) {
+            self.set_lcd_mode(bus, LCDMode::VBlank);
             // Screen is off, PPU remains idle.
             return;
         }
 
         self.clock.advance(cycles);
 
-        let cur_mode = self.lcd_mode();
+        let cur_mode = self.lcd_mode(bus);
         let (mode, irq) = match cur_mode {
             // In this state, the PPU would scan the OAM (Objects Attribute Memory)
             // from 0xfe00 to 0xfe9f to mix sprite pixels in the current line later.
             // This always takes 40 ticks.
-            LCDMode::OAMSearch if self.clock.ticks() >= 40 => self.handle_oam_search(),
-            LCDMode::PixelTransfer => self.handle_pixel_transfer(),
+            LCDMode::OAMSearch if self.clock.ticks() >= 40 => self.handle_oam_search(bus),
+            LCDMode::PixelTransfer => self.handle_pixel_transfer(bus),
             // Nothing much to do here but wait the proper number of clock cycles.
             // A full scanline takes 456 clock cycles to complete. At the end of a
             // scanline, the PPU goes back to the initial OAM Search state.
             // When we reach line 144, we switch to VBlank state instead.
-            LCDMode::HBlank if self.clock.ticks() >= 456 => self.handle_hblank(),
+            LCDMode::HBlank if self.clock.ticks() >= 456 => self.handle_hblank(bus),
             // Nothing much to do here either. VBlank is when the CPU is supposed to
             // do stuff that takes time. It takes as many cycles as would be needed
             // to keep displaying scanlines up to line 153.
-            LCDMode::VBlank if self.clock.ticks() >= 456 => self.handle_vblank(),
+            LCDMode::VBlank if self.clock.ticks() >= 456 => self.handle_vblank(bus),
             // No mode change occurred
             mode => (mode, false),
         };
 
         // handle pending interrupts if mode changed
         if mode != cur_mode && irq {
-            self.bus.borrow_mut().irq(IRQ::LCD);
+            bus.irq(IRQ::LCD);
         }
-        self.set_lcd_mode(mode);
+        self.set_lcd_mode(bus, mode);
 
-        self.handle_coincidence_flag();
+        self.handle_coincidence_flag(bus);
     }
 
     /// Checks the coincidence flag and requests an interrupt if required.
-    fn handle_coincidence_flag(&mut self) {
-        let state = self.read_stat();
-        if self.read(PPU_LY) == self.read(PPU_LYC) {
+    fn handle_coincidence_flag(&mut self, bus: &mut MemoryBus) {
+        let state = self.read_stat(bus);
+        if bus.read(PPU_LY) == bus.read(PPU_LYC) {
             if state.contains(LCDState::LY_INT) {
-                self.bus.borrow_mut().irq(IRQ::LCD);
+                bus.irq(IRQ::LCD);
             }
-            self.write_stat(state - LCDState::LYC_STAT);
+            self.write_stat(bus, state - LCDState::LYC_STAT);
         } else {
-            self.write_stat(state | LCDState::LYC_STAT);
+            self.write_stat(bus, state | LCDState::LYC_STAT);
         }
     }
 
     /// Handles the OAMSearch mode.
     /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
-    fn handle_oam_search(&mut self) -> (LCDMode, bool) {
+    fn handle_oam_search(&mut self, bus: &mut MemoryBus) -> (LCDMode, bool) {
         // Move to Pixel Transfer state. Initialize the fetcher to start
         // reading background tiles from VRAM. The boot ROM does nothing
         // fancy with map addresses, so we just give the fetcher the base
@@ -157,10 +154,10 @@ impl<'a> PPU<'a> {
         // Y modulo 8.
         self.x = 0;
         // TODO: add case for drawing windows
-        let y = self.read(PPU_SCY).wrapping_add(self.read(PPU_LY));
-        let x = self.read(PPU_SCX).wrapping_add(self.x);
+        let y = bus.read(PPU_SCY).wrapping_add(bus.read(PPU_LY));
+        let x = bus.read(PPU_SCX).wrapping_add(self.x);
 
-        let bg_address = match self.read_ctrl().contains(LCDControl::BG_MAP) {
+        let bg_address = match self.read_ctrl(bus).contains(LCDControl::BG_MAP) {
             true => 0x9C00,
             false => 0x9800,
         };
@@ -170,18 +167,18 @@ impl<'a> PPU<'a> {
         let tile_map_row_addr = bg_address + tile_row + tile_column;
 
         let tile_line = y % 8;
-        self.fetcher.start(tile_map_row_addr, tile_line);
+        self.fetcher.start(bus, tile_map_row_addr, tile_line);
         (LCDMode::PixelTransfer, false)
     }
 
     /// Handles the HBlank mode.
     /// Returns a tuple with the new LCDMode and whether an interrupt has been requested.
-    fn handle_hblank(&mut self) -> (LCDMode, bool) {
+    fn handle_hblank(&mut self, bus: &mut MemoryBus) -> (LCDMode, bool) {
         self.clock.reset();
-        self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
+        bus.write(PPU_LY, bus.read(PPU_LY).wrapping_add(1));
 
-        let state = self.read_stat();
-        if self.read(PPU_LY) == SCREEN_HEIGHT {
+        let state = self.read_stat(bus);
+        if bus.read(PPU_LY) == SCREEN_HEIGHT {
             self.display.render_screen();
             return (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT));
         }
@@ -190,13 +187,13 @@ impl<'a> PPU<'a> {
 
     /// Handles the VBlank mode.
     /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
-    fn handle_vblank(&mut self) -> (LCDMode, bool) {
+    fn handle_vblank(&mut self, bus: &mut MemoryBus) -> (LCDMode, bool) {
         self.clock.reset();
-        self.write(PPU_LY, self.read(PPU_LY).wrapping_add(1));
+        bus.write(PPU_LY, bus.read(PPU_LY).wrapping_add(1));
 
-        let state = self.read_stat();
-        if self.read(PPU_LY) == VERTICAL_BLANK_SCAN_LINE_MAX {
-            self.write(PPU_LY, 0);
+        let state = self.read_stat(bus);
+        if bus.read(PPU_LY) == VERTICAL_BLANK_SCAN_LINE_MAX {
+            bus.write(PPU_LY, 0);
             return (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT));
         }
         (LCDMode::VBlank, false)
@@ -204,9 +201,9 @@ impl<'a> PPU<'a> {
 
     /// Handles the PixelTransfer mode.
     /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
-    fn handle_pixel_transfer(&mut self) -> (LCDMode, bool) {
+    fn handle_pixel_transfer(&mut self, bus: &mut MemoryBus) -> (LCDMode, bool) {
         // Fetch pixel data into our pixel FIFO.
-        self.fetcher.step();
+        self.fetcher.step(bus);
         // Stop here if the FIFO isn't holding at least 8 pixels. This will
         // be used to mix in sprite data when we implement these. It also
         // guarantees the FIFO will always have data to Pop() later.
@@ -215,51 +212,41 @@ impl<'a> PPU<'a> {
         }
         // Put a pixel from the FIFO on screen if we have any.
         if let Some(color) = self.fetcher.fifo.pop_front() {
-            self.display.write_pixel(self.x, self.read(PPU_LY), color);
+            self.display.write_pixel(self.x, bus.read(PPU_LY), color);
         }
         // Check when the scanline is complete (160 pixels).
         self.x = self.x.wrapping_add(1);
         match self.x == SCREEN_WIDTH {
             true => (
                 LCDMode::HBlank,
-                self.read_stat().contains(LCDState::H_BLANK_INT),
+                self.read_stat(bus).contains(LCDState::H_BLANK_INT),
             ),
             false => (LCDMode::PixelTransfer, false),
         }
     }
 
     /// Fetches the current LCD_MODE from PPU_STAT register
-    fn lcd_mode(&self) -> LCDMode {
-        LCDMode::from(self.read(PPU_STAT) & 0b11)
+    fn lcd_mode(&self, bus: &mut MemoryBus) -> LCDMode {
+        LCDMode::from(bus.read(PPU_STAT) & 0b11)
     }
 
     /// Updates LCD_MODE in PPU_STAT register
-    pub fn set_lcd_mode(&mut self, mode: LCDMode) {
-        let stat_bits = (self.read_stat().bits & 0xFC) | u8::from(mode);
-        self.bus.borrow_mut().write(PPU_STAT, stat_bits);
+    pub fn set_lcd_mode(&mut self, bus: &mut MemoryBus, mode: LCDMode) {
+        let stat_bits = (self.read_stat(bus).bits & 0xFC) | u8::from(mode);
+        bus.write(PPU_STAT, stat_bits);
     }
 
-    fn read_ctrl(&self) -> LCDControl {
-        LCDControl::from_bits(self.bus.borrow().read(PPU_LCDC))
+    fn read_ctrl(&self, bus: &mut MemoryBus) -> LCDControl {
+        LCDControl::from_bits(bus.read(PPU_LCDC))
             .expect("Got invalid value for LCDControl!")
     }
 
-    fn write_stat(&mut self, stat: LCDState) {
-        self.bus.borrow_mut().write(PPU_STAT, stat.bits);
+    fn write_stat(&mut self, bus: &mut MemoryBus, stat: LCDState) {
+        bus.write(PPU_STAT, stat.bits);
     }
 
-    fn read_stat(&self) -> LCDState {
-        LCDState::from_bits(self.bus.borrow().read(PPU_STAT))
+    fn read_stat(&self, bus: &mut MemoryBus) -> LCDState {
+        LCDState::from_bits(bus.read(PPU_STAT))
             .expect("Got invalid value for LCDState!")
-    }
-}
-
-impl AddressSpace for PPU<'_> {
-    fn write(&mut self, address: u16, value: u8) {
-        self.bus.borrow_mut().write(address, value);
-    }
-
-    fn read(&self, address: u16) -> u8 {
-        self.bus.borrow().read(address)
     }
 }

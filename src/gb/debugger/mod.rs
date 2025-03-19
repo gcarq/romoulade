@@ -28,7 +28,7 @@ use tui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
 use tui::{Frame, Terminal};
 
 pub struct Debugger<'a, T: AddressSpace> {
-    cpu: &'a RefCell<CPU<'a, T>>,
+    cpu: &'a RefCell<CPU>,
     bus: &'a RefCell<MemoryBus>,
     ppu: &'a mut PPU<'a>,
     timer: &'a mut Timer<'a>,
@@ -40,7 +40,7 @@ pub struct Debugger<'a, T: AddressSpace> {
 impl<'a, T: AddressSpace> Debugger<'a, T> {
     /// Creates a new debugger
     pub fn new(
-        cpu: &'a RefCell<CPU<'a, T>>,
+        cpu: &'a RefCell<CPU>,
         bus: &'a RefCell<MemoryBus>,
         ppu: &'a mut PPU<'a>,
         timer: &'a mut Timer<'a>,
@@ -116,7 +116,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                     Constraint::Length(6),
                     Constraint::Length(2),
                 ]
-                .as_ref(),
+                    .as_ref(),
             )
             .split(f.size());
         // Defines layout for assembly, memory and breakpoints widget
@@ -129,7 +129,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                     Constraint::Percentage(50),
                     Constraint::Percentage(10),
                 ]
-                .as_ref(),
+                    .as_ref(),
             )
             .split(root[0]);
         // Defines layout for register widget
@@ -145,7 +145,7 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                     Constraint::Length(14),
                     Constraint::Percentage(50),
                 ]
-                .as_ref(),
+                    .as_ref(),
             )
             .split(root[1]);
         // Defines layout for help view
@@ -315,9 +315,9 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
                 .map(|a| ListItem::new(format!(" {:#06x}", a)))
                 .collect::<Vec<ListItem>>(),
         )
-        .block(Block::default().title("Breakpoints").borders(Borders::ALL))
-        .style(Style::default().fg(Color::White))
-        .highlight_style(Style::default().fg(Color::Green));
+            .block(Block::default().title("Breakpoints").borders(Borders::ALL))
+            .style(Style::default().fg(Color::White))
+            .highlight_style(Style::default().fg(Color::Green));
         let mut state = ListState::default();
         let pc = self.cpu.borrow().pc;
         state.select(self.bp_handler.breakpoints.iter().position(|a| a == &pc));
@@ -417,8 +417,8 @@ impl<'a, T: AddressSpace> Debugger<'a, T> {
     }
 
     /// Executes a single step
-    fn execute(&mut self) {
-        let cycles = self.cpu.borrow_mut().step();
+    fn execute(&mut self, bus: &mut MemoryBus) {
+        let cycles = self.cpu.borrow_mut().step(bus);
         self.timer.step(cycles);
         self.ppu.step(cycles);
         self.irq_handler.handle();

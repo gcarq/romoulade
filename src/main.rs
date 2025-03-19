@@ -6,16 +6,13 @@ extern crate bitflags;
 extern crate clap;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
-use crate::gb::debugger::Debugger;
 use crate::gb::display::Display;
-use crate::gb::interrupt::IRQHandler;
 use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::PPU;
 use crate::gb::timer::Timer;
-use crate::gb::{AddressSpace, DISPLAY_REFRESH_RATE};
+use crate::gb::{interrupt, DISPLAY_REFRESH_RATE};
 use backtrace::Backtrace;
 use clap::{App, Arg, ArgMatches};
-use std::cell::RefCell;
 use std::error::Error;
 use std::panic;
 use std::panic::PanicHookInfo;
@@ -42,35 +39,35 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cartridge = Cartridge::from_path(path).expect("Unable to load cartridge from path");
     println!("  -> {}", &cartridge.meta);
 
-    let bus = RefCell::new(MemoryBus::new(cartridge));
+    let mut cpu = CPU::new();
+    let mut bus = MemoryBus::new(cartridge);
     let mut display = Display::new(2, fps_limit).expect("Unable to create sdl2 Display");
-    let mut ppu = PPU::new(&bus, &mut display);
-    let cpu = RefCell::new(CPU::new(&bus));
-    let mut irq_handler = IRQHandler::new(&cpu, &bus);
-    let mut timer = Timer::new(&bus);
+    let mut ppu = PPU::new(&mut display);
+    let mut timer = Timer::new();
 
     match debug {
         true => {
-            let mut debugger = Debugger::new(&cpu, &bus, &mut ppu, &mut timer, &mut irq_handler);
-            debugger.emulate()?
+            // TODO: Adapt debugger for new architecture
+            //let mut debugger = Debugger::new(&cpu, &bus, &mut ppu, &mut timer, &mut irq_handler);
+            //debugger.emulate()?
         }
-        false => emulate(&cpu, &mut ppu, &mut timer, &mut irq_handler),
+        false => emulate(&mut cpu, &mut bus, &mut ppu, &mut timer),
     }
     Ok(())
 }
 
 /// Starts the emulating loop
-fn emulate<T: AddressSpace>(
-    cpu: &RefCell<CPU<T>>,
+fn emulate(
+    cpu: &mut CPU,
+    bus: &mut MemoryBus,
     ppu: &mut PPU,
     timer: &mut Timer,
-    irq_handler: &mut IRQHandler<T>,
 ) {
     loop {
-        let cycles = cpu.borrow_mut().step();
-        timer.step(cycles);
-        ppu.step(cycles);
-        irq_handler.handle();
+        let cycles = cpu.step(bus);
+        timer.step(bus, cycles);
+        ppu.step(bus, cycles);
+        interrupt::handle(cpu, bus);
     }
 }
 

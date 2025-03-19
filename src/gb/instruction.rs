@@ -906,7 +906,7 @@ pub enum IncDecByteTarget {
 
 impl IncDecByteTarget {
     /// Resolves the referring value
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T) -> u8 {
         match *self {
             IncDecByteTarget::A => cpu.r.a,
             IncDecByteTarget::B => cpu.r.b,
@@ -915,12 +915,12 @@ impl IncDecByteTarget {
             IncDecByteTarget::E => cpu.r.e,
             IncDecByteTarget::H => cpu.r.h,
             IncDecByteTarget::L => cpu.r.l,
-            IncDecByteTarget::HLI => cpu.read(cpu.r.get_hl()),
+            IncDecByteTarget::HLI => bus.read(cpu.r.get_hl()),
         }
     }
 
     /// Writes to the referring register or memory location
-    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u8) {
+    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T, value: u8) {
         match *self {
             IncDecByteTarget::A => cpu.r.a = value,
             IncDecByteTarget::B => cpu.r.b = value,
@@ -929,7 +929,7 @@ impl IncDecByteTarget {
             IncDecByteTarget::E => cpu.r.e = value,
             IncDecByteTarget::H => cpu.r.h = value,
             IncDecByteTarget::L => cpu.r.l = value,
-            IncDecByteTarget::HLI => cpu.write(cpu.r.get_hl(), value),
+            IncDecByteTarget::HLI => bus.write(cpu.r.get_hl(), value),
         }
     }
 }
@@ -944,7 +944,7 @@ pub enum IncDecWordTarget {
 
 impl IncDecWordTarget {
     /// Resolves the referring value
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u16 {
+    pub fn read(&self, cpu: &mut CPU) -> u16 {
         match *self {
             IncDecWordTarget::BC => cpu.r.get_bc(),
             IncDecWordTarget::DE => cpu.r.get_de(),
@@ -954,7 +954,7 @@ impl IncDecWordTarget {
     }
 
     /// Writes to the referring register
-    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u16) {
+    pub fn write(&self, cpu: &mut CPU, value: u16) {
         match *self {
             IncDecWordTarget::BC => cpu.r.set_bc(value),
             IncDecWordTarget::DE => cpu.r.set_de(value),
@@ -975,7 +975,7 @@ pub enum JumpTest {
 
 impl JumpTest {
     /// Resolves the referring value
-    pub fn resolve<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> bool {
+    pub fn resolve(&self, cpu: &mut CPU) -> bool {
         match *self {
             JumpTest::NotZero => !cpu.r.f.zero,
             JumpTest::Zero => cpu.r.f.zero,
@@ -1023,7 +1023,7 @@ pub enum ByteSource {
 
 impl ByteSource {
     /// Resolves the referring value
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u8 {
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T) -> u8 {
         match *self {
             ByteSource::A => cpu.r.a,
             ByteSource::B => cpu.r.b,
@@ -1032,24 +1032,24 @@ impl ByteSource {
             ByteSource::E => cpu.r.e,
             ByteSource::H => cpu.r.h,
             ByteSource::L => cpu.r.l,
-            ByteSource::D8 => cpu.consume_byte(),
-            ByteSource::BCI => cpu.read(cpu.r.get_bc()),
-            ByteSource::DEI => cpu.read(cpu.r.get_de()),
-            ByteSource::HLI => cpu.read(cpu.r.get_hl()),
+            ByteSource::D8 => cpu.consume_byte(bus),
+            ByteSource::BCI => bus.read(cpu.r.get_bc()),
+            ByteSource::DEI => bus.read(cpu.r.get_de()),
+            ByteSource::HLI => bus.read(cpu.r.get_hl()),
             ByteSource::D16I => {
-                let address = cpu.consume_word();
-                cpu.read(address)
+                let address = cpu.consume_word(bus);
+                bus.read(address)
             }
-            ByteSource::CIFF00 => cpu.read(u16::from(cpu.r.c) | 0xFF00),
+            ByteSource::CIFF00 => bus.read(u16::from(cpu.r.c) | 0xFF00),
             ByteSource::D8IFF00 => {
-                let address = u16::from(cpu.consume_byte()) | 0xFF00;
-                cpu.read(address)
+                let address = u16::from(cpu.consume_byte(bus)) | 0xFF00;
+                bus.read(address)
             }
         }
     }
 
     /// Writes value to a register or an address referred by a register
-    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU<T>, value: u8) {
+    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T, value: u8) {
         match *self {
             ByteSource::A => cpu.r.a = value,
             ByteSource::B => cpu.r.b = value,
@@ -1058,9 +1058,9 @@ impl ByteSource {
             ByteSource::E => cpu.r.e = value,
             ByteSource::H => cpu.r.h = value,
             ByteSource::L => cpu.r.l = value,
-            ByteSource::BCI => cpu.write(cpu.r.get_bc(), value),
-            ByteSource::DEI => cpu.write(cpu.r.get_de(), value),
-            ByteSource::HLI => cpu.write(cpu.r.get_hl(), value),
+            ByteSource::BCI => bus.write(cpu.r.get_bc(), value),
+            ByteSource::DEI => bus.write(cpu.r.get_de(), value),
+            ByteSource::HLI => bus.write(cpu.r.get_hl(), value),
             _ => unimplemented!(),
         }
     }
@@ -1086,13 +1086,13 @@ pub enum WordSource {
 
 impl WordSource {
     /// Resolves the referring value
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU<T>) -> u16 {
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T) -> u16 {
         match *self {
             WordSource::BC => cpu.r.get_bc(),
             WordSource::DE => cpu.r.get_de(),
             WordSource::HL => cpu.r.get_hl(),
             WordSource::SP => cpu.sp,
-            WordSource::D16 => cpu.consume_word(),
+            WordSource::D16 => cpu.consume_word(bus),
         }
     }
 }

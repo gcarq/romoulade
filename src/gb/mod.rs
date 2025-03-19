@@ -1,6 +1,5 @@
 pub mod cartridge;
 pub mod cpu;
-pub mod debugger;
 pub mod display;
 mod instruction;
 pub mod interrupt;
