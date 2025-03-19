@@ -9,7 +9,6 @@ use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
 use crate::gb::display::Display;
 use crate::gb::ppu::PPU;
-use crate::gb::timer::Timer;
 use crate::gb::{interrupt, DISPLAY_REFRESH_RATE};
 use backtrace::Backtrace;
 use clap::{App, Arg, ArgMatches};
@@ -43,7 +42,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut bus = Bus::new(cartridge);
     let mut display = Display::new(2, fps_limit).expect("Unable to create sdl2 Display");
     let mut ppu = PPU::new(&mut display);
-    let mut timer = Timer::new();
 
     match debug {
         true => {
@@ -51,7 +49,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             //let mut debugger = Debugger::new(&cpu, &bus, &mut ppu, &mut timer, &mut irq_handler);
             //debugger.emulate()?
         }
-        false => emulate(&mut cpu, &mut bus, &mut ppu, &mut timer),
+        false => emulate(&mut cpu, &mut bus, &mut ppu),
     }
     Ok(())
 }
@@ -61,11 +59,10 @@ fn emulate(
     cpu: &mut CPU,
     bus: &mut Bus,
     ppu: &mut PPU,
-    timer: &mut Timer,
 ) {
     loop {
         let cycles = cpu.step(bus);
-        timer.step(bus, cycles);
+        bus.step(cycles);
         ppu.step(bus, cycles);
         interrupt::handle(cpu, bus);
     }

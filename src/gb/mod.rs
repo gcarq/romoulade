@@ -13,8 +13,6 @@ pub const SCREEN_WIDTH: u8 = 160;
 pub const SCREEN_HEIGHT: u8 = 144;
 pub const VERTICAL_BLANK_SCAN_LINE_MAX: u8 = 153;
 
-pub const CPU_CLOCK_SPEED: u32 = 1024 * 1024 * 4;
-
 /// This trait defines a common interface to interact with the memory bus.
 pub trait AddressSpace {
     fn write(&mut self, address: u16, value: u8);

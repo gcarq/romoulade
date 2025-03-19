@@ -87,7 +87,7 @@ impl<'a> PPU<'a> {
         }
     }
 
-    pub fn step(&mut self, bus: &mut Bus, cycles: u32) {
+    pub fn step(&mut self, bus: &mut Bus, cycles: u16) {
         if !self.read_ctrl(bus).contains(LCDControl::LCD_EN) {
             self.set_lcd_mode(bus, LCDMode::VBlank);
             // Screen is off, PPU remains idle.

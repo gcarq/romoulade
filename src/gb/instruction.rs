@@ -964,7 +964,7 @@ impl IncDecWordTarget {
     }
 }
 
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Debug)]
 pub enum JumpTest {
     NotZero,
     Zero,

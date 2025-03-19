@@ -3,12 +3,15 @@ pub mod constants;
 use crate::gb::bus::constants::*;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::interrupt::IRQ;
+use crate::gb::timer::{Frequency, Timer};
 use crate::gb::AddressSpace;
 use crate::utils;
 
 /// Defines a global Bus, all processing units should access memory through it.
 pub struct Bus {
     cartridge: Cartridge,
+    timer: Timer,
+    divider: Timer,
     vram: [u8; VRAM_SIZE],
     wram: [u8; WRAM_SIZE],
     eram: [u8; ERAM_SIZE],
@@ -20,8 +23,13 @@ pub struct Bus {
 
 impl Bus {
     pub fn new(cartridge: Cartridge) -> Self {
+        let mut divider = Timer::new(Frequency::Hz16384);
+        divider.on = true;
+        divider.value = 0xAB;
         Self {
             cartridge,
+            divider,
+            timer: Timer::new(Frequency::Hz4096),
             vram: [0u8; VRAM_SIZE],
             wram: [0u8; WRAM_SIZE],
             eram: [0u8; ERAM_SIZE],
@@ -30,6 +38,13 @@ impl Bus {
             hram: [0u8; HRAM_SIZE],
             ie: 0,
         }
+    }
+
+    pub fn step(&mut self, cycles: u16) {
+        if self.timer.step(cycles) {
+            self.irq(IRQ::Timer);
+        }
+        self.divider.step(cycles);
     }
 
     /// Requests an interrupt for the given id
@@ -68,9 +83,21 @@ impl Bus {
     fn write_io(&mut self, address: u16, value: u8) {
         //println!("write IO: {:#06x}: {:#04x}", address, value);
         match address {
-            // Trap the diver register, whenever a ROM writes tries to write
-            // to it it will reset to 0
-            TIMER_DIVIDER => self.io[(address - IO_BEGIN) as usize] = 0,
+            // Whenever a ROM writes tries to write to it will reset to 0
+            TIMER_DIVIDER => self.divider.value = 0,
+            TIMER_COUNTER => self.timer.value = value,
+            TIMER_MODULO => self.timer.modulo = value,
+            // Only the lower 3 bits are R/W
+            TIMER_CTRL => {
+                self.timer.frequency = match value & 0b11 {
+                    0b00 => Frequency::Hz4096,
+                    0b01 => Frequency::Hz262144,
+                    0b10 => Frequency::Hz65536,
+                    0b11 => Frequency::Hz16384,
+                    _ => unreachable!(),
+                };
+                self.timer.on = (value & 0b100) == 0b100;
+            }
             PPU_DMA => self.dma_transfer(value),
             _ => self.io[(address - IO_BEGIN) as usize] = value,
         }
@@ -87,6 +114,11 @@ impl Bus {
     fn read_io(&self, address: u16) -> u8 {
         match address {
             0xFF03 => 0xFF,
+            TIMER_DIVIDER => self.divider.value,
+            TIMER_COUNTER => self.timer.value,
+            TIMER_MODULO => self.timer.modulo,
+            // Only the lower 3 bits are R/W
+            TIMER_CTRL => (self.timer.frequency.as_cycles() & 0b111) as u8,
             0xFF08..=0xFF0E => 0xFF,
             0xFF15 => 0xFF,
             0xFF1F => 0xFF,

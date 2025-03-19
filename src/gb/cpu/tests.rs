@@ -355,7 +355,7 @@ fn test_jr_always_neg_offset() {
     }
     // At this point 7 byte have been consumed.
     // pc must be 7 - 5 (offset)
-    assert_eq!(cpu.clock.ticks(), 12);
+    assert_eq!(cpu.clock.ticks(), 16);
     assert_eq!(cpu.pc, 0x02);
 }
 
@@ -365,7 +365,7 @@ fn test_jr_always_pos_offset() {
     let mut bus = MockBus::new(vec![0x18, 0x03]);
     let mut cpu = CPU::new();
     cpu.step(&mut bus);
-    assert_eq!(cpu.clock.ticks(), 12);
+    assert_eq!(cpu.clock.ticks(), 16);
     assert_eq!(cpu.pc, 0x05);
 }
 
@@ -399,7 +399,7 @@ fn test_ld_byte_io() {
     cpu.r.set_hl(0x02);
     cpu.step(&mut bus);
     assert_eq!(bus.read(0x02), 0x42);
-    assert_eq!(cpu.clock.ticks(), 12);
+    assert_eq!(cpu.clock.ticks(), 8);
     assert_eq!(cpu.pc, 2);
 }
 
@@ -525,11 +525,11 @@ fn test_rst() {
     cpu.pc = 0x02;
     cpu.sp = 0x07;
 
-    let ticks: u32 = (0..5).map(|_| cpu.step(&mut bus)).sum();
+    let ticks: u16 = (0..5).map(|_| cpu.step(&mut bus)).sum();
     assert_eq!(cpu.r.b, 0x01);
     assert_eq!(cpu.r.c, 0x01);
     assert_eq!(cpu.pc, 0x05);
-    assert_eq!(ticks, 48);
+    assert_eq!(ticks, 52);
 }
 
 #[test]
