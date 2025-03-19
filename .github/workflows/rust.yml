@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install SDL
-        run: sudo apt install libsdl2-dev libsdl2
+        run: sudo apt install libsdl2-dev libsdl2-2.0-0
       - name: Update Rust toolchain
         run: rustup update
       - name: Build
