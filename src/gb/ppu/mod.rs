@@ -1,10 +1,10 @@
 mod fetcher;
 pub mod misc;
 
+use crate::gb::bus::constants::*;
+use crate::gb::bus::Bus;
 use crate::gb::display::Display;
 use crate::gb::interrupt::IRQ;
-use crate::gb::memory::constants::*;
-use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
 use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
@@ -87,7 +87,7 @@ impl<'a> PPU<'a> {
         }
     }
 
-    pub fn step(&mut self, bus: &mut MemoryBus, cycles: u32) {
+    pub fn step(&mut self, bus: &mut Bus, cycles: u32) {
         if !self.read_ctrl(bus).contains(LCDControl::LCD_EN) {
             self.set_lcd_mode(bus, LCDMode::VBlank);
             // Screen is off, PPU remains idle.
@@ -126,7 +126,7 @@ impl<'a> PPU<'a> {
     }
 
     /// Checks the coincidence flag and requests an interrupt if required.
-    fn handle_coincidence_flag(&mut self, bus: &mut MemoryBus) {
+    fn handle_coincidence_flag(&mut self, bus: &mut Bus) {
         let state = self.read_stat(bus);
         if bus.read(PPU_LY) == bus.read(PPU_LYC) {
             if state.contains(LCDState::LY_INT) {
@@ -140,7 +140,7 @@ impl<'a> PPU<'a> {
 
     /// Handles the OAMSearch mode.
     /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
-    fn handle_oam_search(&mut self, bus: &mut MemoryBus) -> (LCDMode, bool) {
+    fn handle_oam_search(&mut self, bus: &mut Bus) -> (LCDMode, bool) {
         // Move to Pixel Transfer state. Initialize the fetcher to start
         // reading background tiles from VRAM. The boot ROM does nothing
         // fancy with map addresses, so we just give the fetcher the base
@@ -173,7 +173,7 @@ impl<'a> PPU<'a> {
 
     /// Handles the HBlank mode.
     /// Returns a tuple with the new LCDMode and whether an interrupt has been requested.
-    fn handle_hblank(&mut self, bus: &mut MemoryBus) -> (LCDMode, bool) {
+    fn handle_hblank(&mut self, bus: &mut Bus) -> (LCDMode, bool) {
         self.clock.reset();
         bus.write(PPU_LY, bus.read(PPU_LY).wrapping_add(1));
 
@@ -187,7 +187,7 @@ impl<'a> PPU<'a> {
 
     /// Handles the VBlank mode.
     /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
-    fn handle_vblank(&mut self, bus: &mut MemoryBus) -> (LCDMode, bool) {
+    fn handle_vblank(&mut self, bus: &mut Bus) -> (LCDMode, bool) {
         self.clock.reset();
         bus.write(PPU_LY, bus.read(PPU_LY).wrapping_add(1));
 
@@ -201,7 +201,7 @@ impl<'a> PPU<'a> {
 
     /// Handles the PixelTransfer mode.
     /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
-    fn handle_pixel_transfer(&mut self, bus: &mut MemoryBus) -> (LCDMode, bool) {
+    fn handle_pixel_transfer(&mut self, bus: &mut Bus) -> (LCDMode, bool) {
         // Fetch pixel data into our pixel FIFO.
         self.fetcher.step(bus);
         // Stop here if the FIFO isn't holding at least 8 pixels. This will
@@ -226,26 +226,26 @@ impl<'a> PPU<'a> {
     }
 
     /// Fetches the current LCD_MODE from PPU_STAT register
-    fn lcd_mode(&self, bus: &mut MemoryBus) -> LCDMode {
+    fn lcd_mode(&self, bus: &mut Bus) -> LCDMode {
         LCDMode::from(bus.read(PPU_STAT) & 0b11)
     }
 
     /// Updates LCD_MODE in PPU_STAT register
-    pub fn set_lcd_mode(&mut self, bus: &mut MemoryBus, mode: LCDMode) {
+    pub fn set_lcd_mode(&mut self, bus: &mut Bus, mode: LCDMode) {
         let stat_bits = (self.read_stat(bus).bits & 0xFC) | u8::from(mode);
         bus.write(PPU_STAT, stat_bits);
     }
 
-    fn read_ctrl(&self, bus: &mut MemoryBus) -> LCDControl {
+    fn read_ctrl(&self, bus: &mut Bus) -> LCDControl {
         LCDControl::from_bits(bus.read(PPU_LCDC))
             .expect("Got invalid value for LCDControl!")
     }
 
-    fn write_stat(&mut self, bus: &mut MemoryBus, stat: LCDState) {
+    fn write_stat(&mut self, bus: &mut Bus, stat: LCDState) {
         bus.write(PPU_STAT, stat.bits);
     }
 
-    fn read_stat(&self, bus: &mut MemoryBus) -> LCDState {
+    fn read_stat(&self, bus: &mut Bus) -> LCDState {
         LCDState::from_bits(bus.read(PPU_STAT))
             .expect("Got invalid value for LCDState!")
     }

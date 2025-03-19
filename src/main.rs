@@ -4,10 +4,10 @@
 extern crate bitflags;
 #[macro_use]
 extern crate clap;
+use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
 use crate::gb::display::Display;
-use crate::gb::memory::MemoryBus;
 use crate::gb::ppu::PPU;
 use crate::gb::timer::Timer;
 use crate::gb::{interrupt, DISPLAY_REFRESH_RATE};
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("  -> {}", &cartridge.meta);
 
     let mut cpu = CPU::new();
-    let mut bus = MemoryBus::new(cartridge);
+    let mut bus = Bus::new(cartridge);
     let mut display = Display::new(2, fps_limit).expect("Unable to create sdl2 Display");
     let mut ppu = PPU::new(&mut display);
     let mut timer = Timer::new();
@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 /// Starts the emulating loop
 fn emulate(
     cpu: &mut CPU,
-    bus: &mut MemoryBus,
+    bus: &mut Bus,
     ppu: &mut PPU,
     timer: &mut Timer,
 ) {

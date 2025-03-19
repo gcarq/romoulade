@@ -1,13 +1,13 @@
 pub mod constants;
 
+use crate::gb::bus::constants::*;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::interrupt::IRQ;
-use crate::gb::memory::constants::*;
 use crate::gb::AddressSpace;
 use crate::utils;
 
-/// Defines a global MemoryBus, all processing units should access memory through this bus.
-pub struct MemoryBus {
+/// Defines a global Bus, all processing units should access memory through it.
+pub struct Bus {
     cartridge: Cartridge,
     vram: [u8; VRAM_SIZE],
     wram: [u8; WRAM_SIZE],
@@ -18,7 +18,7 @@ pub struct MemoryBus {
     ie: u8,
 }
 
-impl MemoryBus {
+impl Bus {
     pub fn new(cartridge: Cartridge) -> Self {
         Self {
             cartridge,
@@ -105,7 +105,7 @@ impl MemoryBus {
     }
 }
 
-impl AddressSpace for MemoryBus {
+impl AddressSpace for Bus {
     fn write(&mut self, address: u16, value: u8) {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),

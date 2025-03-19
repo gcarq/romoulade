@@ -3,7 +3,7 @@ pub mod cpu;
 pub mod display;
 mod instruction;
 pub mod interrupt;
-pub mod memory;
+pub mod bus;
 pub mod ppu;
 pub mod timer;
 

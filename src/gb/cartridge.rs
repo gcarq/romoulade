@@ -1,8 +1,8 @@
-use crate::gb::cartridge::BankingMode::MBC2;
-use crate::gb::memory::constants::{
+use crate::gb::bus::constants::{
     CRAM_BEGIN, CRAM_END, CRAM_SIZE, ROM_BANK_0_BEGIN, ROM_BANK_0_END, ROM_BANK_N_BEGIN,
     ROM_BANK_N_END, ROM_BANK_N_SIZE,
 };
+use crate::gb::cartridge::BankingMode::MBC2;
 use crate::gb::AddressSpace;
 use crate::utils;
 use std::fs::File;

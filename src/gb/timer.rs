@@ -1,6 +1,6 @@
+use crate::gb::bus::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
+use crate::gb::bus::Bus;
 use crate::gb::interrupt::IRQ;
-use crate::gb::memory::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
-use crate::gb::memory::MemoryBus;
 use crate::gb::{AddressSpace, CPU_CLOCK_SPEED};
 
 bitflags! {
@@ -27,7 +27,7 @@ impl Timer {
         }
     }
 
-    pub fn step(&mut self, bus: &mut MemoryBus, cycles: u32) {
+    pub fn step(&mut self, bus: &mut Bus, cycles: u32) {
         // Check if clock is running
         if self.read_ctrl(bus).contains(Control::RUNNING) {
             self.timer += cycles;
@@ -51,7 +51,7 @@ impl Timer {
     }
 
     /// Updates clock frequency
-    fn update_clock_speed(&mut self, bus: &mut MemoryBus) {
+    fn update_clock_speed(&mut self, bus: &mut Bus) {
         let freq = bus.read(TIMER_CTRL) & 0x03;
         let clock_speed = match freq {
             0 => 1024, // 4096 Hz
@@ -67,7 +67,7 @@ impl Timer {
     }
 
     /// Updates divider
-    fn update_divider(&mut self, bus: &mut MemoryBus, cycles: u32) {
+    fn update_divider(&mut self, bus: &mut Bus, cycles: u32) {
         self.divider += cycles;
         if self.divider >= 256 {
             self.divider = 0;
@@ -76,7 +76,7 @@ impl Timer {
         }
     }
 
-    fn read_ctrl(&self, bus: &mut MemoryBus) -> Control {
+    fn read_ctrl(&self, bus: &mut Bus) -> Control {
         Control::from_bits(bus.read(TIMER_CTRL)).expect("Got invalid bits!")
     }
 }

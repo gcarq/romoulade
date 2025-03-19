@@ -1,5 +1,5 @@
+use crate::gb::bus::constants::BOOT_END;
 use crate::gb::instruction::*;
-use crate::gb::memory::constants::BOOT_END;
 use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
 use crate::utils;

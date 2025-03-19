@@ -1,6 +1,6 @@
+use crate::gb::bus::constants::{INTERRUPT_ENABLE, INTERRUPT_FLAG};
+use crate::gb::bus::Bus;
 use crate::gb::cpu::CPU;
-use crate::gb::memory::constants::{INTERRUPT_ENABLE, INTERRUPT_FLAG};
-use crate::gb::memory::MemoryBus;
 use crate::gb::AddressSpace;
 use crate::utils;
 
@@ -39,7 +39,7 @@ impl From<IRQ> for u8 {
 
 /// Handles pending interrupt requests
 /// TODO: implement HALT instruction bug (Section 4.10): https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
-pub fn handle(cpu: &mut CPU, bus: &mut MemoryBus) {
+pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
     let requests = bus.read(INTERRUPT_FLAG);
     if requests == 0 {
         return;
@@ -58,7 +58,7 @@ pub fn handle(cpu: &mut CPU, bus: &mut MemoryBus) {
     }
 }
 
-fn service_interrupts(cpu: &mut CPU, bus: &mut MemoryBus, interrupt: IRQ) {
+fn service_interrupts(cpu: &mut CPU, bus: &mut Bus, interrupt: IRQ) {
     // TODO: debug log: println!("Serving interrupt: {:?}...", interrupt);
     cpu.ime = false;
 

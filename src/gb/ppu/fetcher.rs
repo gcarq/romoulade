@@ -1,5 +1,5 @@
-use crate::gb::memory::constants::{PPU_BGP, PPU_LCDC};
-use crate::gb::memory::MemoryBus;
+use crate::gb::bus::constants::{PPU_BGP, PPU_LCDC};
+use crate::gb::bus::Bus;
 use crate::gb::ppu::misc::{Color, Palette, Pixel};
 use crate::gb::ppu::LCDControl;
 use crate::gb::timer::Clock;
@@ -46,7 +46,7 @@ impl Fetcher {
     /// Start fetching a line of pixels starting from the given tile address in the
     /// background map. Here, tileLine indicates which row of pixels to pick from
     /// each tile we read.
-    pub fn start(&mut self, bus: &mut MemoryBus, map_address: u16, tile_line: u8) {
+    pub fn start(&mut self, bus: &mut Bus, map_address: u16, tile_line: u8) {
         self.tile_index = 0;
         self.map_address = map_address;
         self.tile_line = tile_line;
@@ -61,7 +61,7 @@ impl Fetcher {
         self.fifo.clear();
     }
 
-    pub fn step(&mut self, bus: &mut MemoryBus) {
+    pub fn step(&mut self, bus: &mut Bus) {
         self.clock.advance(1);
         if self.clock.ticks() < 2 {
             return;
@@ -111,7 +111,7 @@ impl Fetcher {
     /// ReadTileLine updates the fetcher's internal pixel buffer with tile data
     /// depending on the current state. Each pixel needs 2 bits of information,
     /// which are read in two separate steps.
-    pub fn read_tile_line(&mut self, bus: &mut MemoryBus, bit_plane: u8) {
+    pub fn read_tile_line(&mut self, bus: &mut Bus, bit_plane: u8) {
         // A tile's graphical data takes 16 bytes (2 bytes per row of 8 pixels).
         let offset = match self.tile_address {
             0x8000 => self.tile_address + self.tile_id as u16 * 16,
@@ -139,7 +139,7 @@ impl Fetcher {
         }
     }
 
-    fn read_ctrl(&self, bus: &mut MemoryBus) -> LCDControl {
+    fn read_ctrl(&self, bus: &mut Bus) -> LCDControl {
         LCDControl::from_bits(bus.read(PPU_LCDC))
             .expect("Got invalid value for LCDControl!")
     }
