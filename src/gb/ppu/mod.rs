@@ -1,8 +1,8 @@
 mod fetcher;
 pub mod misc;
 
-use crate::gb::bus::constants::*;
 use crate::gb::bus::Bus;
+use crate::gb::bus::constants::*;
 use crate::gb::display::Display;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
