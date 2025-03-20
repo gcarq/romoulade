@@ -1,8 +1,8 @@
 mod fetcher;
 pub mod misc;
 
-use crate::gb::bus::Bus;
 use crate::gb::bus::constants::*;
+use crate::gb::bus::Bus;
 use crate::gb::display::Display;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
@@ -231,7 +231,7 @@ impl<'a> PPU<'a> {
 
     /// Updates LCD_MODE in PPU_STAT register
     pub fn set_lcd_mode(&mut self, bus: &mut Bus, mode: LCDMode) {
-        let stat_bits = (self.read_stat(bus).bits & 0xFC) | u8::from(mode);
+        let stat_bits = (self.read_stat(bus).bits() & 0xFC) | u8::from(mode);
         bus.write(PPU_STAT, stat_bits);
     }
 
@@ -240,7 +240,7 @@ impl<'a> PPU<'a> {
     }
 
     fn write_stat(&mut self, bus: &mut Bus, stat: LCDState) {
-        bus.write(PPU_STAT, stat.bits);
+        bus.write(PPU_STAT, stat.bits());
     }
 
     fn read_stat(&self, bus: &mut Bus) -> LCDState {
