@@ -106,6 +106,7 @@ impl Bus {
     /// https://gbdev.gg8.se/wiki/articles/CGB_Registers#FF6C_-_Bit_0_.28Read.2FWrite.29_-_CGB_Mode_Only
     fn read_io(&self, address: u16) -> u8 {
         match address {
+            JOYPAD => 0xFF, // TODO: implement input handling
             0xFF03 => 0xFF,
             TIMER_DIVIDER => self.divider.value,
             TIMER_COUNTER => self.timer.value,
