@@ -3,7 +3,6 @@ pub enum Frequency {
     Hz16384,
     Hz65536,
     Hz262144,
-
 }
 
 impl Frequency {
@@ -19,7 +18,6 @@ impl Frequency {
         }
     }
 }
-
 
 pub struct Timer {
     pub frequency: Frequency,
@@ -65,7 +63,6 @@ impl Timer {
         irq
     }
 }
-
 
 /// Represents the internal Clock which
 /// can be used for each processing unit.

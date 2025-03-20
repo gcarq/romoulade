@@ -55,11 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 /// Starts the emulating loop
-fn emulate(
-    cpu: &mut CPU,
-    bus: &mut Bus,
-    ppu: &mut PPU,
-) {
+fn emulate(cpu: &mut CPU, bus: &mut Bus, ppu: &mut PPU) {
     loop {
         let cycles = cpu.step(bus);
         bus.step(cycles);

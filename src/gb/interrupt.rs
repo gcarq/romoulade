@@ -1,79 +1,88 @@
-use crate::gb::bus::constants::{INTERRUPT_ENABLE, INTERRUPT_FLAG};
 use crate::gb::bus::Bus;
-use crate::gb::cpu::CPU;
-use crate::gb::AddressSpace;
+use crate::gb::cpu::{CLOCKS_PER_CYCLE, CPU};
 use crate::utils;
 
-/// Represents an interrupt request
-#[derive(Debug, Copy, Clone)]
-#[repr(u8)]
-pub enum IRQ {
-    VBlank = 0,
-    LCD = 1,
-    Timer = 2,
-    Joypad = 4,
+const VBLANK_IRQ_ADDRESS: u16 = 0x40;
+const LCD_IRQ_ADDRESS: u16 = 0x48;
+const TIMER_IRQ_ADDRESS: u16 = 0x50;
+const SERIAL_IRQ_ADDRESS: u16 = 0x58;
+const JOYPAD_IRQ_ADDRESS: u16 = 0x60;
+
+/// Represents interrupt requests
+#[derive(Debug, Copy, Clone, Default)]
+pub struct InterruptFlags {
+    pub vblank: bool,
+    pub lcd: bool,
+    pub timer: bool,
+    pub serial: bool,
+    pub joypad: bool,
 }
 
-impl From<u8> for IRQ {
+impl From<u8> for InterruptFlags {
     fn from(value: u8) -> Self {
-        match value {
-            0 => IRQ::VBlank,
-            1 => IRQ::LCD,
-            2 => IRQ::Timer,
-            4 => IRQ::Joypad,
-            _ => panic!(),
+        Self {
+            vblank: utils::bit_at(value, 0),
+            lcd: utils::bit_at(value, 1),
+            timer: utils::bit_at(value, 2),
+            serial: utils::bit_at(value, 3),
+            joypad: utils::bit_at(value, 4),
         }
     }
 }
 
-impl From<IRQ> for u8 {
-    fn from(value: IRQ) -> u8 {
-        match value {
-            IRQ::VBlank => 0,
-            IRQ::LCD => 1,
-            IRQ::Timer => 2,
-            IRQ::Joypad => 4,
-        }
+impl From<InterruptFlags> for u8 {
+    fn from(val: InterruptFlags) -> Self {
+        // unused bits are always set to 1
+        let mut value = 0;
+        value = utils::set_bit(value, 0, val.vblank);
+        value = utils::set_bit(value, 1, val.lcd);
+        value = utils::set_bit(value, 2, val.timer);
+        value = utils::set_bit(value, 3, val.serial);
+        value = utils::set_bit(value, 4, val.joypad);
+        value
     }
 }
 
 /// Handles pending interrupt requests
 /// TODO: implement HALT instruction bug (Section 4.10): https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
-    let requests = bus.read(INTERRUPT_FLAG);
-    if requests == 0 {
+    if !bus.has_interrupt() {
         return;
     }
 
-    let enabled = bus.read(INTERRUPT_ENABLE);
-    for i in 0..5 {
-        if utils::bit_at(requests, i) && utils::bit_at(enabled, i) {
-            // Only serve interrupt if IME is enabled
-            if cpu.ime {
-                service_interrupts(cpu, bus, IRQ::from(i));
-            }
-            // CPU should be always woken up from HALT
-            cpu.is_halted = false;
+    // CPU should be always woken up from HALT if there is a pending interrupt
+    cpu.is_halted = false;
+
+    if cpu.ime {
+        if bus.interrupt_enable.vblank && bus.interrupt_flag.vblank {
+            bus.interrupt_flag.vblank = false;
+            interrupt(cpu, bus, VBLANK_IRQ_ADDRESS);
+        }
+        if bus.interrupt_enable.lcd && bus.interrupt_flag.lcd {
+            bus.interrupt_flag.lcd = false;
+            interrupt(cpu, bus, LCD_IRQ_ADDRESS);
+        }
+        if bus.interrupt_enable.timer && bus.interrupt_flag.timer {
+            bus.interrupt_flag.timer = false;
+            interrupt(cpu, bus, TIMER_IRQ_ADDRESS);
+        }
+        if bus.interrupt_enable.serial && bus.interrupt_flag.serial {
+            bus.interrupt_flag.serial = false;
+            interrupt(cpu, bus, SERIAL_IRQ_ADDRESS);
+        }
+        if bus.interrupt_enable.joypad && bus.interrupt_flag.joypad {
+            bus.interrupt_flag.joypad = false;
+            interrupt(cpu, bus, JOYPAD_IRQ_ADDRESS);
         }
     }
 }
 
-fn service_interrupts(cpu: &mut CPU, bus: &mut Bus, interrupt: IRQ) {
-    // TODO: debug log: println!("Serving interrupt: {:?}...", interrupt);
+/// Handles interrupt request
+fn interrupt(cpu: &mut CPU, bus: &mut Bus, address: u16) {
+    println!("Interrupt request: {:#06x}, is_halted: {}", address, cpu.is_halted);
     cpu.ime = false;
-
-    // Clear interrupt request
-    let req = utils::set_bit(bus.read(INTERRUPT_FLAG), u8::from(interrupt), false);
-    bus.write(INTERRUPT_FLAG, req);
-
     // Save current execution address by pushing it onto the stack
-    let pc = cpu.pc;
-    cpu.push(pc, bus);
-
-    match interrupt {
-        IRQ::VBlank => cpu.pc = 0x40,
-        IRQ::LCD => cpu.pc = 0x48,
-        IRQ::Timer => cpu.pc = 0x50,
-        IRQ::Joypad => cpu.pc = 0x60,
-    }
+    cpu.push(cpu.pc, bus);
+    cpu.pc = address;
+    cpu.clock.advance(CLOCKS_PER_CYCLE * 5);
 }

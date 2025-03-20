@@ -2,23 +2,23 @@ pub mod constants;
 
 use crate::gb::bus::constants::*;
 use crate::gb::cartridge::Cartridge;
-use crate::gb::interrupt::IRQ;
+use crate::gb::interrupt::InterruptFlags;
 use crate::gb::timer::{Frequency, Timer};
 use crate::gb::AddressSpace;
-use crate::utils;
 
 /// Defines a global Bus, all processing units should access memory through it.
 pub struct Bus {
     cartridge: Cartridge,
     timer: Timer,
     divider: Timer,
+    pub interrupt_enable: InterruptFlags,
+    pub interrupt_flag: InterruptFlags,
     vram: [u8; VRAM_SIZE],
     wram: [u8; WRAM_SIZE],
     eram: [u8; ERAM_SIZE],
     oam: [u8; OAM_SIZE],
     io: [u8; IO_SIZE],
     hram: [u8; HRAM_SIZE],
-    ie: u8,
 }
 
 impl Bus {
@@ -29,6 +29,8 @@ impl Bus {
         Self {
             cartridge,
             divider,
+            interrupt_enable: InterruptFlags::default(),
+            interrupt_flag: InterruptFlags::default(),
             timer: Timer::new(Frequency::Hz4096),
             vram: [0u8; VRAM_SIZE],
             wram: [0u8; WRAM_SIZE],
@@ -36,30 +38,20 @@ impl Bus {
             oam: [0u8; OAM_SIZE],
             io: [0u8; IO_SIZE],
             hram: [0u8; HRAM_SIZE],
-            ie: 0,
         }
     }
 
     pub fn step(&mut self, cycles: u16) {
         if self.timer.step(cycles) {
-            self.irq(IRQ::Timer);
+            self.interrupt_flag.timer = true;
         }
         self.divider.step(cycles);
     }
 
-    /// Requests an interrupt for the given id
-    pub fn irq(&mut self, id: IRQ) {
-        let req = utils::set_bit(self.read(INTERRUPT_FLAG), u8::from(id), true);
-        self.write(INTERRUPT_FLAG, req);
-    }
-
-    /// Unchecked write to avoid memory traps.
-    /// This function should only be used in emulator internals!
-    pub fn write_unchecked(&mut self, address: u16, value: u8) {
-        match address {
-            TIMER_DIVIDER => self.io[(address - IO_BEGIN) as usize] = value,
-            _ => unimplemented!("unchecked_write() for address {:#06x}", address),
-        }
+    /// Indicates whether an interrupt is pending
+    #[inline]
+    pub fn has_interrupt(&self) -> bool {
+        (u8::from(self.interrupt_enable) & u8::from(self.interrupt_flag)) != 0
     }
 
     /// Reads value from boot ROM or cartridge
@@ -98,6 +90,7 @@ impl Bus {
                 };
                 self.timer.on = (value & 0b100) == 0b100;
             }
+            INTERRUPT_FLAG => self.interrupt_flag = InterruptFlags::from(value),
             PPU_DMA => self.dma_transfer(value),
             _ => self.io[(address - IO_BEGIN) as usize] = value,
         }
@@ -120,6 +113,7 @@ impl Bus {
             // Only the lower 3 bits are R/W
             TIMER_CTRL => (self.timer.frequency.as_cycles() & 0b111) as u8,
             0xFF08..=0xFF0E => 0xFF,
+            INTERRUPT_FLAG => u8::from(self.interrupt_flag),
             0xFF15 => 0xFF,
             0xFF1F => 0xFF,
             0xFF27..=0xFF2F => 0xFF,
@@ -149,7 +143,7 @@ impl AddressSpace for Bus {
             UNUSED_BEGIN..=UNUSED_END => {}
             IO_BEGIN..=IO_END => self.write_io(address, value),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize] = value,
-            INTERRUPT_ENABLE => self.ie = value,
+            INTERRUPT_ENABLE => self.interrupt_enable = InterruptFlags::from(value),
         }
     }
 
@@ -164,7 +158,7 @@ impl AddressSpace for Bus {
             UNUSED_BEGIN..=UNUSED_END => 0xFF,
             IO_BEGIN..=IO_END => self.read_io(address),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],
-            INTERRUPT_ENABLE => self.ie,
+            INTERRUPT_ENABLE => u8::from(self.interrupt_enable),
         }
     }
 }

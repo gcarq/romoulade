@@ -1,5 +1,5 @@
-use crate::gb::cpu::CPU;
 use crate::gb::AddressSpace;
+use crate::gb::cpu::CPU;
 
 #[derive(Debug)]
 pub enum Instruction {

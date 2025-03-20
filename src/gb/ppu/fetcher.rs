@@ -18,14 +18,14 @@ pub enum FetcherState {
 /// it runs at half the speed of the PPU (every 2 clock cycles).
 pub struct Fetcher {
     pub fifo: VecDeque<Color>, // Pixel FIFO that the PPU will read.
-    clock: Clock,          // Clock cycle counter for timings.
-    state: FetcherState,   // Current state of our state machine.
-    map_address: u16,      // Start address of BG/Windows map row.
-    tile_address: u16,     // Memory address to look for tile data.
-    tile_line: u8,         // Y offset (in pixels) in the tile.
-    tile_index: u8,        // Index of the tile to read in the current row of the background map.
-    tile_id: i16,          // Tile number in the tilemap.
-    tile_data: [Pixel; 8], // Pixel data for one row of the fetched tile.
+    clock: Clock,              // Clock cycle counter for timings.
+    state: FetcherState,       // Current state of our state machine.
+    map_address: u16,          // Start address of BG/Windows map row.
+    tile_address: u16,         // Memory address to look for tile data.
+    tile_line: u8,             // Y offset (in pixels) in the tile.
+    tile_index: u8,             // Index of the tile to read in the current row of the background map.
+    tile_id: i16,               // Tile number in the tilemap.
+    tile_data: [Pixel; 8],      // Pixel data for one row of the fetched tile.
 }
 
 impl Fetcher {
@@ -133,14 +133,13 @@ impl Fetcher {
                 self.tile_data[bit_pos] = Pixel::from((pixel_data >> bit_pos) & 1);
             } else {
                 self.tile_data[bit_pos] = Pixel::from(
-                    u8::from(self.tile_data[bit_pos]) | (((pixel_data >> bit_pos) & 1) << 1)
+                    u8::from(self.tile_data[bit_pos]) | (((pixel_data >> bit_pos) & 1) << 1),
                 );
             }
         }
     }
 
     fn read_ctrl(&self, bus: &mut Bus) -> LCDControl {
-        LCDControl::from_bits(bus.read(PPU_LCDC))
-            .expect("Got invalid value for LCDControl!")
+        LCDControl::from_bits(bus.read(PPU_LCDC)).expect("Got invalid value for LCDControl!")
     }
 }

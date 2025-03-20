@@ -1,6 +1,6 @@
-use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::cpu::CPU;
 use crate::gb::AddressSpace;
+use crate::gb::cpu::CPU;
+use crate::gb::cpu::registers::FlagsRegister;
 
 /// Represents a mock for MemoryBus
 struct MockBus {
@@ -346,9 +346,7 @@ fn test_inc_word() {
 #[test]
 fn test_jr_always_neg_offset() {
     // JR i8
-    let mut bus = MockBus::new(
-        vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 251]
-    );
+    let mut bus = MockBus::new(vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 251]);
     let mut cpu = CPU::new();
     for _ in 0..6 {
         cpu.step(&mut bus);
@@ -516,9 +514,7 @@ fn test_rst() {
     // op: 0x04 -> INC(B)
     // op: 0xC9 -> RET(Always)
     // op: 0x0C -> INC(C)
-    let mut bus = MockBus::new(
-        vec![0x04, 0xc9, 0x00, 0xC7, 0x0C, 0x00, 0x00, 0x00]
-    );
+    let mut bus = MockBus::new(vec![0x04, 0xc9, 0x00, 0xC7, 0x0C, 0x00, 0x00, 0x00]);
     let mut cpu = CPU::new();
 
     assert_eq!(cpu.sp, 0);

@@ -1,8 +1,8 @@
+use crate::gb::AddressSpace;
 use crate::gb::bus::constants::{
     CRAM_BEGIN, CRAM_END, CRAM_SIZE, ROM_BANK_0_BEGIN, ROM_BANK_0_END, ROM_BANK_N_BEGIN,
     ROM_BANK_N_END, ROM_BANK_N_SIZE,
 };
-use crate::gb::AddressSpace;
 use crate::utils;
 use std::fs::File;
 use std::io::Read;
@@ -217,7 +217,7 @@ impl AddressSpace for Cartridge {
             0x0000..=ROM_BANK_N_END => self.handle_banking(address, value),
             CRAM_BEGIN..=CRAM_END => {
                 let offset = self.cur_ram_bank as usize * CRAM_SIZE;
-                self.ram[usize::from(address as usize - CRAM_BEGIN as usize + offset)] = value
+                self.ram[address as usize - CRAM_BEGIN as usize + offset] = value
             }
             _ => unimplemented!("Trying to write byte to ROM: {:#06x}", address),
         }

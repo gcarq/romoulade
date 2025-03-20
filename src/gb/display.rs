@@ -2,10 +2,10 @@ use sdl2::video::Window;
 
 use crate::gb::ppu::misc::Color;
 use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use sdl2::EventPump;
 use sdl2::pixels;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::Canvas;
-use sdl2::EventPump;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use std::{error, process, thread};
@@ -100,7 +100,8 @@ impl Display {
 
         while self
             .last_second_frames
-            .front().is_some_and(|t| *t < a_second_ago)
+            .front()
+            .is_some_and(|t| *t < a_second_ago)
         {
             self.last_second_frames.pop_front();
         }
@@ -114,7 +115,9 @@ impl Display {
     fn update(&mut self) {
         self.canvas.present();
         for event in self.event_pump.poll_iter() {
-            if let sdl2::event::Event::Quit { .. } = event { process::exit(0) }
+            if let sdl2::event::Event::Quit { .. } = event {
+                process::exit(0)
+            }
         }
     }
 }

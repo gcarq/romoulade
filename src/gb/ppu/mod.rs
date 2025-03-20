@@ -1,10 +1,9 @@
 mod fetcher;
 pub mod misc;
 
-use crate::gb::bus::constants::*;
 use crate::gb::bus::Bus;
+use crate::gb::bus::constants::*;
 use crate::gb::display::Display;
-use crate::gb::interrupt::IRQ;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
 use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
@@ -118,7 +117,7 @@ impl<'a> PPU<'a> {
 
         // handle pending interrupts if mode changed
         if mode != cur_mode && irq {
-            bus.irq(IRQ::LCD);
+            bus.interrupt_flag.lcd = true;
         }
         self.set_lcd_mode(bus, mode);
 
@@ -130,7 +129,7 @@ impl<'a> PPU<'a> {
         let state = self.read_stat(bus);
         if bus.read(PPU_LY) == bus.read(PPU_LYC) {
             if state.contains(LCDState::LY_INT) {
-                bus.irq(IRQ::LCD);
+                bus.interrupt_flag.lcd = true;
             }
             self.write_stat(bus, state - LCDState::LYC_STAT);
         } else {
@@ -237,8 +236,7 @@ impl<'a> PPU<'a> {
     }
 
     fn read_ctrl(&self, bus: &mut Bus) -> LCDControl {
-        LCDControl::from_bits(bus.read(PPU_LCDC))
-            .expect("Got invalid value for LCDControl!")
+        LCDControl::from_bits(bus.read(PPU_LCDC)).expect("Got invalid value for LCDControl!")
     }
 
     fn write_stat(&mut self, bus: &mut Bus, stat: LCDState) {
@@ -246,7 +244,6 @@ impl<'a> PPU<'a> {
     }
 
     fn read_stat(&self, bus: &mut Bus) -> LCDState {
-        LCDState::from_bits(bus.read(PPU_STAT))
-            .expect("Got invalid value for LCDState!")
+        LCDState::from_bits(bus.read(PPU_STAT)).expect("Got invalid value for LCDState!")
     }
 }

@@ -1,7 +1,7 @@
+use crate::gb::AddressSpace;
 use crate::gb::bus::constants::BOOT_END;
 use crate::gb::instruction::*;
 use crate::gb::timer::Clock;
-use crate::gb::AddressSpace;
 use crate::utils;
 use registers::Registers;
 
@@ -10,17 +10,18 @@ mod registers;
 mod tests;
 
 /// Number of clock cycles per CPU cycle
-const CLOCKS_PER_CYCLE: u16 = 4;
+pub const CLOCKS_PER_CYCLE: u16 = 4;
 
 /// Implements the CPU for the GB (DMG-01),
 /// the CPU is LR35902 which is a subset of i8080 & Z80.
 pub struct CPU {
-    pub r: Registers,
-    pub pc: u16,   // Program counter
-    pub sp: u16,   // Stack Pointer
-    pub ime: bool, // Interrupt Master Enable
+    pub r: Registers, // CPU registers
+    pub pc: u16,      // Program counter
+    pub sp: u16,      // Stack Pointer
+    pub ime: bool,    // Interrupt Master Enable
     pub is_halted: bool,
-    clock: Clock,
+
+    pub clock: Clock,
 }
 
 impl CPU {
@@ -428,7 +429,12 @@ impl CPU {
     }
 
     /// Handles JP instructions
-    fn handle_jp<T: AddressSpace>(&mut self, test: JumpTest, source: WordSource, bus: &mut T) -> u16 {
+    fn handle_jp<T: AddressSpace>(
+        &mut self,
+        test: JumpTest,
+        source: WordSource,
+        bus: &mut T,
+    ) -> u16 {
         let should_jump = test.resolve(self);
 
         if should_jump {
