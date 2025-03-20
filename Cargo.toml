@@ -9,7 +9,7 @@ edition = "2024"
 [dependencies]
 clap = "2.33.3"
 bitflags = "2.8.0"
-sdl2 = "^0.34"
+sdl2 = "^0.37"
 tui = "0.12.0"
 termion = "1.5.5"
 unicode-width = "0.1.8"
