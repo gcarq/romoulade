@@ -1,10 +1,14 @@
 use crate::gb::AddressSpace;
 use crate::gb::bus::constants::BOOT_END;
-use crate::gb::instruction::*;
+use crate::gb::cpu::instruction::{
+    ByteSource, IncDecByteTarget, IncDecWordTarget, Instruction, JumpTest, Load, LoadByteTarget,
+    LoadWordTarget, ResetCode, StackTarget, WordSource,
+};
 use crate::gb::timer::Clock;
 use crate::utils;
 use registers::Registers;
 
+mod instruction;
 mod registers;
 #[cfg(test)]
 mod tests;

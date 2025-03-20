@@ -9,7 +9,7 @@ use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
 use crate::gb::display::Display;
 use crate::gb::ppu::PPU;
-use crate::gb::{interrupt, DISPLAY_REFRESH_RATE};
+use crate::gb::{DISPLAY_REFRESH_RATE, interrupt};
 use backtrace::Backtrace;
 use clap::{App, Arg, ArgMatches};
 use std::error::Error;

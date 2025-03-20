@@ -2,7 +2,6 @@ pub mod bus;
 pub mod cartridge;
 pub mod cpu;
 pub mod display;
-mod instruction;
 pub mod interrupt;
 pub mod ppu;
 pub mod timer;

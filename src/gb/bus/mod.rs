@@ -1,10 +1,10 @@
 pub mod constants;
 
+use crate::gb::AddressSpace;
 use crate::gb::bus::constants::*;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::interrupt::InterruptFlags;
 use crate::gb::timer::{Frequency, Timer};
-use crate::gb::AddressSpace;
 
 /// Defines a global Bus, all processing units should access memory through it.
 pub struct Bus {

@@ -79,7 +79,6 @@ pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
 
 /// Handles interrupt request
 fn interrupt(cpu: &mut CPU, bus: &mut Bus, address: u16) {
-    println!("Interrupt request: {:#06x}, is_halted: {}", address, cpu.is_halted);
     cpu.ime = false;
     // Save current execution address by pushing it onto the stack
     cpu.push(cpu.pc, bus);

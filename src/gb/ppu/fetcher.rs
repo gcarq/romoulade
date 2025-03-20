@@ -1,9 +1,9 @@
-use crate::gb::bus::constants::{PPU_BGP, PPU_LCDC};
-use crate::gb::bus::Bus;
-use crate::gb::ppu::misc::{Color, Palette, Pixel};
-use crate::gb::ppu::LCDControl;
-use crate::gb::timer::Clock;
 use crate::gb::AddressSpace;
+use crate::gb::bus::Bus;
+use crate::gb::bus::constants::{PPU_BGP, PPU_LCDC};
+use crate::gb::ppu::LCDControl;
+use crate::gb::ppu::misc::{Color, Palette, Pixel};
+use crate::gb::timer::Clock;
 use std::collections::VecDeque;
 
 #[repr(u8)]
@@ -23,9 +23,9 @@ pub struct Fetcher {
     map_address: u16,          // Start address of BG/Windows map row.
     tile_address: u16,         // Memory address to look for tile data.
     tile_line: u8,             // Y offset (in pixels) in the tile.
-    tile_index: u8,             // Index of the tile to read in the current row of the background map.
-    tile_id: i16,               // Tile number in the tilemap.
-    tile_data: [Pixel; 8],      // Pixel data for one row of the fetched tile.
+    tile_index: u8, // Index of the tile to read in the current row of the background map.
+    tile_id: i16,   // Tile number in the tilemap.
+    tile_data: [Pixel; 8], // Pixel data for one row of the fetched tile.
 }
 
 impl Fetcher {
