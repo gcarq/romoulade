@@ -30,7 +30,7 @@ const CARTRIDGE_ROM_BANKS: u16 = 0x0147;
 /// maximum are 4 banks.
 const CARTRIDGE_RAM_BANKS: u16 = 0x0148;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 #[repr(u8)]
 /// TODO: implement remaining modes
 pub enum BankingMode {
@@ -51,6 +51,7 @@ impl From<u8> for BankingMode {
 }
 
 /// Contains parsed metadata of Cartridge
+#[derive(Clone)]
 pub struct Metadata {
     pub title: String,
     pub banking: BankingMode,
@@ -88,6 +89,7 @@ impl fmt::Display for Metadata {
 }
 
 /// Contains all data for a cartridge
+#[derive(Clone)]
 pub struct Cartridge {
     pub meta: Metadata,
     rom: Vec<u8>,

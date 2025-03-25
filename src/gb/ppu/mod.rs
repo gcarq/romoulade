@@ -1,12 +1,14 @@
+pub mod buffer;
+pub mod display;
 mod fetcher;
 pub mod misc;
 
 use crate::gb::bus::Bus;
 use crate::gb::bus::constants::*;
-use crate::gb::display::Display;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
 use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
+use display::Display;
 
 bitflags! {
     /// Represents PPU_LCDC at 0xFF40
@@ -69,15 +71,15 @@ impl From<u8> for LCDMode {
 }
 
 /// Pixel Processing Unit
-pub struct PPU<'a> {
+pub struct PPU {
     clock: Clock,
     fetcher: Fetcher,
-    display: &'a mut Display,
+    display: Display,
     x: u8,
 }
 
-impl<'a> PPU<'a> {
-    pub fn new(display: &'a mut Display) -> Self {
+impl PPU {
+    pub fn new(display: Display) -> Self {
         Self {
             clock: Clock::new(),
             fetcher: Fetcher::new(),
@@ -178,7 +180,7 @@ impl<'a> PPU<'a> {
 
         let state = self.read_stat(bus);
         if bus.read(PPU_LY) == SCREEN_HEIGHT {
-            self.display.render_screen();
+            self.display.render_frame();
             return (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT));
         }
         (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))

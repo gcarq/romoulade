@@ -7,13 +7,16 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version = "4.5.30", features = ["derive"] }
+backtrace = "0.3.51"
 bitflags = "2.8.0"
-sdl2 = "^0.37"
+clap = { version = "4.5.30", features = ["derive"] }
+eframe = "0.31.1"
+egui = "0.31.1"
+rfd = "0.15.3"
 tui = "0.19.0"
 termion = "1.5.5"
 unicode-width = "0.2.0"
-backtrace = "0.3.51"
+
 
 [profile.dev]
 opt-level = 2

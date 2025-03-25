@@ -28,8 +28,8 @@ pub struct CPU {
     pub clock: Clock,
 }
 
-impl CPU {
-    pub fn new() -> Self {
+impl Default for CPU {
+    fn default() -> Self {
         Self {
             r: Registers::default(),
             pc: 0,
@@ -39,7 +39,9 @@ impl CPU {
             clock: Clock::new(),
         }
     }
+}
 
+impl CPU {
     /// Makes one CPU step, this consumes one or more bytes depending on the
     /// next instruction and current CPU state (halted, stopped, etc.).
     pub fn step<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
@@ -67,18 +69,6 @@ impl CPU {
         };
         self.clock.ticks()
     }
-
-    /*/// Prints the current registers, pointers with opcode and resolved instruction
-    fn print_ctx(&self, opcode: u8, instruction: &Instruction) {
-        println!(
-            "{} | pc: {:<5} sp: {:<5} | op: {:#04X} -> {}",
-            self.r,
-            format!("{:#06X}", self.pc),
-            format!("{:#06X}", self.sp),
-            opcode,
-            instruction
-        );
-    }*/
 
     /// Executes the given instruction, advances the internal clock
     /// and returns the updated program counter.
