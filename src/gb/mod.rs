@@ -1,9 +1,9 @@
 use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
+use crate::gb::ppu::PPU;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
-use crate::gb::ppu::PPU;
 use crate::gui::FrontendMessage;
 use std::error;
 use std::sync::mpsc::{Receiver, Sender};
@@ -62,12 +62,11 @@ impl Emulator {
         })
     }
 
-    fn step(&mut self) -> GBResult<()> {
+    fn step(&mut self) {
         let cycles = self.cpu.step(&mut self.bus);
         self.bus.step(cycles);
-        self.ppu.step(&mut self.bus, cycles)?;
+        self.ppu.step(&mut self.bus, cycles);
         interrupt::handle(&mut self.cpu, &mut self.bus);
-        Ok(())
     }
 
     /// Handles messages from the frontend.
@@ -82,10 +81,7 @@ impl Emulator {
 
     pub fn run(&mut self) {
         while self.is_running {
-            if let Err(err) = self.step() {
-                eprintln!("Error: {}", err);
-                break;
-            }
+            self.step();
             self.handle_messages();
         }
     }

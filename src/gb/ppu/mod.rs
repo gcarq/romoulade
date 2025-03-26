@@ -3,13 +3,11 @@ pub mod display;
 mod fetcher;
 pub mod misc;
 
-use crate::gb::bus::constants::*;
 use crate::gb::bus::Bus;
+use crate::gb::bus::constants::*;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::timer::Clock;
-use crate::gb::{
-    AddressSpace, GBResult, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX,
-};
+use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
 use display::Display;
 
 bitflags! {
@@ -90,11 +88,11 @@ impl PPU {
         }
     }
 
-    pub fn step(&mut self, bus: &mut Bus, cycles: u16) -> GBResult<()> {
+    pub fn step(&mut self, bus: &mut Bus, cycles: u16) {
         if !self.read_ctrl(bus).contains(LCDControl::LCD_EN) {
             self.set_lcd_mode(bus, LCDMode::VBlank);
             // Screen is off, PPU remains idle.
-            return Ok(());
+            return;
         }
 
         self.clock.advance(cycles);
@@ -110,7 +108,7 @@ impl PPU {
             // A full scanline takes 456 clock cycles to complete. At the end of a
             // scanline, the PPU goes back to the initial OAM Search state.
             // When we reach line 144, we switch to VBlank state instead.
-            LCDMode::HBlank if self.clock.ticks() >= 456 => self.handle_hblank(bus)?,
+            LCDMode::HBlank if self.clock.ticks() >= 456 => self.handle_hblank(bus),
             // Nothing much to do here either. VBlank is when the CPU is supposed to
             // do stuff that takes time. It takes as many cycles as would be needed
             // to keep displaying scanlines up to line 153.
@@ -126,7 +124,6 @@ impl PPU {
         self.set_lcd_mode(bus, mode);
 
         self.handle_coincidence_flag(bus);
-        Ok(())
     }
 
     /// Checks the coincidence flag and requests an interrupt if required.
@@ -177,7 +174,7 @@ impl PPU {
 
     /// Handles the HBlank mode.
     /// Returns a tuple with the new LCDMode and whether an interrupt has been requested.
-    fn handle_hblank(&mut self, bus: &mut Bus) -> GBResult<(LCDMode, bool)> {
+    fn handle_hblank(&mut self, bus: &mut Bus) -> (LCDMode, bool) {
         self.clock.reset();
         let ppu_ly = bus.read(PPU_LY).wrapping_add(1);
         bus.write(PPU_LY, ppu_ly);
@@ -186,10 +183,10 @@ impl PPU {
         if bus.read(PPU_LY) == SCREEN_HEIGHT {
             self.display
                 .send_frame()
-                .map_err(|e| format!("Failed to send frame: {}", e))?;
-            return Ok((LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT)));
+                .expect("Failed to send frame to frontend");
+            return (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT));
         }
-        Ok((LCDMode::OAMSearch, state.contains(LCDState::OAM_INT)))
+        (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
     }
 
     /// Handles the VBlank mode.

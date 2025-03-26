@@ -1,14 +1,13 @@
-mod state;
+mod frontend;
 
+use crate::gb::EmulatorMessage;
 use crate::gb::cartridge::Cartridge;
+use crate::gb::joypad::JoypadInput;
 use crate::gb::ppu::buffer::FrameBuffer;
-use crate::gb::{Emulator, EmulatorMessage};
-use crate::gui::state::EmulatorState;
+use crate::gui::frontend::EmulatorFrontend;
 use eframe::egui;
 use eframe::egui::{ColorImage, TextureOptions, Ui, Vec2};
-use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::thread;
 
 pub const SCREEN_WIDTH: usize = 160;
 pub const SCREEN_HEIGHT: usize = 144;
@@ -17,7 +16,8 @@ pub const SCREEN_HEIGHT: usize = 144;
 pub const UPSCALE: usize = 3;
 
 pub enum FrontendMessage {
-    Reset,
+    Stop,
+    Input(JoypadInput),
 }
 
 /// A channel to communicate between the emulator and the frontend.
@@ -29,6 +29,7 @@ struct EmulatorChannel {
 }
 
 impl EmulatorChannel {
+    #[inline]
     pub fn new(sender: Sender<FrontendMessage>, receiver: Receiver<EmulatorMessage>) -> Self {
         Self { sender, receiver }
     }
@@ -36,64 +37,29 @@ impl EmulatorChannel {
 
 #[derive(Default)]
 pub struct Romoulade {
-    state: Option<EmulatorState>,
+    frontend: Option<EmulatorFrontend>,
 }
 
 impl Romoulade {
     fn load_rom(&mut self) {
+        if let Some(frontend) = &self.frontend {
+            frontend.shutdown();
+        }
+
         let path = match rfd::FileDialog::new().pick_file() {
             Some(path) => path,
             None => return,
         };
         println!("Loading ROM: {}", path.display());
         let cartridge = Cartridge::from_path(&path).expect("Unable to load cartridge from path");
-        self.start_emulator(cartridge);
+        self.frontend = Some(EmulatorFrontend::start(cartridge));
     }
 
-    /// Starts the emulator with the given cartridge.
-    fn start_emulator(&mut self, cartridge: Cartridge) {
-        let (emulator_sender, emulator_receiver) = mpsc::channel();
-        let (frontend_sender, frontend_receiver) = mpsc::channel();
-        let used_cartridge = cartridge.clone();
-        let thread = thread::spawn(move || {
-            let mut emulator =
-                Emulator::new(emulator_sender, frontend_receiver, used_cartridge, UPSCALE)
-                    .expect("Unable to create GameBoy instance");
-            emulator.run();
-        });
-        self.state = Some(EmulatorState::new(
-            thread,
-            EmulatorChannel::new(frontend_sender, emulator_receiver),
-            cartridge,
-        ));
-    }
-
-    /// Sends a reset message to the emulator.
-    fn reset(&mut self) {
-        let state = match &self.state {
-            Some(state) => state,
-            None => return,
-        };
-
-        match state.channel.sender.send(FrontendMessage::Reset) {
-            Ok(_) => println!("Resetting emulator ..."),
-            Err(_) => eprintln!("Emulator is not running"),
-        }
-
-        self.start_emulator(state.cartridge.clone());
-    }
-
-    /// Checks the channel for new messages and updates the emulation screen
-    /// if a new frame is available.
+    /// Receive the current frame from the frontend and update the screen
     fn update_emulation_screen(&self, ctx: &egui::Context, ui: &mut Ui) {
-        let receiver = match &self.state {
-            Some(state) => &state.channel.receiver,
-            None => return,
-        };
-
-        if let Ok(message) = receiver.recv() {
-            match message {
-                EmulatorMessage::Frame(frame) => self.update_emulation_texture(frame, ctx, ui),
+        if let Some(frontend) = &self.frontend {
+            if let Some(frame) = frontend.recv_frame() {
+                self.update_emulation_texture(frame, ctx, ui)
             }
         }
     }
@@ -115,6 +81,17 @@ impl Romoulade {
         ));
         ctx.request_repaint();
     }
+
+    /// Handles user input and sends it to the frontend.
+    fn handle_user_input(&self, ui: &mut Ui) {
+        if let Some(frontend) = &self.frontend {
+            ui.input(|i| {
+                for key in &i.keys_down {
+                    frontend.send_user_input(key);
+                }
+            });
+        }
+    }
 }
 
 impl eframe::App for Romoulade {
@@ -126,12 +103,15 @@ impl eframe::App for Romoulade {
                 }
                 ui.separator();
                 if ui.button("Reset").clicked() {
-                    self.reset();
+                    if let Some(frontend) = &mut self.frontend {
+                        frontend.restart();
+                    }
                 }
             });
         });
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| match self.state {
+            self.handle_user_input(ui);
+            ui.horizontal(|ui| match self.frontend {
                 Some(_) => self.update_emulation_screen(ctx, ui),
                 None => {
                     ui.label("Emulator stopped");
