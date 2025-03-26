@@ -5,6 +5,7 @@ pub struct Palette {
 }
 
 impl Palette {
+    #[inline]
     pub fn colorize(&self, pixel: Pixel) -> Color {
         self.map[u8::from(pixel) as usize]
     }
@@ -14,6 +15,7 @@ impl From<u8> for Palette {
     /// Every two bits in the palette data byte represent a colour.
     /// Bits 7-6 maps to colour id 11, bits 5-4 map to colour id 10,
     /// bits 3-2 map to colour id 01 and bits 1-0 map to colour id 00
+    #[inline]
     fn from(value: u8) -> Self {
         Self {
             map: [
@@ -37,6 +39,7 @@ pub enum Pixel {
 }
 
 impl From<Pixel> for u8 {
+    #[inline]
     fn from(value: Pixel) -> u8 {
         match value {
             Pixel::Zero => 0b00,
@@ -48,6 +51,7 @@ impl From<Pixel> for u8 {
 }
 
 impl From<u8> for Pixel {
+    #[inline]
     fn from(value: u8) -> Self {
         match value {
             0b00 => Pixel::Zero,
@@ -71,6 +75,7 @@ pub enum Color {
 }
 
 impl From<Color> for u8 {
+    #[inline]
     fn from(value: Color) -> u8 {
         match value {
             Color::White => 0b00,
@@ -82,6 +87,7 @@ impl From<Color> for u8 {
 }
 
 impl From<u8> for Color {
+    #[inline]
     fn from(value: u8) -> Self {
         match value {
             0b00 => Color::White,

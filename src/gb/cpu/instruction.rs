@@ -53,7 +53,8 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    pub fn from_byte(byte: u8, prefixed: bool) -> Option<Instruction> {
+    #[inline]
+    pub const fn from_byte(byte: u8, prefixed: bool) -> Option<Instruction> {
         match prefixed {
             true => Instruction::from_byte_prefixed(byte),
             false => Instruction::from_byte_not_prefixed(byte),
@@ -61,7 +62,7 @@ impl Instruction {
     }
 
     /// Maps 0xCB prefixed opcodes to Instructions
-    fn from_byte_prefixed(opcode: u8) -> Option<Instruction> {
+    const fn from_byte_prefixed(opcode: u8) -> Option<Instruction> {
         match opcode {
             0x00 => Some(Instruction::RLC(ByteSource::B)),
             0x01 => Some(Instruction::RLC(ByteSource::C)),
@@ -354,7 +355,7 @@ impl Instruction {
     }
 
     /// Maps non-prefixed opcodes to Instructions
-    fn from_byte_not_prefixed(opcode: u8) -> Option<Instruction> {
+    const fn from_byte_not_prefixed(opcode: u8) -> Option<Instruction> {
         match opcode {
             0x00 => Some(Instruction::NOP),
             0x01 => Some(Instruction::LD(Load::Word(
@@ -944,6 +945,7 @@ pub enum IncDecWordTarget {
 
 impl IncDecWordTarget {
     /// Resolves the referring value
+    #[inline]
     pub fn read(&self, cpu: &mut CPU) -> u16 {
         match *self {
             IncDecWordTarget::BC => cpu.r.get_bc(),
@@ -954,6 +956,7 @@ impl IncDecWordTarget {
     }
 
     /// Writes to the referring register
+    #[inline]
     pub fn write(&self, cpu: &mut CPU, value: u16) {
         match *self {
             IncDecWordTarget::BC => cpu.r.set_bc(value),
@@ -975,6 +978,7 @@ pub enum JumpTest {
 
 impl JumpTest {
     /// Resolves the referring value
+    #[inline]
     pub fn resolve(&self, cpu: &mut CPU) -> bool {
         match *self {
             JumpTest::NotZero => !cpu.r.f.zero,

@@ -9,6 +9,7 @@ impl Frequency {
     /// Returns the number of CPU cycles for the given frequency.
     /// This is equal to the number of cpu cycles per second (4194304)
     /// divided by the timer frequency.
+    #[inline]
     pub fn as_cycles(&self) -> u16 {
         match self {
             Frequency::Hz4096 => 1024,
@@ -28,6 +29,7 @@ pub struct Timer {
 }
 
 impl Timer {
+    #[inline]
     pub fn new(frequency: Frequency) -> Self {
         Self {
             frequency,
@@ -71,18 +73,22 @@ pub struct Clock {
 }
 
 impl Clock {
+    #[inline]
     pub fn new() -> Self {
         Self { t_cycle: 0 }
     }
 
+    #[inline]
     pub fn advance(&mut self, cycles: u16) {
         self.t_cycle = self.t_cycle.wrapping_add(cycles);
     }
 
+    #[inline]
     pub fn ticks(&self) -> u16 {
         self.t_cycle
     }
 
+    #[inline]
     pub fn reset(&mut self) {
         self.t_cycle = 0;
     }

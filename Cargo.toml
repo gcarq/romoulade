@@ -7,16 +7,11 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-backtrace = "0.3.51"
 bitflags = "2.8.0"
 clap = { version = "4.5.30", features = ["derive"] }
-eframe = "0.31.1"
-egui = "0.31.1"
-rfd = "0.15.3"
-tui = "0.19.0"
-termion = "1.5.5"
-unicode-width = "0.2.0"
-
+eframe = { version = "0.31.1", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = { version = "0.31.1", default-features = false }
+rfd = { version = "0.15.3", default-features = false, features = ["xdg-portal", "async-std"] }
 
 [profile.dev]
 opt-level = 2
@@ -30,4 +25,5 @@ opt-level = 3
 debug = false
 rpath = false
 lto = true
+strip = true
 codegen-units = 1

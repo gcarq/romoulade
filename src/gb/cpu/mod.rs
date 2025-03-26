@@ -138,17 +138,20 @@ impl CPU {
     }
 
     /// Reads the next byte and increases pc
+    #[inline]
     pub fn consume_byte<T: AddressSpace>(&mut self, bus: &mut T) -> u8 {
         self.pc = self.pc.wrapping_add(1);
         bus.read(self.pc)
     }
 
     /// Reads the next word and increases pc
+    #[inline]
     pub fn consume_word<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
         u16::from(self.consume_byte(bus)) | (u16::from(self.consume_byte(bus)) << 8)
     }
 
     /// Push a u16 value onto the stack
+    #[inline]
     pub fn push<T: AddressSpace>(&mut self, value: u16, bus: &mut T) {
         self.sp = self.sp.wrapping_sub(1);
         // Write the most significant byte
@@ -160,6 +163,7 @@ impl CPU {
     }
 
     /// Pop a u16 value from the stack
+    #[inline]
     fn pop<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
         let lsb = bus.read(self.sp) as u16;
         self.sp = self.sp.wrapping_add(1);
@@ -283,6 +287,7 @@ impl CPU {
     }
 
     /// Handle CCF instruction
+    #[inline]
     fn handle_ccf(&mut self) -> u16 {
         self.r.f.negative = false;
         self.r.f.half_carry = false;
@@ -310,6 +315,7 @@ impl CPU {
     }
 
     /// Handles CPL instruction
+    #[inline]
     fn handle_cpl(&mut self) -> u16 {
         self.r.a = !self.r.a;
         self.r.f.negative = true;
@@ -368,6 +374,7 @@ impl CPU {
     }
 
     /// Handles HALT instruction
+    #[inline]
     fn handle_halt(&mut self) -> u16 {
         self.is_halted = true;
         self.clock.advance(CLOCKS_PER_CYCLE);
@@ -399,6 +406,7 @@ impl CPU {
     }
 
     /// Handles EI and DI instructions
+    #[inline]
     fn handle_interrupt(&mut self, enable: bool) -> u16 {
         self.ime = enable;
         self.clock.advance(CLOCKS_PER_CYCLE);
@@ -586,6 +594,7 @@ impl CPU {
     }
 
     /// Handles NOP instruction
+    #[inline]
     fn handle_nop(&mut self) -> u16 {
         self.clock.advance(CLOCKS_PER_CYCLE);
         self.pc.wrapping_add(1)
@@ -688,6 +697,7 @@ impl CPU {
 
     /// Handles RLA instruction
     /// Rotate A left through carry
+    #[inline]
     fn handle_rla(&mut self) -> u16 {
         let new_carry = (self.r.a >> 7) != 0;
         self.r.a = (self.r.a << 1) | self.r.f.carry as u8;
@@ -713,6 +723,7 @@ impl CPU {
     }
 
     /// Handles RLCA instruction
+    #[inline]
     fn handle_rlca(&mut self) -> u16 {
         let carry = self.r.a & 0x80 != 0;
         self.r.a = (self.r.a << 1) | carry as u8;
@@ -737,6 +748,7 @@ impl CPU {
     }
 
     /// Handles RRA instruction
+    #[inline]
     fn handle_rra(&mut self) -> u16 {
         let carry = self.r.a & 0x01 != 0;
         self.r.a = (self.r.a >> 1) | (u8::from(self.r.f.carry) << 7);
@@ -762,6 +774,7 @@ impl CPU {
     }
 
     /// Handles RCAA instruction
+    #[inline]
     fn handle_rrca(&mut self) -> u16 {
         let carry = self.r.a & 0x01;
         self.r.a = (self.r.a >> 1) | (carry << 7);
@@ -771,6 +784,7 @@ impl CPU {
     }
 
     /// Handles RST instructions
+    #[inline]
     fn handle_rst<T: AddressSpace>(&mut self, code: ResetCode, bus: &mut T) -> u16 {
         self.clock.advance(CLOCKS_PER_CYCLE * 6);
         self.push(self.pc.wrapping_add(1), bus);
@@ -806,6 +820,7 @@ impl CPU {
     }
 
     /// Handles SCF instruction
+    #[inline]
     fn handle_scf(&mut self) -> u16 {
         self.r.f.negative = false;
         self.r.f.half_carry = false;

@@ -227,25 +227,30 @@ impl PPU {
     }
 
     /// Fetches the current LCD_MODE from PPU_STAT register
+    #[inline]
     fn lcd_mode(&self, bus: &mut Bus) -> LCDMode {
         LCDMode::from(bus.read(PPU_STAT) & 0b11)
     }
 
     /// Updates LCD_MODE in PPU_STAT register
+    #[inline]
     pub fn set_lcd_mode(&mut self, bus: &mut Bus, mode: LCDMode) {
         let stat_bits = (self.read_stat(bus).bits() & 0xFC) | u8::from(mode);
         bus.write(PPU_STAT, stat_bits);
     }
 
+    #[inline]
     fn read_ctrl(&self, bus: &mut Bus) -> LCDControl {
-        LCDControl::from_bits(bus.read(PPU_LCDC)).expect("Got invalid value for LCDControl!")
+        LCDControl::from_bits_retain(bus.read(PPU_LCDC))
     }
 
+    #[inline]
     fn write_stat(&mut self, bus: &mut Bus, stat: LCDState) {
         bus.write(PPU_STAT, stat.bits());
     }
 
+    #[inline]
     fn read_stat(&self, bus: &mut Bus) -> LCDState {
-        LCDState::from_bits(bus.read(PPU_STAT)).expect("Got invalid value for LCDState!")
+        LCDState::from_bits_retain(bus.read(PPU_STAT))
     }
 }

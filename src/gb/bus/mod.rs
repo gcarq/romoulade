@@ -64,6 +64,8 @@ impl Bus {
     }
 
     /// Initiate DMA transfer
+    /// See https://gbdev.io/pandocs/OAM_DMA_Transfer.html
+    #[inline]
     fn dma_transfer(&mut self, value: u8) {
         let address = u16::from(value) * 100;
         for offset in 0..0xA0 {

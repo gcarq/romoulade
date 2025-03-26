@@ -48,7 +48,7 @@ pub const ERAM_SIZE: usize = (ERAM_END - ERAM_BEGIN + 1) as usize;
 /// This area of memory contains the description of graphical sprites.
 /// The tiles we talked about above were used for backgrounds and levels but not for characters,
 /// enemies or objects the user interacted with. These entities, known as sprites,
-/// have extra capabilties. The description for how they should look lives here.
+/// have extra capabilities. The description for how they should look lives here.
 pub const OAM_BEGIN: u16 = 0xFE00;
 pub const OAM_END: u16 = 0xFE9F;
 pub const OAM_SIZE: usize = (OAM_END - OAM_BEGIN + 1) as usize;
