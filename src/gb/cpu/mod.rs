@@ -5,7 +5,7 @@ use crate::gb::cpu::instruction::{
     LoadWordTarget, ResetCode, StackTarget, WordSource,
 };
 use crate::gb::timer::Clock;
-use crate::utils;
+use crate::gb::utils;
 use registers::Registers;
 
 mod instruction;

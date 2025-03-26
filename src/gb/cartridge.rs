@@ -3,7 +3,7 @@ use crate::gb::bus::constants::{
     CRAM_BEGIN, CRAM_END, CRAM_SIZE, ROM_BANK_0_BEGIN, ROM_BANK_0_END, ROM_BANK_N_BEGIN,
     ROM_BANK_N_END, ROM_BANK_N_SIZE,
 };
-use crate::utils;
+use crate::gb::utils;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -125,7 +125,7 @@ impl Cartridge {
     fn handle_banking(&mut self, address: u16, value: u8) {
         match address {
             // Do RAM enable
-            0x0000..=0x1FFF => {
+            ROM_BANK_0_BEGIN..=0x1FFF => {
                 if self.meta.banking == BankingMode::MBC1 || self.meta.banking == BankingMode::MBC2
                 {
                     self.toggle_ram_banking(address, value);
@@ -138,7 +138,7 @@ impl Cartridge {
                 BankingMode::None => {}
             },
             // Do ROM or RAM bank change
-            0x4000..=0x5FFF => {
+            ROM_BANK_N_BEGIN..=0x5FFF => {
                 // There is no RAM bank in MBC2 so we always use RAM bank 0
                 if self.meta.banking != BankingMode::MBC1 {
                     return;
@@ -150,7 +150,7 @@ impl Cartridge {
                 self.cur_ram_bank = value & 0x03;
             }
             // Select whether we are doing ROM or RAM banking
-            0x6000..=0x7FFF => {
+            0x6000..=ROM_BANK_N_END => {
                 if self.meta.banking == BankingMode::MBC1 {
                     self.change_rom_ram_mode(value);
                 }

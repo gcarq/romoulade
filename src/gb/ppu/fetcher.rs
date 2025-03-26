@@ -129,17 +129,18 @@ impl Fetcher {
         let pixel_data = bus.read(address + bit_plane as u16);
         for bit_pos in 0..8 {
             // Store the first bit of pixel color in the pixel data buffer.
+            let value = (pixel_data >> bit_pos) & 1;
             if bit_plane == 0 {
-                self.tile_data[bit_pos] = Pixel::from((pixel_data >> bit_pos) & 1);
+                self.tile_data[bit_pos] = Pixel::from(value);
             } else {
-                self.tile_data[bit_pos] = Pixel::from(
-                    u8::from(self.tile_data[bit_pos]) | (((pixel_data >> bit_pos) & 1) << 1),
-                );
+                self.tile_data[bit_pos] =
+                    Pixel::from(u8::from(self.tile_data[bit_pos]) | (value << 1));
             }
         }
     }
 
+    #[inline]
     fn read_ctrl(&self, bus: &mut Bus) -> LCDControl {
-        LCDControl::from_bits(bus.read(PPU_LCDC)).expect("Got invalid value for LCDControl!")
+        LCDControl::from_bits_retain(bus.read(PPU_LCDC))
     }
 }

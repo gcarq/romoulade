@@ -1,6 +1,6 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::Color;
-use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage};
+use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage, GBResult};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 use std::{error, thread};
@@ -27,15 +27,15 @@ impl Display {
     }
 
     /// Sends the current frame to the frontend and syncs the frame rate.
-    pub fn render_frame(&mut self) {
+    pub fn send_frame(&mut self) -> GBResult<()> {
         let buffer = self.buffer.clone();
-        self.sender
-            .send(EmulatorMessage::Frame(buffer))
-            .expect("Unable to send frame to main thread");
+        self.sender.send(EmulatorMessage::Frame(buffer))?;
         self.frame_limiter.wait();
+        Ok(())
     }
 
     /// Writes a pixel to the given coordinates
+    #[inline]
     pub fn write_pixel(&mut self, x: u8, y: u8, color: Color) {
         self.buffer.write_pixel(x, y, color);
     }

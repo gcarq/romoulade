@@ -1,6 +1,6 @@
 use crate::gb::bus::Bus;
 use crate::gb::cpu::{CLOCKS_PER_CYCLE, CPU};
-use crate::utils;
+use crate::gb::utils;
 
 const VBLANK_IRQ_ADDRESS: u16 = 0x40;
 const LCD_IRQ_ADDRESS: u16 = 0x48;
@@ -32,7 +32,6 @@ impl From<u8> for InterruptFlags {
 
 impl From<InterruptFlags> for u8 {
     fn from(val: InterruptFlags) -> Self {
-        // unused bits are always set to 1
         let mut value = 0;
         value = utils::set_bit(value, 0, val.vblank);
         value = utils::set_bit(value, 1, val.lcd);
