@@ -9,7 +9,7 @@ const SERIAL_IRQ_ADDRESS: u16 = 0x58;
 const JOYPAD_IRQ_ADDRESS: u16 = 0x60;
 
 /// Represents interrupt requests
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Copy, Clone, Default)]
 pub struct InterruptFlags {
     pub vblank: bool,
     pub lcd: bool,

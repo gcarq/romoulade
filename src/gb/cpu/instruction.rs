@@ -1,7 +1,6 @@
 use crate::gb::AddressSpace;
 use crate::gb::cpu::CPU;
 
-#[derive(Debug)]
 pub enum Instruction {
     ADD(ByteSource),          // Add n to target
     ADDHL(WordSource),        // Add nn to HL
@@ -893,7 +892,6 @@ impl Instruction {
     }
 }
 
-#[derive(Debug)]
 pub enum IncDecByteTarget {
     A,
     B,
@@ -935,7 +933,6 @@ impl IncDecByteTarget {
     }
 }
 
-#[derive(Debug)]
 pub enum IncDecWordTarget {
     BC,
     DE,
@@ -967,7 +964,7 @@ impl IncDecWordTarget {
     }
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq)]
 pub enum JumpTest {
     NotZero,
     Zero,
@@ -990,7 +987,6 @@ impl JumpTest {
     }
 }
 
-#[derive(Debug)]
 pub enum LoadByteTarget {
     A,
     B,
@@ -1007,7 +1003,7 @@ pub enum LoadByteTarget {
     D8IFF00, // value refers to address stored in next 8 bits | 0xFF00
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum ByteSource {
     A,
     B,
@@ -1070,7 +1066,6 @@ impl ByteSource {
     }
 }
 
-#[derive(Debug)]
 pub enum LoadWordTarget {
     BC,
     DE,
@@ -1079,7 +1074,6 @@ pub enum LoadWordTarget {
     D16I, // value refers to address stored in next 16 bits
 }
 
-#[derive(Debug)]
 pub enum WordSource {
     BC,
     DE,
@@ -1101,7 +1095,6 @@ impl WordSource {
     }
 }
 
-#[derive(Debug)]
 pub enum Load {
     Byte(LoadByteTarget, ByteSource),
     Word(LoadWordTarget, WordSource), // just like the Byte type except with 16-bit values
@@ -1114,7 +1107,6 @@ pub enum Load {
     IndirectFromSPi8(LoadWordTarget), // Put SP plus 8 bit immediate value into target.
 }
 
-#[derive(Debug)]
 pub enum StackTarget {
     AF,
     BC,
@@ -1122,7 +1114,6 @@ pub enum StackTarget {
     HL,
 }
 
-#[derive(Debug)]
 pub enum ResetCode {
     RST00,
     RST08,

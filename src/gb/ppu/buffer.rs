@@ -1,4 +1,4 @@
-use crate::gb::ppu::misc::Color;
+use crate::gb::ppu::misc::ColoredPixel;
 use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH};
 use eframe::egui::Color32;
 
@@ -10,6 +10,7 @@ pub struct FrameBuffer {
 }
 
 impl FrameBuffer {
+    #[inline]
     pub fn new(upscale: usize) -> Self {
         Self {
             buffer: vec![
@@ -21,7 +22,7 @@ impl FrameBuffer {
     }
 
     /// Writes a colored pixel to the buffer with the defined upscale in mind.
-    pub fn write_pixel(&mut self, x: u8, y: u8, color: Color) {
+    pub fn write_pixel(&mut self, x: u8, y: u8, color: ColoredPixel) {
         let color = self.translate_color(color);
         let x = x as usize * self.upscale;
         let y = y as usize * self.upscale;
@@ -34,12 +35,12 @@ impl FrameBuffer {
     }
 
     #[inline]
-    fn translate_color(&self, color: Color) -> Color32 {
+    fn translate_color(&self, color: ColoredPixel) -> Color32 {
         match color {
-            Color::White => Color32::from_rgb(0xff, 0xff, 0xff),
-            Color::LightGrey => Color32::from_rgb(0xab, 0xab, 0xab),
-            Color::DarkGrey => Color32::from_rgb(0x55, 0x55, 0x55),
-            Color::Black => Color32::from_rgb(0x00, 0x00, 0x00),
+            ColoredPixel::White => Color32::from_rgb(0xff, 0xff, 0xff),
+            ColoredPixel::LightGrey => Color32::from_rgb(0xab, 0xab, 0xab),
+            ColoredPixel::DarkGrey => Color32::from_rgb(0x55, 0x55, 0x55),
+            ColoredPixel::Black => Color32::from_rgb(0x00, 0x00, 0x00),
         }
     }
 }

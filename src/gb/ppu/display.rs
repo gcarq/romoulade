@@ -1,9 +1,9 @@
 use crate::gb::ppu::buffer::FrameBuffer;
-use crate::gb::ppu::misc::Color;
+use crate::gb::ppu::misc::ColoredPixel;
 use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage, GBResult};
 use std::sync::mpsc::Sender;
+use std::thread;
 use std::time::{Duration, Instant};
-use std::{error, thread};
 
 /// The display holds the current screen in the framebuffer and sends it to the frontend,
 /// once requested. It also takes care of syncing the frame rate.
@@ -15,10 +15,7 @@ pub struct Display {
 
 impl Display {
     /// Creates a new display with the given int upscale.
-    pub fn new(
-        sender: Sender<EmulatorMessage>,
-        upscale: usize,
-    ) -> Result<Self, Box<dyn error::Error>> {
+    pub fn new(sender: Sender<EmulatorMessage>, upscale: usize) -> GBResult<Self> {
         Ok(Self {
             sender,
             buffer: FrameBuffer::new(upscale),
@@ -27,16 +24,17 @@ impl Display {
     }
 
     /// Sends the current frame to the frontend and syncs the frame rate.
-    pub fn send_frame(&mut self) -> GBResult<()> {
+    pub fn send_frame(&mut self) {
         let buffer = self.buffer.clone();
-        self.sender.send(EmulatorMessage::Frame(buffer))?;
+        self.sender
+            .send(EmulatorMessage::Frame(buffer))
+            .expect("Failed to send frame to frontend");
         self.frame_limiter.wait();
-        Ok(())
     }
 
     /// Writes a pixel to the given coordinates
     #[inline]
-    pub fn write_pixel(&mut self, x: u8, y: u8, color: Color) {
+    pub fn write_pixel(&mut self, x: u8, y: u8, color: ColoredPixel) {
         self.buffer.write_pixel(x, y, color);
     }
 }

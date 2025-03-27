@@ -1,7 +1,7 @@
 use crate::gb::utils;
 
 /// Represents all possible Joypad Inputs that the emulator can receive.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum JoypadInput {
     DPad(DPadInput),
     Action(ActionInput),
@@ -23,7 +23,7 @@ pub enum ActionInput {
     Select,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 enum SelectedButtons {
     DPad,
     Action,
@@ -36,7 +36,7 @@ enum SelectedButtons {
 /// then read out the bits 0-3. The lower nibble is Read-only.
 /// Note that, rather unconventionally for the Game Boy,
 /// a button being pressed is seen as the corresponding bit being 0, not 1.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct Joypad {
     a_right: bool,              // bit 0, A or Right
     b_left: bool,               // bit 1, B or Left

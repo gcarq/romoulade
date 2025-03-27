@@ -36,7 +36,7 @@ impl Default for CPU {
             sp: 0,
             ime: true,
             is_halted: false,
-            clock: Clock::new(),
+            clock: Clock::default(),
         }
     }
 }

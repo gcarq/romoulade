@@ -5,6 +5,8 @@ use crate::gb::bus::constants::*;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::interrupt::InterruptFlags;
 use crate::gb::joypad::{Joypad, JoypadInput};
+use crate::gb::ppu::PPU;
+use crate::gb::ppu::display::Display;
 use crate::gb::timer::{Frequency, Timer};
 
 /// Defines a global Bus, all processing units should access memory through it.
@@ -12,11 +14,11 @@ pub struct Bus {
     cartridge: Cartridge,
     timer: Timer,
     divider: Timer,
+    ppu: PPU,
     joypad: Joypad,
     pending_joypad_event: Option<JoypadInput>,
     pub interrupt_enable: InterruptFlags,
     pub interrupt_flag: InterruptFlags,
-    vram: [u8; VRAM_SIZE],
     wram: [u8; WRAM_SIZE],
     eram: [u8; ERAM_SIZE],
     oam: [u8; OAM_SIZE],
@@ -25,19 +27,19 @@ pub struct Bus {
 }
 
 impl Bus {
-    pub fn new(cartridge: Cartridge) -> Self {
+    pub fn new(cartridge: Cartridge, display: Display) -> Self {
         let mut divider = Timer::new(Frequency::Hz16384);
         divider.on = true;
         divider.value = 0xAB;
         Self {
             cartridge,
             divider,
+            ppu: PPU::new(display),
             joypad: Joypad::default(),
             pending_joypad_event: None,
             interrupt_enable: InterruptFlags::default(),
             interrupt_flag: InterruptFlags::default(),
             timer: Timer::new(Frequency::Hz4096),
-            vram: [0u8; VRAM_SIZE],
             wram: [0u8; WRAM_SIZE],
             eram: [0u8; ERAM_SIZE],
             oam: [0u8; OAM_SIZE],
@@ -47,6 +49,9 @@ impl Bus {
     }
 
     pub fn step(&mut self, cycles: u16) {
+        if self.ppu.step(cycles) {
+            self.interrupt_flag.lcd = true;
+        }
         if self.timer.step(cycles) {
             self.interrupt_flag.timer = true;
         }
@@ -109,7 +114,8 @@ impl Bus {
                 self.timer.on = (value & 0b100) == 0b100;
             }
             INTERRUPT_FLAG => self.interrupt_flag = InterruptFlags::from(value),
-            PPU_DMA => self.dma_transfer(value),
+            PPU_DMA => self.dma_transfer(value), // TODO: move to PPU?
+            PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.write(address, value),
             _ => self.io[(address - IO_BEGIN) as usize] = value,
         }
     }
@@ -133,9 +139,10 @@ impl Bus {
             TIMER_CTRL => (self.timer.frequency.as_cycles() & 0b111) as u8,
             0xFF08..=0xFF0E => 0xFF, // undocumented
             INTERRUPT_FLAG => u8::from(self.interrupt_flag),
-            0xFF15 => 0xFF,                   // undocumented
-            0xFF1F => 0xFF,                   // undocumented
-            0xFF27..=0xFF2F => 0xFF,          // undocumented
+            0xFF15 => 0xFF,          // undocumented
+            0xFF1F => 0xFF,          // undocumented
+            0xFF27..=0xFF2F => 0xFF, // undocumented
+            PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.read(address),
             CGB_PREPARE_SPEED_SWITCH => 0xFF, // only used in GBC mode
             0xFF4E => 0xFF,                   // undocumented
             0xFF57..=0xFF67 => 0xFF,          // undocumented
@@ -154,7 +161,7 @@ impl AddressSpace for Bus {
     fn write(&mut self, address: u16, value: u8) {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
-            VRAM_BEGIN..=VRAM_END => self.vram[(address - VRAM_BEGIN) as usize] = value,
+            VRAM_BEGIN..=VRAM_END => self.ppu.write(address, value),
             CRAM_BEGIN..=CRAM_END => self.cartridge.write(address, value),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize] = value,
             ERAM_BEGIN..=ERAM_END => self.write_eram(address, value),
@@ -169,7 +176,7 @@ impl AddressSpace for Bus {
     fn read(&self, address: u16) -> u8 {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.read_cartridge(address),
-            VRAM_BEGIN..=VRAM_END => self.vram[(address - VRAM_BEGIN) as usize],
+            VRAM_BEGIN..=VRAM_END => self.ppu.read(address),
             CRAM_BEGIN..=CRAM_END => self.read_cartridge(address),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize],
             ERAM_BEGIN..=ERAM_END => self.eram[(address - ERAM_BEGIN) as usize],

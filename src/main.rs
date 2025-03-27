@@ -11,7 +11,7 @@ use std::error::Error;
 mod gb;
 mod gui;
 
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// Enable debugger

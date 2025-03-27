@@ -1,7 +1,6 @@
 use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::CPU;
-use crate::gb::ppu::PPU;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
 use crate::gui::FrontendMessage;
@@ -38,9 +37,8 @@ pub enum EmulatorMessage {
 }
 
 pub struct Emulator {
-    bus: Bus,
     cpu: CPU,
-    ppu: PPU,
+    bus: Bus,
     receiver: Receiver<FrontendMessage>,
     is_running: bool,
 }
@@ -51,12 +49,11 @@ impl Emulator {
         receiver: Receiver<FrontendMessage>,
         cartridge: Cartridge,
         upscale: usize,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> GBResult<Self> {
         let display = Display::new(sender, upscale)?;
         Ok(Self {
-            bus: Bus::new(cartridge),
             cpu: CPU::default(),
-            ppu: PPU::new(display),
+            bus: Bus::new(cartridge, display),
             receiver,
             is_running: true,
         })
@@ -65,7 +62,6 @@ impl Emulator {
     fn step(&mut self) {
         let cycles = self.cpu.step(&mut self.bus);
         self.bus.step(cycles);
-        self.ppu.step(&mut self.bus, cycles);
         interrupt::handle(&mut self.cpu, &mut self.bus);
     }
 

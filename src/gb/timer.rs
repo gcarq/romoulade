@@ -68,16 +68,12 @@ impl Timer {
 
 /// Represents the internal Clock which
 /// can be used for each processing unit.
+#[derive(Default)]
 pub struct Clock {
     t_cycle: u16,
 }
 
 impl Clock {
-    #[inline]
-    pub fn new() -> Self {
-        Self { t_cycle: 0 }
-    }
-
     #[inline]
     pub fn advance(&mut self, cycles: u16) {
         self.t_cycle = self.t_cycle.wrapping_add(cycles);

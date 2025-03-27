@@ -104,7 +104,7 @@ const CARRY_FLAG_BYTE_POSITION: u8 = 4;
 /// | |
 /// └-+> Zero
 ///   └-> Half Carry
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
 pub struct FlagsRegister {
     pub zero: bool,
     pub negative: bool,

@@ -65,6 +65,10 @@ pub const IO_BEGIN: u16 = 0xFF00;
 pub const IO_END: u16 = 0xFF7F;
 pub const IO_SIZE: usize = (IO_END - IO_BEGIN + 1) as usize;
 
+/// Pixel Processing Unit Registers area
+pub const PPU_REGISTER_START: u16 = PPU_LCDC;
+pub const PPU_REGISTER_END: u16 = PPU_WX;
+
 /// This area is also just normal RAM but is used a lot because some of the LD instructions
 /// we've already seen can easily target this area in memory.
 /// This area is also sometimes used for the stack,
@@ -87,7 +91,6 @@ pub const TIMER_MODULO: u16 = 0xFF06;
 /// bit 2 specifies whether the timer is enabled (1) or disabled (0).
 pub const TIMER_CTRL: u16 = 0xFF07;
 
-// Pixel Processing Unit Registers
 pub const PPU_LCDC: u16 = 0xFF40;
 pub const PPU_STAT: u16 = 0xFF41;
 pub const PPU_SCY: u16 = 0xFF42;

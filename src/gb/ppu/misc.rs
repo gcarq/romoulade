@@ -1,12 +1,13 @@
 /// Defines a Palette to colorize a Pixel
 /// used by bgp, obp0 and obp1 registers.
+#[derive(Default, Copy, Clone)]
 pub struct Palette {
-    map: [Color; 4],
+    map: [ColoredPixel; 4],
 }
 
 impl Palette {
     #[inline]
-    pub fn colorize(&self, pixel: Pixel) -> Color {
+    pub fn colorize(&self, pixel: Pixel) -> ColoredPixel {
         self.map[u8::from(pixel) as usize]
     }
 }
@@ -19,23 +20,35 @@ impl From<u8> for Palette {
     fn from(value: u8) -> Self {
         Self {
             map: [
-                Color::from(value & 0x3),
-                Color::from((value >> 2) & 0x3),
-                Color::from((value >> 4) & 0x3),
-                Color::from((value >> 6) & 0x3),
+                ColoredPixel::from(value & 0b11),
+                ColoredPixel::from((value >> 2) & 0b11),
+                ColoredPixel::from((value >> 4) & 0b11),
+                ColoredPixel::from((value >> 6) & 0b11),
             ],
         }
     }
 }
 
+impl From<Palette> for u8 {
+    #[inline]
+    fn from(palette: Palette) -> u8 {
+        let mut value = 0;
+        value |= u8::from(palette.map[0]);
+        value |= u8::from(palette.map[1]) << 2;
+        value |= u8::from(palette.map[2]) << 4;
+        value |= u8::from(palette.map[3]) << 6;
+        value
+    }
+}
+
 /// Represents an non-colorized Pixel.
-#[derive(Copy, Clone)]
-#[repr(u8)]
+#[derive(Default, Copy, Clone)]
 pub enum Pixel {
-    Zero = 0x00,
-    One = 0x01,
-    Two = 0x10,
-    Three = 0x11,
+    #[default]
+    Zero,
+    One,
+    Two,
+    Three,
 }
 
 impl From<Pixel> for u8 {
@@ -63,37 +76,36 @@ impl From<u8> for Pixel {
     }
 }
 
-/// Defines a colorized Pixel created
-/// from a non-colorized Pixel with a Palette.
-#[derive(Copy, Clone)]
-#[repr(u8)]
-pub enum Color {
-    White = 0x00,
-    LightGrey = 0x01,
-    DarkGrey = 0x10,
-    Black = 0x11,
+/// Defines a colorized Pixel created from a non-colorized Pixel with a Palette.
+#[derive(Default, Copy, Clone)]
+pub enum ColoredPixel {
+    #[default]
+    White,
+    LightGrey,
+    DarkGrey,
+    Black,
 }
 
-impl From<Color> for u8 {
+impl From<ColoredPixel> for u8 {
     #[inline]
-    fn from(value: Color) -> u8 {
+    fn from(value: ColoredPixel) -> u8 {
         match value {
-            Color::White => 0b00,
-            Color::LightGrey => 0b01,
-            Color::DarkGrey => 0b10,
-            Color::Black => 0b11,
+            ColoredPixel::White => 0b00,
+            ColoredPixel::LightGrey => 0b01,
+            ColoredPixel::DarkGrey => 0b10,
+            ColoredPixel::Black => 0b11,
         }
     }
 }
 
-impl From<u8> for Color {
+impl From<u8> for ColoredPixel {
     #[inline]
     fn from(value: u8) -> Self {
         match value {
-            0b00 => Color::White,
-            0b01 => Color::LightGrey,
-            0b10 => Color::DarkGrey,
-            0b11 => Color::Black,
+            0b00 => ColoredPixel::White,
+            0b01 => ColoredPixel::LightGrey,
+            0b10 => ColoredPixel::DarkGrey,
+            0b11 => ColoredPixel::Black,
             _ => unimplemented!(),
         }
     }
