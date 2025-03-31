@@ -202,7 +202,7 @@ impl AddressSpace for PPU {
         match address {
             VRAM_BEGIN..=VRAM_END => self.vram[usize::from(address - VRAM_BEGIN)],
             PPU_LCDC => self.r.lcd_control.bits(),
-            PPU_STAT => self.r.lcd_stat.bits(),
+            PPU_STAT => self.r.lcd_stat.bits() | 0b1000_0000, // Undocumented bit should be 1
             PPU_SCY => self.r.scy,
             PPU_SCX => self.r.scx,
             PPU_LY => self.r.ly,

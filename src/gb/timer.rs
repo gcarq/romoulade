@@ -107,7 +107,7 @@ impl Timer {
     pub fn read_control(&self) -> u8 {
         let state = u8::from(self.frequency);
         let state = set_bit(state, 2, self.on);
-        state | 0b1111_1000 // The undocumented bits should be 1
+        state | 0b1111_1000 // Undocumented bits should be 1
     }
 }
 

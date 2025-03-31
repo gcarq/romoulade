@@ -116,7 +116,7 @@ impl AddressSpace for AudioProcessor {
     fn read(&self, address: u16) -> u8 {
         let offset = (address - AUDIO_REGISTERS_START) as usize;
         match address {
-            AUDIO_SOUND_CHANNEL_1_SWEEP => self.r[offset],
+            AUDIO_SOUND_CHANNEL_1_SWEEP => self.r[offset] | 0b1000_0000, // Undocumented bits should be 1
             AUDIO_CHANNEL_1_LENGTH => self.r[offset],
             AUDIO_CHANNEL_1_VOLUME => self.r[offset],
             AUDIO_CHANNEL_1_PERIOD_LOW => self.r[offset],
@@ -126,20 +126,20 @@ impl AddressSpace for AudioProcessor {
             AUDIO_CHANNEL_2_VOLUME => self.r[offset],
             AUDIO_CHANNEL_2_PERIOD_LOW => self.r[offset],
             AUDIO_CHANNEL_2_PERIOD_HIGH => self.r[offset],
-            AUDIO_CHANNEL_3_DAC_ENABLE => self.r[offset],
+            AUDIO_CHANNEL_3_DAC_ENABLE => self.r[offset] | 0b0111_1111, // Undocumented bits should be 1
             AUDIO_CHANNEL_3_LENGTH => self.r[offset],
-            AUDIO_CHANNEL_3_VOLUME => self.r[offset],
+            AUDIO_CHANNEL_3_VOLUME => self.r[offset] | 0b1001_1111, // Undocumented bits should be 1
             AUDIO_CHANNEL_3_PERIOD_LOW => self.r[offset],
             AUDIO_CHANNEL_3_PERIOD_HIGH => self.r[offset],
-            0xFF1F => 0xFF, // undocumented
-            AUDIO_CHANNEL_4_LENGTH => self.r[offset],
+            0xFF1F => 0xFF,                                         // undocumented
+            AUDIO_CHANNEL_4_LENGTH => self.r[offset] | 0b1100_0000, // Undocumented bits should be 1
             AUDIO_CHANNEL_4_VOLUME => self.r[offset],
             AUDIO_CHANNEL_4_FREQ => self.r[offset],
-            AUDIO_CHANNEL_4_CONTROL => self.r[offset],
+            AUDIO_CHANNEL_4_CONTROL => self.r[offset] | 0b0011_1111, // Undocumented bits should be 1
             AUDIO_MASTER_VOLUME => self.r[offset],
             AUDIO_SOUND_PANNING => self.r[offset],
-            AUDIO_MASTER_CONTROL => self.r[offset],
-            0xFF27..=0xFF2F => 0xFF, // undocumented
+            AUDIO_MASTER_CONTROL => self.r[offset] | 0b0111_1111, // Undocumented bits should be 1
+            0xFF27..=0xFF2F => 0xFF,                              // undocumented
             AUDIO_WAVE_PATTERN_START..=AUDIO_WAVE_PATTERN_END => self.r[offset],
             _ => panic!(
                 "Attempt to read from unmapped audio register: 0x{:X}",
