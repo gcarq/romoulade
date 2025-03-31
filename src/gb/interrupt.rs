@@ -19,6 +19,7 @@ pub struct InterruptFlags {
 }
 
 impl From<u8> for InterruptFlags {
+    #[inline]
     fn from(value: u8) -> Self {
         Self {
             vblank: utils::bit_at(value, 0),
@@ -31,8 +32,9 @@ impl From<u8> for InterruptFlags {
 }
 
 impl From<InterruptFlags> for u8 {
+    #[inline]
     fn from(val: InterruptFlags) -> Self {
-        let mut value = 0;
+        let mut value = 0b1110_0000;
         value = utils::set_bit(value, 0, val.vblank);
         value = utils::set_bit(value, 1, val.lcd);
         value = utils::set_bit(value, 2, val.timer);
@@ -45,7 +47,7 @@ impl From<InterruptFlags> for u8 {
 /// Handles pending interrupt requests
 /// TODO: implement HALT instruction bug (Section 4.10): https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
-    if !bus.has_interrupt() {
+    if !bus.has_pending_interrupt() {
         return;
     }
 

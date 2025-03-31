@@ -24,6 +24,7 @@ impl Frequency {
 }
 
 impl From<u8> for Frequency {
+    #[inline]
     fn from(value: u8) -> Self {
         match value & 0b11 {
             0b00 => Frequency::Hz4096,
@@ -36,6 +37,7 @@ impl From<u8> for Frequency {
 }
 
 impl From<Frequency> for u8 {
+    #[inline]
     fn from(value: Frequency) -> Self {
         match value {
             Frequency::Hz4096 => 0b00,
@@ -93,6 +95,7 @@ impl Timer {
 
     /// Sets the frequency and the on/off state of the timer
     /// based on the given value.
+    #[inline]
     pub fn write_control(&mut self, value: u8) {
         self.frequency = Frequency::from(value);
         self.on = (value & 0b100) == 0b100;
@@ -100,6 +103,7 @@ impl Timer {
 
     /// Returns the current control state of the timer
     /// when read from the TAC register.
+    #[inline]
     pub fn read_control(&self) -> u8 {
         let state = u8::from(self.frequency);
         let state = set_bit(state, 2, self.on);

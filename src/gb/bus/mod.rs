@@ -61,8 +61,10 @@ impl Bus {
 
     /// Indicates whether an interrupt is pending
     #[inline]
-    pub fn has_interrupt(&self) -> bool {
-        (u8::from(self.interrupt_enable) & u8::from(self.interrupt_flag)) != 0
+    pub fn has_pending_interrupt(&self) -> bool {
+        let enabled = u8::from(self.interrupt_enable) & 0b0001_1111;
+        let flag = u8::from(self.interrupt_flag) & 0b0001_1111;
+        enabled & flag != 0
     }
 
     #[inline]
