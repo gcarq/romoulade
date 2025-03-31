@@ -115,16 +115,7 @@ impl Bus {
             TIMER_COUNTER => self.timer.value = value,
             TIMER_MODULO => self.timer.modulo = value,
             // Only the lower 3 bits are R/W
-            TIMER_CTRL => {
-                self.timer.frequency = match value & 0b11 {
-                    0b00 => Frequency::Hz4096,
-                    0b01 => Frequency::Hz262144,
-                    0b10 => Frequency::Hz65536,
-                    0b11 => Frequency::Hz16384,
-                    _ => unreachable!(),
-                };
-                self.timer.on = (value & 0b100) == 0b100;
-            }
+            TIMER_CTRL => self.timer.write_control(value),
             INTERRUPT_FLAG => self.interrupt_flag = InterruptFlags::from(value),
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => {
                 self.audio_processor.write(address, value)
@@ -158,8 +149,7 @@ impl Bus {
             TIMER_DIVIDER => self.divider.value,
             TIMER_COUNTER => self.timer.value,
             TIMER_MODULO => self.timer.modulo,
-            // Only the lower 3 bits are R/W
-            TIMER_CTRL => (self.timer.frequency.as_cycles() & 0b111) as u8,
+            TIMER_CTRL => self.timer.read_control(),
             0xFF08..=0xFF0E => 0xFF, // undocumented
             INTERRUPT_FLAG => u8::from(self.interrupt_flag),
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.audio_processor.read(address),

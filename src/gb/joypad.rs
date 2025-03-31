@@ -60,7 +60,7 @@ impl Default for Joypad {
 impl Joypad {
     /// Reads the Joypad register and returns the current state of the buttons.
     pub fn read(&self) -> u8 {
-        let mut value = 0b0000_0000;
+        let mut value = 0b1100_0000;
         value = utils::set_bit(value, 0, !self.a_right);
         value = utils::set_bit(value, 1, !self.b_left);
         value = utils::set_bit(value, 2, !self.select_up);

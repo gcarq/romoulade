@@ -87,13 +87,16 @@ pub const SERIAL_TRANSFER_DATA: u16 = 0xFF01;
 pub const SERIAL_TRANSFER_CTRL: u16 = 0xFF02;
 
 // Timer Registers
-/// Counts up at a fixed 16384Hz rate, resets to 0 whenever written to.
+/// Counts up at a fixed 16384Hz rate, resets to 0 whenever written to (DIV).
 pub const TIMER_DIVIDER: u16 = 0xFF04;
-/// Counts up at a specified rate. Triggers INT (0x50) when overflows.
+
+/// Counts up at a specified rate. Triggers INT (0x50) when overflows (TIMA).
 pub const TIMER_COUNTER: u16 = 0xFF05;
-/// When counter overflows, it's reset to start at modulo.
+
+/// When counter overflows, it's reset to start at modulo (TMA).
 pub const TIMER_MODULO: u16 = 0xFF06;
-/// Timer Controller which uses 3 bits,
+
+/// Timer Controller (TAC) which uses 3 bits,
 /// bit 2 specifies whether the timer is enabled (1) or disabled (0).
 pub const TIMER_CTRL: u16 = 0xFF07;
 

@@ -1,3 +1,6 @@
+use crate::gb::utils::set_bit;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Frequency {
     Hz4096,
     Hz16384,
@@ -16,6 +19,29 @@ impl Frequency {
             Frequency::Hz16384 => 256,
             Frequency::Hz65536 => 64,
             Frequency::Hz262144 => 16,
+        }
+    }
+}
+
+impl From<u8> for Frequency {
+    fn from(value: u8) -> Self {
+        match value & 0b11 {
+            0b00 => Frequency::Hz4096,
+            0b01 => Frequency::Hz262144,
+            0b10 => Frequency::Hz65536,
+            0b11 => Frequency::Hz16384,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<Frequency> for u8 {
+    fn from(value: Frequency) -> Self {
+        match value {
+            Frequency::Hz4096 => 0b00,
+            Frequency::Hz262144 => 0b01,
+            Frequency::Hz65536 => 0b10,
+            Frequency::Hz16384 => 0b11,
         }
     }
 }
@@ -63,6 +89,21 @@ impl Timer {
             }
         }
         irq
+    }
+
+    /// Sets the frequency and the on/off state of the timer
+    /// based on the given value.
+    pub fn write_control(&mut self, value: u8) {
+        self.frequency = Frequency::from(value);
+        self.on = (value & 0b100) == 0b100;
+    }
+
+    /// Returns the current control state of the timer
+    /// when read from the TAC register.
+    pub fn read_control(&self) -> u8 {
+        let state = u8::from(self.frequency);
+        let state = set_bit(state, 2, self.on);
+        state | 0b1111_1000 // The undocumented bits should be 1
     }
 }
 
