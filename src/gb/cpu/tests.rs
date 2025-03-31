@@ -24,10 +24,10 @@ impl AddressSpace for MockBus {
 }
 
 fn assert_flags(r: FlagsRegister, zero: bool, negative: bool, half_carry: bool, carry: bool) {
-    assert_eq!(r.zero, zero, "zero");
-    assert_eq!(r.negative, negative, "negative");
-    assert_eq!(r.half_carry, half_carry, "half_carry");
-    assert_eq!(r.carry, carry, "carry");
+    assert_eq!(r.contains(FlagsRegister::ZERO), zero);
+    assert_eq!(r.contains(FlagsRegister::SUBTRACTION), negative);
+    assert_eq!(r.contains(FlagsRegister::HALF_CARRY), half_carry);
+    assert_eq!(r.contains(FlagsRegister::CARRY), carry);
 }
 
 #[test]
@@ -166,7 +166,7 @@ fn test_ccf_carry() {
     // CCF
     let mut bus = MockBus::new(vec![0x3f; 1]);
     let mut cpu = CPU::default();
-    cpu.r.f.carry = true;
+    cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.clock.ticks(), 4);
     assert_eq!(cpu.pc, 1);
@@ -192,8 +192,8 @@ fn test_daa_negative_carry() {
     let mut bus = MockBus::new(vec![0x27; 1]);
     let mut cpu = CPU::default();
     cpu.r.a = 0x44;
-    cpu.r.f.negative = true;
-    cpu.r.f.carry = true;
+    cpu.r.f.insert(FlagsRegister::SUBTRACTION);
+    cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0xe4);
     assert_eq!(cpu.clock.ticks(), 4);
@@ -207,8 +207,8 @@ fn test_daa_non_negative_carry() {
     let mut bus = MockBus::new(vec![0x27; 1]);
     let mut cpu = CPU::default();
     cpu.r.a = 0x44;
-    cpu.r.f.negative = false;
-    cpu.r.f.carry = true;
+    cpu.r.f.remove(FlagsRegister::SUBTRACTION);
+    cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0xa4);
     assert_eq!(cpu.clock.ticks(), 4);
@@ -469,7 +469,7 @@ fn test_rr_non_zero() {
     let mut bus = MockBus::new(vec![0xcb, 0x19]);
     let mut cpu = CPU::default();
     cpu.r.c = 0b0110_0011;
-    cpu.r.f.carry = true;
+    cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.c, 0b1011_0001);
     assert_eq!(cpu.clock.ticks(), 8);
@@ -483,7 +483,7 @@ fn test_rr_zero() {
     let mut bus = MockBus::new(vec![0xcb, 0x19]);
     let mut cpu = CPU::default();
     cpu.r.c = 0x00;
-    cpu.r.f.carry = false;
+    cpu.r.f.remove(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.c, 0x00);
     assert_eq!(cpu.clock.ticks(), 8);
@@ -534,7 +534,7 @@ fn test_sbc_carry() {
     let mut bus = MockBus::new(vec![0xde, 0x04]);
     let mut cpu = CPU::default();
     cpu.r.a = 0b0000_0001;
-    cpu.r.f.carry = true;
+    cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b1111_1100);
     assert_eq!(cpu.clock.ticks(), 8);
@@ -670,4 +670,40 @@ fn test_xor_zero() {
     assert_eq!(cpu.clock.ticks(), 4);
     assert_eq!(cpu.pc, 1);
     assert_flags(cpu.r.f, true, false, false, false);
+}
+
+#[test]
+fn test_af_register() {
+    let mut cpu = CPU::default();
+    cpu.r.set_af(0b1101_1111_1111_1111);
+    assert_eq!(cpu.r.a, 0b1101_1111);
+    assert_eq!(cpu.r.f.bits(), 0b1111_0000);
+    assert_eq!(cpu.r.get_af(), 0b1101_1111_1111_0000);
+}
+
+#[test]
+fn test_bc_register() {
+    let mut cpu = CPU::default();
+    cpu.r.set_bc(0b0110_1111_1111_1011);
+    assert_eq!(cpu.r.b, 0b0110_1111);
+    assert_eq!(cpu.r.c, 0b1111_1011);
+    assert_eq!(cpu.r.get_bc(), 0b0110_1111_1111_1011);
+}
+
+#[test]
+fn test_de_register() {
+    let mut cpu = CPU::default();
+    cpu.r.set_de(0b0110_1101_1101_1011);
+    assert_eq!(cpu.r.d, 0b0110_1101);
+    assert_eq!(cpu.r.e, 0b1101_1011);
+    assert_eq!(cpu.r.get_de(), 0b0110_1101_1101_1011);
+}
+
+#[test]
+fn test_hl_register() {
+    let mut cpu = CPU::default();
+    cpu.r.set_hl(0b0110_1110_1111_1010);
+    assert_eq!(cpu.r.h, 0b0110_1110);
+    assert_eq!(cpu.r.l, 0b1111_1010);
+    assert_eq!(cpu.r.get_hl(), 0b0110_1110_1111_1010);
 }

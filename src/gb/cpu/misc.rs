@@ -1,5 +1,6 @@
 use crate::gb::AddressSpace;
 use crate::gb::cpu::CPU;
+use crate::gb::cpu::registers::FlagsRegister;
 
 pub enum IncDecByteTarget {
     A,
@@ -214,10 +215,10 @@ impl JumpTest {
     #[inline]
     pub fn resolve(&self, cpu: &mut CPU) -> bool {
         match *self {
-            JumpTest::NotZero => !cpu.r.f.zero,
-            JumpTest::Zero => cpu.r.f.zero,
-            JumpTest::NotCarry => !cpu.r.f.carry,
-            JumpTest::Carry => cpu.r.f.carry,
+            JumpTest::NotZero => !cpu.r.f.contains(FlagsRegister::ZERO),
+            JumpTest::Zero => cpu.r.f.contains(FlagsRegister::ZERO),
+            JumpTest::NotCarry => !cpu.r.f.contains(FlagsRegister::CARRY),
+            JumpTest::Carry => cpu.r.f.contains(FlagsRegister::CARRY),
             JumpTest::Always => true,
         }
     }

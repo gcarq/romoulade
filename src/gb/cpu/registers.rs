@@ -1,5 +1,3 @@
-use std::fmt;
-
 /// Holds all CPU registers
 #[derive(Copy, Clone)]
 pub struct Registers {
@@ -13,31 +11,16 @@ pub struct Registers {
     pub l: u8,
 }
 
-impl fmt::Display for Registers {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "af: {:#06X}, bc: {:#06X}, de: {:#06X}, hl: {:#06X} | f: {}",
-            self.get_af(),
-            self.get_bc(),
-            self.get_de(),
-            self.get_hl(),
-            self.f
-        )
-    }
-}
-
 impl Registers {
     #[inline]
     pub fn get_af(&self) -> u16 {
-        ((self.a as u16) << 8) | u8::from(self.f) as u16
+        ((self.a as u16) << 8) | self.f.bits() as u16
     }
 
     #[inline]
     pub fn set_af(&mut self, value: u16) {
         self.a = (value >> 8) as u8;
-        // Mask lower 4 bits
-        self.f = FlagsRegister::from(value as u8 & 0xF0);
+        self.f = FlagsRegister::from_bits_truncate(value as u8);
     }
 
     #[inline]
@@ -82,76 +65,38 @@ impl Default for Registers {
             c: 0,
             d: 0,
             e: 0,
-            f: FlagsRegister::from(0x00),
+            f: FlagsRegister::empty(),
             h: 0,
             l: 0,
         }
     }
 }
 
-const ZERO_FLAG_BYTE_POSITION: u8 = 7;
-const NEGATIVE_FLAG_BYTE_POSITION: u8 = 6;
-const HALF_CARRY_FLAG_BYTE_POSITION: u8 = 5;
-const CARRY_FLAG_BYTE_POSITION: u8 = 4;
-
-/// Represents the special purpose "flags" register.
-/// Only the upper 4 bits are used.
-///
-///    ┌-> Carry
-///  ┌-+> Subtraction
-///  | |
-/// 1111 0000
-/// | |
-/// └-+> Zero
-///   └-> Half Carry
-#[derive(PartialEq, Copy, Clone)]
-pub struct FlagsRegister {
-    pub zero: bool,
-    pub negative: bool,
-    pub half_carry: bool,
-    pub carry: bool,
+bitflags! {
+    /// Represents the special purpose "flags" register.
+    /// Only the upper 4 bits are used.
+    ///
+    ///    ┌-> Carry
+    ///  ┌-+> Subtraction
+    ///  | |
+    /// 1111 0000
+    /// | |
+    /// └-+> Zero
+    ///   └-> Half Carry
+    #[derive(Copy, Clone)]
+    pub struct FlagsRegister: u8 {
+        const ZERO = 0b1000_0000;
+        const SUBTRACTION = 0b0100_0000;
+        const HALF_CARRY = 0b0010_0000;
+        const CARRY = 0b0001_0000;
+    }
 }
 
 impl FlagsRegister {
     pub fn update(&mut self, zero: bool, negative: bool, half_carry: bool, carry: bool) {
-        self.zero = zero;
-        self.negative = negative;
-        self.half_carry = half_carry;
-        self.carry = carry;
-    }
-}
-
-impl fmt::Display for FlagsRegister {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "z: {:#04x}, n: {:#04x}, h: {:#04x}, c: {:#04x}",
-            self.zero as u8, self.negative as u8, self.half_carry as u8, self.carry as u8
-        )
-    }
-}
-
-impl From<FlagsRegister> for u8 {
-    fn from(flag: FlagsRegister) -> u8 {
-        ((if flag.zero { 1 } else { 0 }) << ZERO_FLAG_BYTE_POSITION)
-            | ((if flag.negative { 1 } else { 0 }) << NEGATIVE_FLAG_BYTE_POSITION)
-            | ((if flag.half_carry { 1 } else { 0 }) << HALF_CARRY_FLAG_BYTE_POSITION)
-            | ((if flag.carry { 1 } else { 0 }) << CARRY_FLAG_BYTE_POSITION)
-    }
-}
-
-impl From<u8> for FlagsRegister {
-    fn from(byte: u8) -> Self {
-        let zero = ((byte >> ZERO_FLAG_BYTE_POSITION) & 0b1) != 0;
-        let subtract = ((byte >> NEGATIVE_FLAG_BYTE_POSITION) & 0b1) != 0;
-        let half_carry = ((byte >> HALF_CARRY_FLAG_BYTE_POSITION) & 0b1) != 0;
-        let carry = ((byte >> CARRY_FLAG_BYTE_POSITION) & 0b1) != 0;
-
-        FlagsRegister {
-            zero,
-            negative: subtract,
-            half_carry,
-            carry,
-        }
+        self.set(FlagsRegister::ZERO, zero);
+        self.set(FlagsRegister::SUBTRACTION, negative);
+        self.set(FlagsRegister::HALF_CARRY, half_carry);
+        self.set(FlagsRegister::CARRY, carry);
     }
 }

@@ -5,6 +5,7 @@ use crate::gb::cpu::misc::{
     ByteSource, IncDecByteTarget, IncDecWordTarget, JumpTest, Load, LoadByteTarget, LoadWordTarget,
     ResetCode, StackTarget, WordSource,
 };
+use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::timer::Clock;
 use crate::gb::utils;
 use registers::Registers;
@@ -206,9 +207,9 @@ impl CPU {
         let (result, overflow) = hl.overflowing_add(value);
 
         let half_carry = (hl ^ value ^ result) & 0x1000 != 0;
-        self.r.f.negative = false;
-        self.r.f.half_carry = half_carry;
-        self.r.f.carry = overflow;
+        self.r.f.remove(FlagsRegister::SUBTRACTION);
+        self.r.f.set(FlagsRegister::HALF_CARRY, half_carry);
+        self.r.f.set(FlagsRegister::CARRY, overflow);
         self.r.set_hl(result);
 
         self.clock.advance(CLOCKS_PER_CYCLE * 2);
@@ -233,11 +234,15 @@ impl CPU {
     /// Handles ADC instructions
     fn handle_adc<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
-        let half_carry = ((self.r.a & 0x0F) + (value & 0x0F) + self.r.f.carry as u8) > 0x0F;
+        let half_carry = ((self.r.a & 0b1111)
+            + (value & 0b1111)
+            + self.r.f.contains(FlagsRegister::CARRY) as u8)
+            > 0b1111;
 
         let (result, overflow) = self.r.a.overflowing_add(value);
         let mut carry = overflow;
-        let (result, overflow) = result.overflowing_add(self.r.f.carry as u8);
+        let (result, overflow) =
+            result.overflowing_add(self.r.f.contains(FlagsRegister::CARRY) as u8);
         carry |= overflow;
         self.r.f.update(result == 0, false, half_carry, carry);
         self.r.a = result;
@@ -264,9 +269,11 @@ impl CPU {
     /// Handles BIT instructions
     fn handle_bit<T: AddressSpace>(&mut self, bit: u8, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
-        self.r.f.zero = !utils::bit_at(value, bit);
-        self.r.f.negative = false;
-        self.r.f.half_carry = true;
+        self.r
+            .f
+            .set(FlagsRegister::ZERO, !utils::bit_at(value, bit));
+        self.r.f.remove(FlagsRegister::SUBTRACTION);
+        self.r.f.insert(FlagsRegister::HALF_CARRY);
         match source {
             ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
             _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
@@ -291,9 +298,9 @@ impl CPU {
     /// Handle CCF instruction
     #[inline]
     fn handle_ccf(&mut self) -> u16 {
-        self.r.f.negative = false;
-        self.r.f.half_carry = false;
-        self.r.f.carry = !self.r.f.carry;
+        self.r.f.remove(FlagsRegister::SUBTRACTION);
+        self.r.f.remove(FlagsRegister::HALF_CARRY);
+        self.r.f.toggle(FlagsRegister::CARRY);
         self.clock.advance(CLOCKS_PER_CYCLE);
         self.pc.wrapping_add(1)
     }
@@ -303,10 +310,13 @@ impl CPU {
         let value = source.read(self, bus);
         let result = u32::from(self.r.a).wrapping_sub(u32::from(value));
 
-        self.r.f.zero = result as u8 == 0;
-        self.r.f.half_carry = (self.r.a ^ value ^ result as u8) & 0x10 != 0;
-        self.r.f.carry = result & 0x100 != 0;
-        self.r.f.negative = true;
+        self.r.f.set(FlagsRegister::ZERO, result as u8 == 0);
+        self.r.f.set(
+            FlagsRegister::HALF_CARRY,
+            (self.r.a ^ value ^ result as u8) & 0x10 != 0,
+        );
+        self.r.f.set(FlagsRegister::CARRY, result & 0x100 != 0);
+        self.r.f.insert(FlagsRegister::SUBTRACTION);
 
         match source {
             ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
@@ -320,32 +330,32 @@ impl CPU {
     #[inline]
     fn handle_cpl(&mut self) -> u16 {
         self.r.a = !self.r.a;
-        self.r.f.negative = true;
-        self.r.f.half_carry = true;
+        self.r.f.insert(FlagsRegister::SUBTRACTION);
+        self.r.f.insert(FlagsRegister::HALF_CARRY);
         self.clock.advance(CLOCKS_PER_CYCLE);
         self.pc.wrapping_add(1)
     }
 
     /// Handles DAA instruction
     fn handle_daa(&mut self) -> u16 {
-        if self.r.f.negative {
-            if self.r.f.carry {
+        if self.r.f.contains(FlagsRegister::SUBTRACTION) {
+            if self.r.f.contains(FlagsRegister::CARRY) {
                 self.r.a = self.r.a.wrapping_sub(0x60);
             }
-            if self.r.f.half_carry {
+            if self.r.f.contains(FlagsRegister::HALF_CARRY) {
                 self.r.a = self.r.a.wrapping_sub(0x06);
             }
         } else {
-            if self.r.f.carry || self.r.a > 0x99 {
+            if self.r.f.contains(FlagsRegister::CARRY) || self.r.a > 0x99 {
                 self.r.a = self.r.a.wrapping_add(0x60);
-                self.r.f.carry = true;
+                self.r.f.insert(FlagsRegister::CARRY);
             }
-            if self.r.f.half_carry || (self.r.a & 0x0F) > 0x09 {
+            if self.r.f.contains(FlagsRegister::HALF_CARRY) || (self.r.a & 0x0F) > 0x09 {
                 self.r.a = self.r.a.wrapping_add(0x06);
             }
         }
-        self.r.f.zero = self.r.a == 0;
-        self.r.f.half_carry = false;
+        self.r.f.set(FlagsRegister::ZERO, self.r.a == 0);
+        self.r.f.remove(FlagsRegister::HALF_CARRY);
 
         self.clock.advance(CLOCKS_PER_CYCLE);
         self.pc.wrapping_add(1)
@@ -356,9 +366,11 @@ impl CPU {
         let value = target.read(self, bus);
         let result = value.wrapping_sub(1);
         target.write(self, bus, result);
-        self.r.f.half_carry = value.trailing_zeros() >= 4;
-        self.r.f.zero = result == 0;
-        self.r.f.negative = true;
+        self.r
+            .f
+            .set(FlagsRegister::HALF_CARRY, value.trailing_zeros() >= 4);
+        self.r.f.set(FlagsRegister::ZERO, result == 0);
+        self.r.f.insert(FlagsRegister::SUBTRACTION);
         match target {
             IncDecByteTarget::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 3),
             _ => self.clock.advance(CLOCKS_PER_CYCLE),
@@ -388,9 +400,11 @@ impl CPU {
         let value = target.read(self, bus);
         let result = value.wrapping_add(1);
         target.write(self, bus, result);
-        self.r.f.half_carry = value & 0x0F == 0x0F;
-        self.r.f.zero = result == 0;
-        self.r.f.negative = false;
+        self.r
+            .f
+            .set(FlagsRegister::HALF_CARRY, value & 0b1111 == 0b1111);
+        self.r.f.set(FlagsRegister::ZERO, result == 0);
+        self.r.f.remove(FlagsRegister::SUBTRACTION);
         match target {
             IncDecByteTarget::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 3),
             _ => self.clock.advance(CLOCKS_PER_CYCLE),
@@ -685,8 +699,8 @@ impl CPU {
     /// Rotate n left through Carry flag.
     fn handle_rl<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
-        let carry = value & 0x80 != 0;
-        let result = (value << 1) | self.r.f.carry as u8;
+        let carry = value & 0b1000_0000 != 0;
+        let result = (value << 1) | self.r.f.contains(FlagsRegister::CARRY) as u8;
         self.r.f.update(result == 0, false, false, carry);
         source.write(self, bus, result);
 
@@ -702,7 +716,7 @@ impl CPU {
     #[inline]
     fn handle_rla(&mut self) -> u16 {
         let new_carry = (self.r.a >> 7) != 0;
-        self.r.a = (self.r.a << 1) | self.r.f.carry as u8;
+        self.r.a = (self.r.a << 1) | self.r.f.contains(FlagsRegister::CARRY) as u8;
         self.r.f.update(false, false, false, new_carry);
         self.clock.advance(CLOCKS_PER_CYCLE);
         self.pc.wrapping_add(1)
@@ -738,7 +752,7 @@ impl CPU {
     fn handle_rr<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
         let carry = value & 0x01 != 0;
-        let result = (value >> 1) | (u8::from(self.r.f.carry) << 7);
+        let result = (value >> 1) | (u8::from(self.r.f.contains(FlagsRegister::CARRY)) << 7);
         source.write(self, bus, result);
         self.r.f.update(result == 0, false, false, carry);
 
@@ -753,7 +767,7 @@ impl CPU {
     #[inline]
     fn handle_rra(&mut self) -> u16 {
         let carry = self.r.a & 0x01 != 0;
-        self.r.a = (self.r.a >> 1) | (u8::from(self.r.f.carry) << 7);
+        self.r.a = (self.r.a >> 1) | (u8::from(self.r.f.contains(FlagsRegister::CARRY)) << 7);
         self.r.f.update(false, false, false, carry);
         self.clock.advance(CLOCKS_PER_CYCLE);
         self.pc.wrapping_add(1)
@@ -797,7 +811,9 @@ impl CPU {
     fn handle_sbc<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let a = self.r.a as u32;
         let value = source.read(self, bus) as u32;
-        let result = a.wrapping_sub(value).wrapping_sub(self.r.f.carry as u32);
+        let result = a
+            .wrapping_sub(value)
+            .wrapping_sub(self.r.f.contains(FlagsRegister::CARRY) as u32);
         self.r.a = result as u8;
         self.r.f.update(
             result as u8 == 0,
@@ -815,9 +831,9 @@ impl CPU {
     /// Handles SCF instruction
     #[inline]
     fn handle_scf(&mut self) -> u16 {
-        self.r.f.negative = false;
-        self.r.f.half_carry = false;
-        self.r.f.carry = true;
+        self.r.f.remove(FlagsRegister::SUBTRACTION);
+        self.r.f.remove(FlagsRegister::HALF_CARRY);
+        self.r.f.insert(FlagsRegister::CARRY);
         self.clock.advance(CLOCKS_PER_CYCLE);
         self.pc.wrapping_add(1)
     }
