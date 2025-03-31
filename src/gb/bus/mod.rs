@@ -2,7 +2,7 @@ use crate::gb::AddressSpace;
 use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
-use crate::gb::interrupt::InterruptFlags;
+use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{Joypad, JoypadInput};
 use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
@@ -18,8 +18,8 @@ pub struct Bus {
     ppu: PPU,
     joypad: Joypad,
     pending_joypad_event: Option<JoypadInput>,
-    pub interrupt_enable: InterruptFlags,
-    pub interrupt_flag: InterruptFlags,
+    pub interrupt_enable: InterruptRegister,
+    pub interrupt_flag: InterruptRegister,
     wram: [u8; WRAM_SIZE],
     eram: [u8; ERAM_SIZE],
     oam: [u8; OAM_SIZE],
@@ -39,8 +39,8 @@ impl Bus {
             ppu: PPU::new(display),
             joypad: Joypad::default(),
             pending_joypad_event: None,
-            interrupt_enable: InterruptFlags::default(),
-            interrupt_flag: InterruptFlags::default(),
+            interrupt_enable: InterruptRegister::empty(),
+            interrupt_flag: InterruptRegister::empty(),
             timer: Timer::new(Frequency::Hz4096),
             wram: [0u8; WRAM_SIZE],
             eram: [0u8; ERAM_SIZE],
@@ -51,10 +51,10 @@ impl Bus {
 
     pub fn step(&mut self, cycles: u16) {
         if self.ppu.step(cycles) {
-            self.interrupt_flag.lcd = true;
+            self.interrupt_flag |= InterruptRegister::LCD;
         }
         if self.timer.step(cycles) {
-            self.interrupt_flag.timer = true;
+            self.interrupt_flag |= InterruptRegister::TIMER;
         }
         self.divider.step(cycles);
     }
@@ -62,8 +62,8 @@ impl Bus {
     /// Indicates whether an interrupt is pending
     #[inline]
     pub fn has_pending_interrupt(&self) -> bool {
-        let enabled = u8::from(self.interrupt_enable) & 0b0001_1111;
-        let flag = u8::from(self.interrupt_flag) & 0b0001_1111;
+        let enabled = self.interrupt_enable.bits() & 0b0001_1111;
+        let flag = self.interrupt_flag.bits() & 0b0001_1111;
         enabled & flag != 0
     }
 
@@ -76,7 +76,7 @@ impl Bus {
     /// depending on BOOT_ROM_OFF register
     fn read_cartridge(&self, address: u16) -> u8 {
         match address {
-            BOOT_BEGIN..=BOOT_END if self.read(BOOT_ROM_OFF) == 0 => BOOT_ROM[address as usize],
+            BOOT_BEGIN..=BOOT_END if self.boot_rom_off == 0 => BOOT_ROM[address as usize],
             _ => self.cartridge.read(address),
         }
     }
@@ -105,7 +105,7 @@ impl Bus {
             // Whenever a ROM writes to this register we will handle the pending input events
             JOYPAD => {
                 if self.joypad.write(value, self.pending_joypad_event) {
-                    self.interrupt_flag.joypad = true;
+                    self.interrupt_flag |= InterruptRegister::JOYPAD;
                     self.pending_joypad_event = None;
                 }
             }
@@ -118,7 +118,8 @@ impl Bus {
             TIMER_MODULO => self.timer.modulo = value,
             // Only the lower 3 bits are R/W
             TIMER_CTRL => self.timer.write_control(value),
-            INTERRUPT_FLAG => self.interrupt_flag = InterruptFlags::from(value),
+            0xFF08..=0xFF0E => {} // undocumented
+            INTERRUPT_FLAG => self.interrupt_flag = InterruptRegister::from_bits_retain(value),
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => {
                 self.audio_processor.write(address, value)
             }
@@ -131,7 +132,7 @@ impl Bus {
             BOOT_ROM_OFF => self.boot_rom_off = value,
             0xFF51..=0xFF56 => {}  // only used in GBC mode
             0xFF57..=0xFF67 => {}  // undocumented
-            0xFF6C..=0xFF6F => {}  // only used in GBC mode
+            0xFF68..=0xFF6F => {}  // only used in GBC mode
             CGB_WRAM_BANK => {}    // only used in GBC mode
             0xFF71..=0xFF75 => {}  // undocumented
             PCM_AMPLITUDES12 => {} // only used in GBC mode
@@ -153,22 +154,22 @@ impl Bus {
             TIMER_MODULO => self.timer.modulo,
             TIMER_CTRL => self.timer.read_control(),
             0xFF08..=0xFF0E => 0xFF, // undocumented
-            INTERRUPT_FLAG => u8::from(self.interrupt_flag),
+            INTERRUPT_FLAG => self.interrupt_flag.bits() | 0b1110_0000, // Undocumented bits should be 1
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.audio_processor.read(address),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.read(address),
             0xFF4C => 0xFF,                   // only used in GBC mode
             CGB_PREPARE_SPEED_SWITCH => 0xFF, // only used in GBC mode
             0xFF4E => 0xFF,                   // undocumented
             0xFF4F => 0xFF,                   // only used in GBC mode
-            BOOT_ROM_OFF => self.boot_rom_off,
-            0xFF51..=0xFF56 => 0xFF,  // only used in GBC mode
-            0xFF57..=0xFF67 => 0xFF,  // undocumented
-            0xFF6C..=0xFF6F => 0xFF,  // only used in GBC mode
-            CGB_WRAM_BANK => 0xFF,    // only used in GBC mode
-            0xFF71..=0xFF75 => 0xFF,  // undocumented
-            PCM_AMPLITUDES12 => 0xFF, // only used in GBC mode
-            PCM_AMPLITUDES34 => 0xFF, // only used in GBC mode
-            0xFF78..=0xFF7F => 0xFF,  // undocumented
+            BOOT_ROM_OFF => 0xFF,             // When read, this register is always 0xFF
+            0xFF51..=0xFF56 => 0xFF,          // only used in GBC mode
+            0xFF57..=0xFF67 => 0xFF,          // undocumented
+            0xFF68..=0xFF6F => 0xFF,          // only used in GBC mode
+            CGB_WRAM_BANK => 0xFF,            // only used in GBC mode
+            0xFF71..=0xFF75 => 0xFF,          // undocumented
+            PCM_AMPLITUDES12 => 0xFF,         // only used in GBC mode
+            PCM_AMPLITUDES34 => 0xFF,         // only used in GBC mode
+            0xFF78..=0xFF7F => 0xFF,          // undocumented
             _ => panic!(
                 "Attempt to read from unmapped I/O register: 0x{:X}",
                 address
@@ -189,7 +190,7 @@ impl AddressSpace for Bus {
             UNUSED_BEGIN..=UNUSED_END => {}
             IO_BEGIN..=IO_END => self.write_io(address, value),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize] = value,
-            INTERRUPT_ENABLE => self.interrupt_enable = InterruptFlags::from(value),
+            INTERRUPT_ENABLE => self.interrupt_enable = InterruptRegister::from_bits_retain(value),
         }
     }
 
@@ -204,7 +205,7 @@ impl AddressSpace for Bus {
             UNUSED_BEGIN..=UNUSED_END => 0xFF,
             IO_BEGIN..=IO_END => self.read_io(address),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],
-            INTERRUPT_ENABLE => u8::from(self.interrupt_enable),
+            INTERRUPT_ENABLE => self.interrupt_enable.bits(),
         }
     }
 }

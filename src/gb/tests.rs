@@ -1,4 +1,4 @@
-use crate::gb::interrupt::InterruptFlags;
+use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{ActionInput, DPadInput, Joypad, JoypadInput};
 use crate::gb::timer::{Frequency, Timer};
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
@@ -139,52 +139,41 @@ fn test_timer_ctrl_write() {
 
 #[test]
 fn test_interrupt_flags_read() {
-    let mut flags = InterruptFlags {
-        vblank: true,
-        lcd: true,
-        timer: true,
-        serial: true,
-        joypad: true,
-    };
-    assert_eq!(u8::from(flags), 0b1111_1111);
+    let mut flags = InterruptRegister::all();
+    assert_eq!(flags.bits(), 0b0001_1111);
 
-    flags.vblank = false;
-    assert_eq!(u8::from(flags), 0b1111_1110);
+    flags.remove(InterruptRegister::VBLANK);
+    assert_eq!(flags.bits(), 0b0001_1110);
 
-    flags.lcd = false;
-    assert_eq!(u8::from(flags), 0b1111_1100);
+    flags.remove(InterruptRegister::LCD);
+    assert_eq!(flags.bits(), 0b0001_1100);
 
-    flags.timer = false;
-    assert_eq!(u8::from(flags), 0b1111_1000);
+    flags.remove(InterruptRegister::TIMER);
+    assert_eq!(flags.bits(), 0b0001_1000);
 
-    flags.serial = false;
-    assert_eq!(u8::from(flags), 0b1111_0000);
+    flags.remove(InterruptRegister::SERIAL);
+    assert_eq!(flags.bits(), 0b0001_0000);
 
-    flags.joypad = false;
-    assert_eq!(u8::from(flags), 0b1110_0000);
+    flags.remove(InterruptRegister::JOYPAD);
+    assert_eq!(flags.bits(), 0b0000_0000);
 }
 
 #[test]
 fn test_interrupt_flags_write() {
-    let mut flags = InterruptFlags::from(0b1111_1111);
-    assert_eq!(flags.vblank, true);
-    assert_eq!(flags.lcd, true);
-    assert_eq!(flags.timer, true);
-    assert_eq!(flags.serial, true);
-    assert_eq!(flags.joypad, true);
+    let mut flags = InterruptRegister::all();
 
-    flags = InterruptFlags::from(0b1111_1110);
-    assert_eq!(flags.vblank, false);
+    flags = InterruptRegister::from_bits_retain(0b1111_1110);
+    assert!(!flags.contains(InterruptRegister::VBLANK));
 
-    flags = InterruptFlags::from(0b1111_1100);
-    assert_eq!(flags.lcd, false);
+    flags = InterruptRegister::from_bits_retain(0b1111_1100);
+    assert!(!flags.contains(InterruptRegister::LCD));
 
-    flags = InterruptFlags::from(0b1111_1000);
-    assert_eq!(flags.timer, false);
+    flags = InterruptRegister::from_bits_retain(0b1111_1000);
+    assert!(!flags.contains(InterruptRegister::TIMER));
 
-    flags = InterruptFlags::from(0b1111_0000);
-    assert_eq!(flags.serial, false);
+    flags = InterruptRegister::from_bits_retain(0b1111_0000);
+    assert!(!flags.contains(InterruptRegister::SERIAL));
 
-    flags = InterruptFlags::from(0b1110_0000);
-    assert_eq!(flags.joypad, false);
+    flags = InterruptRegister::from_bits_retain(0b1110_0000);
+    assert!(!flags.contains(InterruptRegister::JOYPAD));
 }
