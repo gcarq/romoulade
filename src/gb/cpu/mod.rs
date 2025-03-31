@@ -129,14 +129,13 @@ impl CPU {
 
     /// Sanity check to verify boot ROM executed successfully
     fn sanity_check(&self, address: u16) {
-        // TODO: make check more robust, might be possible that we read from that address later on as well.
         if address == BOOT_END + 1 {
             assert_eq!(self.r.get_af(), 0x01B0, "AF is invalid, boot ROM failure!");
             assert_eq!(self.r.get_bc(), 0x0013, "BC is invalid, boot ROM failure!");
             assert_eq!(self.r.get_de(), 0x00D8, "DE is invalid, boot ROM failure!");
             assert_eq!(self.r.get_hl(), 0x014D, "HL is invalid, boot ROM failure!");
             assert_eq!(self.sp, 0xFFFE, "SP is invalid, boot ROM failure!");
-            //TODO: debug log: println!("Done with processing boot ROM. Switching to Cartridge...");
+            println!("Done with processing boot ROM. Switching to Cartridge ...");
         }
     }
 

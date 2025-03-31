@@ -113,7 +113,7 @@ impl Bus {
             SERIAL_TRANSFER_CTRL => {} // TODO: implement me
             0xFF03 => {}               // undocumented
             // Whenever a ROM writes to this register it will reset to 0
-            TIMER_DIVIDER => self.divider.value = 0,
+            TIMER_DIVIDER => self.divider.value = 0x00,
             TIMER_COUNTER => self.timer.value = value,
             TIMER_MODULO => self.timer.modulo = value,
             // Only the lower 3 bits are R/W
@@ -146,9 +146,9 @@ impl Bus {
     fn read_io(&self, address: u16) -> u8 {
         match address {
             JOYPAD => self.joypad.read(),
-            SERIAL_TRANSFER_DATA => 0xFF, // TODO: implement me
-            SERIAL_TRANSFER_CTRL => 0xFF, // TODO: implement me
-            0xFF03 => 0xFF,               // undocumented
+            SERIAL_TRANSFER_DATA => 0x00,        // TODO: implement me
+            SERIAL_TRANSFER_CTRL => 0b0111_1110, // TODO: implement me
+            0xFF03 => 0xFF,                      // undocumented
             TIMER_DIVIDER => self.divider.value,
             TIMER_COUNTER => self.timer.value,
             TIMER_MODULO => self.timer.modulo,

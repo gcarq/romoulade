@@ -39,7 +39,6 @@ impl PPU {
     /// Steps the PPU and returns true if an LCD interrupt has been requested.
     pub fn step(&mut self, cycles: u16) -> bool {
         if !self.r.lcd_control.contains(LCDControl::LCD_EN) {
-            self.r.lcd_stat.set_lcd_mode(LCDMode::VBlank);
             // Screen is off, PPU remains idle.
             return false;
         }
@@ -51,7 +50,7 @@ impl PPU {
             // In this state, the PPU would scan the OAM (Objects Attribute Memory)
             // from 0xfe00 to 0xfe9f to mix sprite pixels in the current line later.
             // This always takes 40 ticks.
-            LCDMode::OAMSearch if self.clock.ticks() >= 40 => self.handle_oam_search(),
+            LCDMode::OAMSearch if self.clock.ticks() >= 40 => (self.handle_oam_search(), false),
             LCDMode::PixelTransfer => self.handle_pixel_transfer(),
             // Nothing much to do here but wait the proper number of clock cycles.
             // A full scanline takes 456 clock cycles to complete. At the end of a
@@ -78,7 +77,7 @@ impl PPU {
         interrupt
     }
 
-    /// Checks the coincidence flag and returns true if an interrupt has been requested.
+    /// Checks the coincidence flag and returns true if an interrupt should be requested.
     fn handle_coincidence_flag(&mut self) -> bool {
         if self.r.ly != self.r.lyc {
             self.r.lcd_stat |= LCDState::LYC_STAT;
@@ -89,8 +88,7 @@ impl PPU {
     }
 
     /// Handles the OAMSearch mode.
-    /// Returns a tuple with the new LCDMode and whether an interrupt has been requested.
-    fn handle_oam_search(&mut self) -> (LCDMode, bool) {
+    fn handle_oam_search(&mut self) -> LCDMode {
         // Move to Pixel Transfer state. Initialize the fetcher to start
         // reading background tiles from VRAM. The boot ROM does nothing
         // fancy with map addresses, so we just give the fetcher the base
@@ -118,11 +116,11 @@ impl PPU {
 
         let tile_line = y % 8;
         self.fetcher.start(&self.r, tile_map_row_addr, tile_line);
-        (LCDMode::PixelTransfer, false)
+        LCDMode::PixelTransfer
     }
 
     /// Handles the HBlank mode.
-    /// Returns a tuple with the new LCDMode and whether an interrupt has been requested.
+    /// Returns a tuple with the new LCDMode and whether an interrupt should be requested.
     fn handle_hblank(&mut self) -> (LCDMode, bool) {
         self.clock.reset();
         self.r.ly = self.r.ly.wrapping_add(1);
@@ -130,28 +128,30 @@ impl PPU {
         let state = self.r.lcd_stat;
         if self.r.ly == SCREEN_HEIGHT {
             self.display.send_frame();
-            return (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT));
+            (LCDMode::VBlank, state.contains(LCDState::V_BLANK_INT))
+        } else {
+            (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
         }
-        (LCDMode::OAMSearch, state.contains(LCDState::OAM_INT))
     }
 
     /// Handles the VBlank mode.
-    /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
+    /// Returns a tuple with the new LCDMode and whether an interrupt should be requested.
     fn handle_vblank(&mut self) -> (LCDMode, bool) {
         self.clock.reset();
         self.r.ly = self.r.ly.wrapping_add(1);
         if self.r.ly == VERTICAL_BLANK_SCAN_LINE_MAX {
             self.r.ly = 0;
-            return (
+            (
                 LCDMode::OAMSearch,
                 self.r.lcd_stat.contains(LCDState::OAM_INT),
-            );
+            )
+        } else {
+            (LCDMode::VBlank, false)
         }
-        (LCDMode::VBlank, false)
     }
 
     /// Handles the PixelTransfer mode.
-    /// Returns a tuple with the new LCDMode and whether a interrupt has been requested.
+    /// Returns a tuple with the new LCDMode and whether an interrupt should be requested.
     fn handle_pixel_transfer(&mut self) -> (LCDMode, bool) {
         // Fetch pixel data into our pixel FIFO.
         self.fetcher.step(&self.r, &self.vram);
@@ -168,10 +168,8 @@ impl PPU {
         // Check when the scanline is complete (160 pixels).
         self.x = self.x.wrapping_add(1);
         if self.x == SCREEN_WIDTH {
-            (
-                LCDMode::HBlank,
-                self.r.lcd_stat.contains(LCDState::H_BLANK_INT),
-            )
+            let irq = self.r.lcd_stat.contains(LCDState::H_BLANK_INT);
+            (LCDMode::HBlank, irq)
         } else {
             (LCDMode::PixelTransfer, false)
         }
