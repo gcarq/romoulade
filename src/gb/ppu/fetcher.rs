@@ -1,4 +1,4 @@
-use crate::gb::bus::constants::VRAM_BEGIN;
+use crate::gb::constants::VRAM_BEGIN;
 use crate::gb::ppu::misc::{ColoredPixel, Pixel};
 use crate::gb::ppu::registers::{LCDControl, Registers};
 use crate::gb::timer::Clock;

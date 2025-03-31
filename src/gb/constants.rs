@@ -7,7 +7,6 @@ pub const BOOT_SIZE: usize = (BOOT_END - BOOT_BEGIN + 1) as usize;
 /// This area of memory always contains the first bank from the cartridge.
 pub const ROM_BANK_0_BEGIN: u16 = 0x0000;
 pub const ROM_BANK_0_END: u16 = 0x3FFF;
-pub const ROM_BANK_0_SIZE: usize = (ROM_BANK_0_END - ROM_BANK_0_BEGIN + 1) as usize;
 
 /// This area of memory contains a switchable bank from the cartridge (01..nn).
 pub const ROM_BANK_N_BEGIN: u16 = 0x4000;
@@ -63,11 +62,15 @@ pub const UNUSED_END: u16 = 0xFEFF;
 /// We'll be talking a lot about this in the future.
 pub const IO_BEGIN: u16 = 0xFF00;
 pub const IO_END: u16 = 0xFF7F;
-pub const IO_SIZE: usize = (IO_END - IO_BEGIN + 1) as usize;
 
 /// Pixel Processing Unit Registers area
-pub const PPU_REGISTER_START: u16 = PPU_LCDC;
-pub const PPU_REGISTER_END: u16 = PPU_WX;
+pub const PPU_REGISTER_START: u16 = 0xFF40;
+pub const PPU_REGISTER_END: u16 = 0xFF4B;
+
+/// Audio Registers area
+pub const AUDIO_REGISTERS_START: u16 = 0xFF10;
+pub const AUDIO_REGISTERS_END: u16 = 0xFF3F;
+pub const AUDIO_REGISTERS_SIZE: usize = (AUDIO_REGISTERS_END - AUDIO_REGISTERS_START + 1) as usize;
 
 /// This area is also just normal RAM but is used a lot because some of the LD instructions
 /// we've already seen can easily target this area in memory.
@@ -79,6 +82,9 @@ pub const HRAM_SIZE: usize = (HRAM_END - HRAM_BEGIN + 1) as usize;
 
 /// Joypad Input Register
 pub const JOYPAD: u16 = 0xFF00;
+
+pub const SERIAL_TRANSFER_DATA: u16 = 0xFF01;
+pub const SERIAL_TRANSFER_CTRL: u16 = 0xFF02;
 
 // Timer Registers
 /// Counts up at a fixed 16384Hz rate, resets to 0 whenever written to.

@@ -77,7 +77,7 @@ impl LCDState {
 }
 
 /// Represents the first two bits in LCDState for convenience.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum LCDMode {
     HBlank,        // 0b00
     VBlank,        // 0b01

@@ -7,8 +7,10 @@ use crate::gui::FrontendMessage;
 use std::error;
 use std::sync::mpsc::{Receiver, Sender};
 
+mod audio;
 pub mod bus;
 pub mod cartridge;
+pub mod constants;
 pub mod cpu;
 pub mod interrupt;
 pub mod joypad;

@@ -1,8 +1,7 @@
-pub mod constants;
-
 use crate::gb::AddressSpace;
-use crate::gb::bus::constants::*;
+use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
+use crate::gb::constants::*;
 use crate::gb::interrupt::InterruptFlags;
 use crate::gb::joypad::{Joypad, JoypadInput};
 use crate::gb::ppu::PPU;
@@ -11,6 +10,8 @@ use crate::gb::timer::{Frequency, Timer};
 
 /// Defines a global Bus, all processing units should access memory through it.
 pub struct Bus {
+    boot_rom_off: u8,
+    audio_processor: AudioProcessor,
     cartridge: Cartridge,
     timer: Timer,
     divider: Timer,
@@ -22,7 +23,6 @@ pub struct Bus {
     wram: [u8; WRAM_SIZE],
     eram: [u8; ERAM_SIZE],
     oam: [u8; OAM_SIZE],
-    io: [u8; IO_SIZE],
     hram: [u8; HRAM_SIZE],
 }
 
@@ -32,6 +32,8 @@ impl Bus {
         divider.on = true;
         divider.value = 0xAB;
         Self {
+            boot_rom_off: 0,
+            audio_processor: AudioProcessor::default(),
             cartridge,
             divider,
             ppu: PPU::new(display),
@@ -43,7 +45,6 @@ impl Bus {
             wram: [0u8; WRAM_SIZE],
             eram: [0u8; ERAM_SIZE],
             oam: [0u8; OAM_SIZE],
-            io: [0u8; IO_SIZE],
             hram: [0u8; HRAM_SIZE],
         }
     }
@@ -89,6 +90,14 @@ impl Bus {
         }
     }
 
+    /// Writes to Echo RAM, effectively mirroring to Working RAM
+    #[inline]
+    fn write_eram(&mut self, address: u16, value: u8) {
+        self.eram[(address - ERAM_BEGIN) as usize] = value;
+        self.wram[(address - ERAM_SIZE as u16 - WRAM_BEGIN) as usize] = value;
+    }
+
+    /// Handles all writes to the I/O registers (0xFF00-0xFF7F)
     fn write_io(&mut self, address: u16, value: u8) {
         match address {
             // Whenever a ROM writes to this register we will handle the pending input events
@@ -98,6 +107,9 @@ impl Bus {
                     self.pending_joypad_event = None;
                 }
             }
+            SERIAL_TRANSFER_DATA => {} // TODO: implement me
+            SERIAL_TRANSFER_CTRL => {} // TODO: implement me
+            0xFF03 => {}               // undocumented
             // Whenever a ROM writes to this register it will reset to 0
             TIMER_DIVIDER => self.divider.value = 0,
             TIMER_COUNTER => self.timer.value = value,
@@ -114,24 +126,35 @@ impl Bus {
                 self.timer.on = (value & 0b100) == 0b100;
             }
             INTERRUPT_FLAG => self.interrupt_flag = InterruptFlags::from(value),
+            AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => {
+                self.audio_processor.write(address, value)
+            }
             PPU_DMA => self.dma_transfer(value), // TODO: move to PPU?
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.write(address, value),
-            _ => self.io[(address - IO_BEGIN) as usize] = value,
+            0xFF4C => {}                   // only used in GBC mode
+            CGB_PREPARE_SPEED_SWITCH => {} // only used in GBC mode
+            0xFF4E => {}                   // undocumented
+            0xFF4F => {}                   // only used in GBC mode
+            BOOT_ROM_OFF => self.boot_rom_off = value,
+            0xFF51..=0xFF56 => {}  // only used in GBC mode
+            0xFF57..=0xFF67 => {}  // undocumented
+            0xFF6C..=0xFF6F => {}  // only used in GBC mode
+            CGB_WRAM_BANK => {}    // only used in GBC mode
+            0xFF71..=0xFF75 => {}  // undocumented
+            PCM_AMPLITUDES12 => {} // only used in GBC mode
+            PCM_AMPLITUDES34 => {} // only used in GBC mode
+            0xFF78..=0xFF7F => {}  // undocumented
+            _ => panic!("Attempt to write to unmapped I/O register: 0x{:X}", address),
         }
     }
 
-    /// Writes to Echo RAM, effectively mirroring to Working RAM
-    fn write_eram(&mut self, address: u16, value: u8) {
-        self.eram[(address - ERAM_BEGIN) as usize] = value;
-        self.wram[(address - ERAM_SIZE as u16 - WRAM_BEGIN) as usize] = value;
-    }
-
-    /// TODO: document unmapped I/O registers
-    /// https://gbdev.gg8.se/wiki/articles/CGB_Registers#FF6C_-_Bit_0_.28Read.2FWrite.29_-_CGB_Mode_Only
+    /// Handles all reads from the I/O registers (0xFF00-0xFF7F)
     fn read_io(&self, address: u16) -> u8 {
         match address {
             JOYPAD => self.joypad.read(),
-            0xFF03 => 0xFF, // undocumented
+            SERIAL_TRANSFER_DATA => 0xFF, // TODO: implement me
+            SERIAL_TRANSFER_CTRL => 0xFF, // TODO: implement me
+            0xFF03 => 0xFF,               // undocumented
             TIMER_DIVIDER => self.divider.value,
             TIMER_COUNTER => self.timer.value,
             TIMER_MODULO => self.timer.modulo,
@@ -139,20 +162,25 @@ impl Bus {
             TIMER_CTRL => (self.timer.frequency.as_cycles() & 0b111) as u8,
             0xFF08..=0xFF0E => 0xFF, // undocumented
             INTERRUPT_FLAG => u8::from(self.interrupt_flag),
-            0xFF15 => 0xFF,          // undocumented
-            0xFF1F => 0xFF,          // undocumented
-            0xFF27..=0xFF2F => 0xFF, // undocumented
+            AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.audio_processor.read(address),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.read(address),
+            0xFF4C => 0xFF,                   // only used in GBC mode
             CGB_PREPARE_SPEED_SWITCH => 0xFF, // only used in GBC mode
             0xFF4E => 0xFF,                   // undocumented
-            0xFF57..=0xFF67 => 0xFF,          // undocumented
-            0xFF6C..=0xFF6F => 0xFF,          // only used in GBC mode
-            CGB_WRAM_BANK => 0xFF,            // only used in GBC mode
-            0xFF71..=0xFF75 => 0xFF,          // undocumented
-            PCM_AMPLITUDES12 => 0xFF,         // only used in GBC mode
-            PCM_AMPLITUDES34 => 0xFF,         // only used in GBC mode
-            0xFF78..=0xFF7F => 0xFF,          // undocumented
-            _ => self.io[(address - IO_BEGIN) as usize],
+            0xFF4F => 0xFF,                   // only used in GBC mode
+            BOOT_ROM_OFF => self.boot_rom_off,
+            0xFF51..=0xFF56 => 0xFF,  // only used in GBC mode
+            0xFF57..=0xFF67 => 0xFF,  // undocumented
+            0xFF6C..=0xFF6F => 0xFF,  // only used in GBC mode
+            CGB_WRAM_BANK => 0xFF,    // only used in GBC mode
+            0xFF71..=0xFF75 => 0xFF,  // undocumented
+            PCM_AMPLITUDES12 => 0xFF, // only used in GBC mode
+            PCM_AMPLITUDES34 => 0xFF, // only used in GBC mode
+            0xFF78..=0xFF7F => 0xFF,  // undocumented
+            _ => panic!(
+                "Attempt to read from unmapped I/O register: 0x{:X}",
+                address
+            ),
         }
     }
 }

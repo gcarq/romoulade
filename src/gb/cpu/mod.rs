@@ -1,14 +1,16 @@
 use crate::gb::AddressSpace;
-use crate::gb::bus::constants::BOOT_END;
-use crate::gb::cpu::instruction::{
-    ByteSource, IncDecByteTarget, IncDecWordTarget, Instruction, JumpTest, Load, LoadByteTarget,
-    LoadWordTarget, ResetCode, StackTarget, WordSource,
+use crate::gb::constants::BOOT_END;
+use crate::gb::cpu::instruction::Instruction;
+use crate::gb::cpu::misc::{
+    ByteSource, IncDecByteTarget, IncDecWordTarget, JumpTest, Load, LoadByteTarget, LoadWordTarget,
+    ResetCode, StackTarget, WordSource,
 };
 use crate::gb::timer::Clock;
 use crate::gb::utils;
 use registers::Registers;
 
 mod instruction;
+mod misc;
 mod registers;
 #[cfg(test)]
 mod tests;
@@ -788,16 +790,7 @@ impl CPU {
     fn handle_rst<T: AddressSpace>(&mut self, code: ResetCode, bus: &mut T) -> u16 {
         self.clock.advance(CLOCKS_PER_CYCLE * 6);
         self.push(self.pc.wrapping_add(1), bus);
-        match code {
-            ResetCode::RST00 => 0x00,
-            ResetCode::RST10 => 0x10,
-            ResetCode::RST08 => 0x08,
-            ResetCode::RST18 => 0x18,
-            ResetCode::RST20 => 0x20,
-            ResetCode::RST28 => 0x28,
-            ResetCode::RST30 => 0x30,
-            ResetCode::RST38 => 0x38,
-        }
+        code as u16
     }
 
     /// Handles SBC instructions

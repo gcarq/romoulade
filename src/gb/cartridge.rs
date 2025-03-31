@@ -1,5 +1,5 @@
 use crate::gb::AddressSpace;
-use crate::gb::bus::constants::{
+use crate::gb::constants::{
     CRAM_BEGIN, CRAM_END, CRAM_SIZE, ROM_BANK_0_BEGIN, ROM_BANK_0_END, ROM_BANK_N_BEGIN,
     ROM_BANK_N_END, ROM_BANK_N_SIZE,
 };
@@ -232,7 +232,7 @@ impl AddressSpace for Cartridge {
 
     fn read(&self, address: u16) -> u8 {
         match address {
-            ROM_BANK_0_BEGIN..=ROM_BANK_0_END => self.rom[address as usize],
+            ROM_BANK_0_BEGIN..=ROM_BANK_0_END => self.rom[(address - ROM_BANK_0_BEGIN) as usize],
             ROM_BANK_N_BEGIN..=ROM_BANK_N_END => {
                 let offset = self.cur_rom_bank as usize * ROM_BANK_N_SIZE;
                 self.rom[(address - ROM_BANK_N_BEGIN) as usize + offset]

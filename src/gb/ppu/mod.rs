@@ -6,7 +6,7 @@ mod registers;
 #[cfg(test)]
 mod tests;
 
-use crate::gb::bus::constants::*;
+use crate::gb::constants::*;
 use crate::gb::ppu::fetcher::Fetcher;
 use crate::gb::ppu::misc::Palette;
 use crate::gb::ppu::registers::{LCDControl, LCDMode, LCDState, Registers};
@@ -194,7 +194,7 @@ impl AddressSpace for PPU {
             PPU_OBP1 => self.r.obj_palette1 = Palette::from(value),
             PPU_WY => self.r.wy = value,
             PPU_WX => self.r.wx = value,
-            _ => panic!("PPU: attempt to write to: 0x{:X}", address),
+            _ => panic!("Attempt to write to unmapped PPU register: 0x{:X}", address),
         }
     }
 
@@ -213,7 +213,10 @@ impl AddressSpace for PPU {
             PPU_OBP1 => u8::from(self.r.obj_palette1),
             PPU_WY => self.r.wy,
             PPU_WX => self.r.wx,
-            _ => panic!("PPU: attempt to read from: 0x{:X}", address),
+            _ => panic!(
+                "Attempt to read from unmapped audio register: 0x{:X}",
+                address
+            ),
         }
     }
 }
