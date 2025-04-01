@@ -62,6 +62,38 @@ bitflags! {
     }
 }
 
+impl LCDControl {
+    /// `LCDControl::WIN_MAP` controls which background map the Window uses for rendering.
+    /// When it’s clear (0), the 0x9800 tilemap is used, otherwise it’s the 0x9C00 one.
+    #[inline]
+    pub fn window_tile_map_area(&self) -> u16 {
+        match self.contains(LCDControl::WIN_MAP) {
+            true => 0x9C00,
+            false => 0x9800,
+        }
+    }
+
+    /// `LCDControl::TILE_SEL` controls which addressing mode the BG and Window use to pick tiles.
+    /// Objects (sprites) aren’t affected by this, and will always use the 0x8000 addressing mode.
+    #[inline]
+    pub fn bg_window_tile_data_area(&self) -> u16 {
+        match self.contains(LCDControl::TILE_SEL) {
+            true => 0x8000,
+            false => 0x8800,
+        }
+    }
+
+    /// `LCDControl::BG_MAP` works similarly to `LCDControl::WIN_MAP`: if the bit is clear (0),
+    /// the BG uses tilemap 0x9800, otherwise tilemap 0x9C00.
+    #[inline]
+    pub fn bg_tile_map_area(&self) -> u16 {
+        match self.contains(LCDControl::BG_MAP) {
+            true => 0x9C00,
+            false => 0x9800,
+        }
+    }
+}
+
 impl LCDState {
     /// Returns the `LCDMode` based on the first two bits of PPU_STAT.
     #[inline]

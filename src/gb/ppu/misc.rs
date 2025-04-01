@@ -42,7 +42,7 @@ impl From<Palette> for u8 {
 }
 
 /// Represents an non-colorized Pixel.
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, PartialEq)]
 pub enum Pixel {
     #[default]
     Zero,
@@ -77,7 +77,7 @@ impl From<u8> for Pixel {
 }
 
 /// Defines a colorized Pixel created from a non-colorized Pixel with a Palette.
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, PartialEq)]
 pub enum ColoredPixel {
     #[default]
     White,
@@ -108,5 +108,40 @@ impl From<u8> for ColoredPixel {
             0b11 => ColoredPixel::Black,
             _ => unimplemented!(),
         }
+    }
+}
+
+/// Represents a Sprite in the OAM memory.
+#[derive(Debug, Copy, Clone)]
+pub struct Sprite {
+    pub x: u8, // Object’s horizontal position on the screen + 8
+    pub y: u8, // Object’s vertical position on the screen + 16
+    pub tile_index: u8,
+    pub attributes: SpriteAttributes,
+}
+
+impl Sprite {
+    #[inline]
+    pub fn new(y: u8, x: u8, tile_index: u8, attributes: SpriteAttributes) -> Self {
+        Self {
+            y,
+            x,
+            tile_index,
+            attributes,
+        }
+    }
+}
+
+bitflags! {
+    /// Represents the attributes of a sprite.
+    /// The first 3 bits are only used in CGB mode.
+    /// Bit 4 is used to select the palette in CGB mode.
+    #[derive(Debug, Copy, Clone)]
+    pub struct SpriteAttributes: u8 {
+        const BANK          = 0b0000_1000;
+        const DMG_PALETTE   = 0b0001_0000;
+        const X_FLIP        = 0b0010_0000;
+        const Y_FLIP        = 0b0100_0000;
+        const PRIORITY      = 0b1000_0000;
     }
 }

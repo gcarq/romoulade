@@ -12,7 +12,7 @@ bitflags! {
     #[derive(Copy, Clone, PartialEq)]
     pub struct InterruptRegister: u8 {
         const VBLANK = 0b00000001; // V-Blank Interrupt
-        const LCD    = 0b00000010; // LCD STAT Interrupt
+        const STAT   = 0b00000010; // LCD STAT Interrupt
         const TIMER  = 0b00000100; // Timer Overflow Interrupt
         const SERIAL = 0b00001000; // Serial Transfer Completion Interrupt
         const JOYPAD = 0b00010000; // Joypad Input Interrupt
@@ -35,7 +35,7 @@ pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
 
     for irq in [
         InterruptRegister::VBLANK,
-        InterruptRegister::LCD,
+        InterruptRegister::STAT,
         InterruptRegister::TIMER,
         InterruptRegister::SERIAL,
         InterruptRegister::JOYPAD,
@@ -44,7 +44,7 @@ pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
             bus.interrupt_flag.remove(irq);
             let address = match irq {
                 InterruptRegister::VBLANK => VBLANK_IRQ_ADDRESS,
-                InterruptRegister::LCD => LCD_IRQ_ADDRESS,
+                InterruptRegister::STAT => LCD_IRQ_ADDRESS,
                 InterruptRegister::TIMER => TIMER_IRQ_ADDRESS,
                 InterruptRegister::SERIAL => SERIAL_IRQ_ADDRESS,
                 InterruptRegister::JOYPAD => JOYPAD_IRQ_ADDRESS,

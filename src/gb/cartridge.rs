@@ -1,8 +1,5 @@
 use crate::gb::AddressSpace;
-use crate::gb::constants::{
-    CRAM_BEGIN, CRAM_END, CRAM_SIZE, ROM_BANK_0_BEGIN, ROM_BANK_0_END, ROM_BANK_N_BEGIN,
-    ROM_BANK_N_END, ROM_BANK_N_SIZE,
-};
+use crate::gb::constants::*;
 use crate::gb::utils;
 use std::fs::File;
 use std::io::Read;
@@ -172,7 +169,7 @@ impl Cartridge {
         match value & 0x0F {
             0x0A => self.enable_ram = true,
             0x00 => self.enable_ram = false,
-            _ => panic!("{:#04X}", value),
+            _ => todo!("{:#04X}", value),
         }
     }
 

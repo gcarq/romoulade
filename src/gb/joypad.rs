@@ -112,7 +112,6 @@ impl Joypad {
                     DPadInput::Up => self.select_up = true,
                     DPadInput::Down => self.start_down = true,
                 }
-                println!("handling DPad: {:?}", input);
                 true
             }
             JoypadInput::Action(input) if self.selection == SelectedButtons::Action => {
@@ -122,7 +121,6 @@ impl Joypad {
                     ActionInput::Start => self.start_down = true,
                     ActionInput::Select => self.select_up = true,
                 }
-                println!("handling Action: {:?}", input);
                 true
             }
             _ => false,

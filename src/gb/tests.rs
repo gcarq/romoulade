@@ -145,7 +145,7 @@ fn test_interrupt_flags_read() {
     flags.remove(InterruptRegister::VBLANK);
     assert_eq!(flags.bits(), 0b0001_1110);
 
-    flags.remove(InterruptRegister::LCD);
+    flags.remove(InterruptRegister::STAT);
     assert_eq!(flags.bits(), 0b0001_1100);
 
     flags.remove(InterruptRegister::TIMER);
@@ -166,7 +166,7 @@ fn test_interrupt_flags_write() {
     assert!(!flags.contains(InterruptRegister::VBLANK));
 
     flags = InterruptRegister::from_bits_retain(0b1111_1100);
-    assert!(!flags.contains(InterruptRegister::LCD));
+    assert!(!flags.contains(InterruptRegister::STAT));
 
     flags = InterruptRegister::from_bits_retain(0b1111_1000);
     assert!(!flags.contains(InterruptRegister::TIMER));

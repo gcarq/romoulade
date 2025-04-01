@@ -22,7 +22,6 @@ pub struct Bus {
     pub interrupt_flag: InterruptRegister,
     wram: [u8; WRAM_SIZE],
     eram: [u8; ERAM_SIZE],
-    oam: [u8; OAM_SIZE],
     hram: [u8; HRAM_SIZE],
 }
 
@@ -44,15 +43,12 @@ impl Bus {
             timer: Timer::new(Frequency::Hz4096),
             wram: [0u8; WRAM_SIZE],
             eram: [0u8; ERAM_SIZE],
-            oam: [0u8; OAM_SIZE],
             hram: [0u8; HRAM_SIZE],
         }
     }
 
     pub fn step(&mut self, cycles: u16) {
-        if self.ppu.step(cycles) {
-            self.interrupt_flag |= InterruptRegister::LCD;
-        }
+        self.ppu.step(&mut self.interrupt_flag, cycles);
         if self.timer.step(cycles) {
             self.interrupt_flag |= InterruptRegister::TIMER;
         }
@@ -123,7 +119,7 @@ impl Bus {
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => {
                 self.audio_processor.write(address, value)
             }
-            PPU_DMA => self.dma_transfer(value), // TODO: move to PPU?
+            PPU_DMA => self.dma_transfer(value),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.write(address, value),
             0xFF4C => {}                   // only used in GBC mode
             CGB_PREPARE_SPEED_SWITCH => {} // only used in GBC mode
@@ -186,7 +182,7 @@ impl AddressSpace for Bus {
             CRAM_BEGIN..=CRAM_END => self.cartridge.write(address, value),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize] = value,
             ERAM_BEGIN..=ERAM_END => self.write_eram(address, value),
-            OAM_BEGIN..=OAM_END => self.oam[(address - OAM_BEGIN) as usize] = value,
+            OAM_BEGIN..=OAM_END => self.ppu.write(address, value),
             UNUSED_BEGIN..=UNUSED_END => {}
             IO_BEGIN..=IO_END => self.write_io(address, value),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize] = value,
@@ -201,7 +197,7 @@ impl AddressSpace for Bus {
             CRAM_BEGIN..=CRAM_END => self.read_cartridge(address),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize],
             ERAM_BEGIN..=ERAM_END => self.eram[(address - ERAM_BEGIN) as usize],
-            OAM_BEGIN..=OAM_END => self.oam[(address - OAM_BEGIN) as usize],
+            OAM_BEGIN..=OAM_END => self.ppu.read(address),
             UNUSED_BEGIN..=UNUSED_END => 0xFF,
             IO_BEGIN..=IO_END => self.read_io(address),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],

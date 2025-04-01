@@ -1,6 +1,6 @@
 use crate::gb::constants::VRAM_BEGIN;
 use crate::gb::ppu::misc::{ColoredPixel, Pixel};
-use crate::gb::ppu::registers::{LCDControl, Registers};
+use crate::gb::ppu::registers::Registers;
 use crate::gb::timer::Clock;
 use std::collections::VecDeque;
 
@@ -37,10 +37,7 @@ impl Fetcher {
         self.map_address = map_address;
         self.tile_line = tile_line;
         self.state = FetcherState::ReadTileID;
-        self.tile_address = match r.lcd_control.contains(LCDControl::TILE_SEL) {
-            true => 0x8000,
-            false => 0x8800,
-        };
+        self.tile_address = r.lcd_control.bg_window_tile_data_area();
 
         // Clear FIFO between calls, as it may still contain leftover tile data
         // from the very end of the previous scanline.
