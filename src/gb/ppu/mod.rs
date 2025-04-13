@@ -178,7 +178,7 @@ impl PPU {
             }
             let col = (x / 8) as usize;
 
-            let tile_num = self.vram[((row * 32 + col) | map_mask as usize) & 0x1fff] as usize;
+            let tile_num = self.vram[((row * 32 + col) | map_mask as usize) & 0x1FFF] as usize;
             let tile_num = if self.r.lcd_control.contains(LCDControl::TILE_SEL) {
                 tile_num
             } else {
@@ -187,10 +187,10 @@ impl PPU {
 
             let line = ((y % 8) * 2) as usize;
             let tile_mask = tile_num << 4;
-            let data1 = self.vram[(tile_mask | line) & 0x1fff];
-            let data2 = self.vram[(tile_mask | (line + 1)) & 0x1fff];
+            let data1 = self.vram[(tile_mask | line) & 0x1FFF];
+            let data2 = self.vram[(tile_mask | (line + 1)) & 0x1FFF];
 
-            let bit = (x % 8).wrapping_sub(7).wrapping_mul(0xff) as usize;
+            let bit = (x % 8).wrapping_sub(7).wrapping_mul(0xFF) as usize;
             let color_value =
                 ((bit_at(data2, bit as u8) as u8) << 1) | bit_at(data1, bit as u8) as u8;
             let pixel = Pixel::from(color_value);
@@ -202,24 +202,21 @@ impl PPU {
 
     /// Draws the sprites on the current scan line.
     fn draw_sprites(&mut self, bg_prio: &[bool; SCREEN_WIDTH as usize]) {
-        let size = if self.r.lcd_control.contains(LCDControl::OBJ_SIZE) {
-            16
-        } else {
-            8
+        let size = match self.r.lcd_control.contains(LCDControl::OBJ_SIZE) {
+            true => 16,
+            false => 8,
         };
-
-        let current_line = self.r.ly;
 
         let mut sprites_to_draw: Vec<(usize, Sprite)> = self
             .oam
             .chunks(4)
             .filter_map(|chunk| match chunk {
-                &[y, x, tile_num, flags] => {
+                &[y, x, tile_num, attrs] => {
                     let y = y.wrapping_sub(16);
                     let x = x.wrapping_sub(8);
-                    let flags = SpriteAttributes::from_bits_truncate(flags);
-                    if current_line.wrapping_sub(y) < size {
-                        let sprite = Sprite::new(y, x, tile_num, flags);
+                    if self.r.ly.wrapping_sub(y) < size {
+                        let attrs = SpriteAttributes::from_bits_truncate(attrs);
+                        let sprite = Sprite::new(y, x, tile_num, attrs);
                         Some(sprite)
                     } else {
                         None
@@ -241,50 +238,46 @@ impl PPU {
         });
 
         for (_, sprite) in sprites_to_draw {
-            let palette = if sprite.attributes.contains(SpriteAttributes::DMG_PALETTE) {
-                &self.r.obj_palette1
-            } else {
-                &self.r.obj_palette0
+            let palette = match sprite.attributes.contains(SpriteAttributes::DMG_PALETTE) {
+                true => &self.r.obj_palette1,
+                false => &self.r.obj_palette0,
             };
 
             // Ignore bit 0 of tile index for 8x16 sprites
-            let mut tile_num = if size == 16 {
-                sprite.tile_index & 0xFE
-            } else {
-                sprite.tile_index
+            let mut tile_num = match size == 16 {
+                true => sprite.tile_index & 0b1111_1110,
+                false => sprite.tile_index,
             } as usize;
 
-            let mut line = if sprite.attributes.contains(SpriteAttributes::Y_FLIP) {
-                size - current_line.wrapping_sub(sprite.y) - 1
-            } else {
-                current_line.wrapping_sub(sprite.y)
+            let mut line = match sprite.attributes.contains(SpriteAttributes::Y_FLIP) {
+                true => size - self.r.ly.wrapping_sub(sprite.y) - 1,
+                false => self.r.ly.wrapping_sub(sprite.y),
             };
+
             if line >= 8 {
                 tile_num += 1;
                 line -= 8;
             }
             line *= 2;
             let tile_mask = tile_num << 4;
-            let data1 = self.vram[(tile_mask | line as usize) & 0x1fff];
-            let data2 = self.vram[(tile_mask | (line + 1) as usize) & 0x1fff];
+            let data1 = self.vram[(tile_mask | line as usize) & 0x1FFF];
+            let data2 = self.vram[(tile_mask | (line as usize + 1)) & 0x1FFF];
 
             for x in (0..8).rev() {
-                let bit = if sprite.attributes.contains(SpriteAttributes::X_FLIP) {
-                    7 - x
-                } else {
-                    x
+                let bit = match sprite.attributes.contains(SpriteAttributes::X_FLIP) {
+                    true => 7 - x,
+                    false => x,
                 };
 
-                let color_value = ((bit_at(data2, bit) as u8) << 1) | bit_at(data1, bit) as u8;
-                let pixel = Pixel::from(color_value);
-                let color = palette.colorize(pixel);
+                let pixel_value = ((bit_at(data2, bit) as u8) << 1) | bit_at(data1, bit) as u8;
+                let pixel = Pixel::from(pixel_value);
                 let target_x = sprite.x.wrapping_add(7 - x);
-                if target_x < SCREEN_WIDTH
-                    && pixel != Pixel::Zero
-                    && (!sprite.attributes.contains(SpriteAttributes::PRIORITY)
-                        || !bg_prio[target_x as usize])
-                {
-                    self.display.write_pixel(target_x, current_line, color);
+
+                let should_draw = !sprite.attributes.contains(SpriteAttributes::PRIORITY)
+                    || !bg_prio[target_x as usize];
+                if target_x < SCREEN_WIDTH && pixel != Pixel::Zero && should_draw {
+                    let color = palette.colorize(pixel);
+                    self.display.write_pixel(target_x, self.r.ly, color);
                 }
             }
         }
@@ -294,7 +287,6 @@ impl PPU {
     fn draw_line(&mut self) {
         let mut bg_prio = [false; SCREEN_WIDTH as usize];
 
-        // Render background
         if self.r.lcd_control.contains(LCDControl::BG_EN) {
             self.draw_background(&mut bg_prio);
         }
@@ -307,7 +299,6 @@ impl PPU {
             self.window_line_counter += 1;
         }
 
-        // Render sprites
         if self.r.lcd_control.contains(LCDControl::OBJ_EN) {
             self.draw_sprites(&bg_prio);
         }
