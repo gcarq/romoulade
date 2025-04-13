@@ -327,7 +327,6 @@ impl AddressSpace for PPU {
             PPU_SCX => self.r.scx = value,
             PPU_LY => {} // LY is read-only
             PPU_LYC => self.r.lyc = value,
-            // TODO: implement me PPU_DMA => self.fetcher.dma_transfer(value),
             PPU_BGP => self.r.bg_palette = Palette::from(value),
             PPU_OBP0 => self.r.obj_palette0 = Palette::from(value),
             PPU_OBP1 => self.r.obj_palette1 = Palette::from(value),

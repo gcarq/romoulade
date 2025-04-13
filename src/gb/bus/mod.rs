@@ -77,11 +77,11 @@ impl Bus {
         }
     }
 
-    /// Initiate DMA transfer
+    /// Initiate DMA transfer, the passed value specifies the upper half of the source address.
     /// See https://gbdev.io/pandocs/OAM_DMA_Transfer.html
     #[inline]
     fn dma_transfer(&mut self, value: u8) {
-        let address = u16::from(value) * 100;
+        let address = u16::from(value) << 8;
         for offset in 0..0xA0 {
             let byte = self.read(address + offset);
             self.write(OAM_BEGIN + offset, byte);
