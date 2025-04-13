@@ -73,16 +73,6 @@ impl LCDControl {
         }
     }
 
-    /// `LCDControl::TILE_SEL` controls which addressing mode the BG and Window use to pick tiles.
-    /// Objects (sprites) aren’t affected by this, and will always use the 0x8000 addressing mode.
-    #[inline]
-    pub fn bg_window_tile_data_area(&self) -> u16 {
-        match self.contains(LCDControl::TILE_SEL) {
-            true => 0x8000,
-            false => 0x8800,
-        }
-    }
-
     /// `LCDControl::BG_MAP` works similarly to `LCDControl::WIN_MAP`: if the bit is clear (0),
     /// the BG uses tilemap 0x9800, otherwise tilemap 0x9C00.
     #[inline]
@@ -111,10 +101,10 @@ impl LCDState {
 /// Represents the first two bits in LCDState for convenience.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum LCDMode {
-    HBlank,        // 0b00
-    VBlank,        // 0b01
-    OAMSearch,     // 0b10
-    PixelTransfer, // 0b11
+    HBlank,     // 0b00
+    VBlank,     // 0b01
+    AccessOAM,  // 0b10
+    AccessVRAM, // 0b11
 }
 
 impl From<LCDMode> for u8 {
@@ -123,8 +113,8 @@ impl From<LCDMode> for u8 {
         match value {
             LCDMode::HBlank => 0b00,
             LCDMode::VBlank => 0b01,
-            LCDMode::OAMSearch => 0b10,
-            LCDMode::PixelTransfer => 0b11,
+            LCDMode::AccessOAM => 0b10,
+            LCDMode::AccessVRAM => 0b11,
         }
     }
 }
@@ -135,8 +125,8 @@ impl From<u8> for LCDMode {
         match value {
             0b00 => LCDMode::HBlank,
             0b01 => LCDMode::VBlank,
-            0b10 => LCDMode::OAMSearch,
-            0b11 => LCDMode::PixelTransfer,
+            0b10 => LCDMode::AccessOAM,
+            0b11 => LCDMode::AccessVRAM,
             _ => unimplemented!(),
         }
     }
