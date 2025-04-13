@@ -81,6 +81,7 @@ impl Bus {
     /// See https://gbdev.io/pandocs/OAM_DMA_Transfer.html
     #[inline]
     fn dma_transfer(&mut self, value: u8) {
+        self.ppu.r.dma = value;
         let address = u16::from(value) << 8;
         for offset in 0..0xA0 {
             let byte = self.read(address + offset);
@@ -119,6 +120,8 @@ impl Bus {
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => {
                 self.audio_processor.write(address, value)
             }
+            // TODO: consider moving dma_transfer to the PPU, for now it lives here because we need
+            //  to access the ROM
             PPU_DMA => self.dma_transfer(value),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.write(address, value),
             0xFF4C => {}                   // only used in GBC mode

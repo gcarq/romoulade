@@ -17,7 +17,7 @@ use std::cmp::Ordering;
 
 /// Pixel Processing Unit
 pub struct PPU {
-    r: Registers,
+    pub r: Registers,
     vram: [u8; VRAM_SIZE],
     oam: [u8; OAM_SIZE],
     clock: Clock,
@@ -360,7 +360,7 @@ impl AddressSpace for PPU {
             PPU_SCX => self.r.scx,
             PPU_LY => self.r.ly,
             PPU_LYC => self.r.lyc,
-            PPU_DMA => 0, // TODO: implement DMA
+            PPU_DMA => self.r.dma,
             PPU_BGP => u8::from(self.r.bg_palette),
             PPU_OBP0 => u8::from(self.r.obj_palette0),
             PPU_OBP1 => u8::from(self.r.obj_palette1),
