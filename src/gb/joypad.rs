@@ -85,46 +85,50 @@ impl Joypad {
     /// Writes the given value to the Joypad register and returns true if a button has been pressed
     /// and a Joypad interrupt should be requested.
     pub fn write(&mut self, value: u8, pending_event: Option<JoypadInput>) -> bool {
-        if !utils::bit_at(value, 4) {
-            self.selection = SelectedButtons::DPad;
-        } else if !utils::bit_at(value, 5) {
-            self.selection = SelectedButtons::Action;
-        } else {
-            self.selection = SelectedButtons::None;
-            self.reset();
+        self.reset();
+
+        // In the joypad register the bit values are inverted,
+        // 0 means selected and 1 means not selected.
+        match (utils::bit_at(value, 4), utils::bit_at(value, 5)) {
+            (false, true) => self.selection = SelectedButtons::DPad,
+            (true, false) => self.selection = SelectedButtons::Action,
+            (true, true) => self.selection = SelectedButtons::None,
+            (false, false) => {}
         }
-        if let Some(event) = pending_event {
-            self.handle(event)
-        } else {
-            false
+
+        match pending_event {
+            Some(event) => self.handle(event),
+            None => false,
         }
     }
 
     /// Handles the given Joypad event and returns true if a button has been pressed
     /// and a Joypad interrupt should be requested.
     fn handle(&mut self, event: JoypadInput) -> bool {
-        self.reset();
-        match event {
-            JoypadInput::DPad(input) if self.selection == SelectedButtons::DPad => {
-                match input {
-                    DPadInput::Left => self.b_left = true,
-                    DPadInput::Right => self.a_right = true,
-                    DPadInput::Up => self.select_up = true,
-                    DPadInput::Down => self.start_down = true,
-                }
-                true
-            }
-            JoypadInput::Action(input) if self.selection == SelectedButtons::Action => {
+        if self.selection == SelectedButtons::Action {
+            if let JoypadInput::Action(input) = event {
                 match input {
                     ActionInput::A => self.a_right = true,
                     ActionInput::B => self.b_left = true,
                     ActionInput::Start => self.start_down = true,
                     ActionInput::Select => self.select_up = true,
                 }
-                true
+                return true;
             }
-            _ => false,
         }
+
+        if self.selection == SelectedButtons::DPad {
+            if let JoypadInput::DPad(input) = event {
+                match input {
+                    DPadInput::Left => self.b_left = true,
+                    DPadInput::Right => self.a_right = true,
+                    DPadInput::Up => self.select_up = true,
+                    DPadInput::Down => self.start_down = true,
+                }
+                return true;
+            }
+        }
+        false
     }
 
     /// Resets the joypad state of the lower nibble

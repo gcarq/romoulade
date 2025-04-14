@@ -4,7 +4,7 @@ use crate::gb::timer::{Frequency, Timer};
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
 
 #[test]
-fn test_joypad_dpad() {
+fn test_joypad_dpad_pressed() {
     let mut joypad = Joypad::default();
     assert_eq!(joypad.read(), 0b1111_1111);
 
@@ -30,7 +30,33 @@ fn test_joypad_dpad() {
 }
 
 #[test]
-fn test_joypad_actions() {
+fn test_joypad_dpad_not_pressed() {
+    let mut joypad = Joypad::default();
+    assert_eq!(joypad.read(), 0b1111_1111);
+
+    // D-Pad selection mode while A has been pressed
+    let irq = joypad.write(0b1110_1111, Some(JoypadInput::Action(ActionInput::A)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1110_1111);
+
+    // D-Pad selection mode while B has been pressed
+    let irq = joypad.write(0b1110_1111, Some(JoypadInput::Action(ActionInput::B)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1110_1111);
+
+    // D-Pad selection mode while Select has been pressed
+    let irq = joypad.write(0b1110_1111, Some(JoypadInput::Action(ActionInput::Select)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1110_1111);
+
+    // D-Pad selection mode while Start has been pressed
+    let irq = joypad.write(0b1110_1111, Some(JoypadInput::Action(ActionInput::Start)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1110_1111);
+}
+
+#[test]
+fn test_joypad_actions_pressed() {
     let mut joypad = Joypad::default();
     assert_eq!(joypad.read(), 0b1111_1111);
 
@@ -56,11 +82,42 @@ fn test_joypad_actions() {
 }
 
 #[test]
+fn test_joypad_actions_not_pressed() {
+    let mut joypad = Joypad::default();
+    assert_eq!(joypad.read(), 0b1111_1111);
+
+    // Action selection mode while Right has been pressed
+    let irq = joypad.write(0b1101_1111, Some(JoypadInput::DPad(DPadInput::Right)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1101_1111);
+
+    // Action selection mode while Left has been pressed
+    let irq = joypad.write(0b1101_1111, Some(JoypadInput::DPad(DPadInput::Left)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1101_1111);
+
+    // Action selection mode while Up has been pressed
+    let irq = joypad.write(0b1101_1111, Some(JoypadInput::DPad(DPadInput::Up)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1101_1111);
+
+    // Action selection mode while Down has been pressed
+    let irq = joypad.write(0b1101_1111, Some(JoypadInput::DPad(DPadInput::Down)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1101_1111);
+}
+
+#[test]
 fn test_joypad_common() {
     let mut joypad = Joypad::default();
 
-    // No selection mode while right has been pressed
+    // No selection mode while Right has been pressed
     let irq = joypad.write(0b0011_0000, Some(JoypadInput::DPad(DPadInput::Right)));
+    assert!(!irq);
+    assert_eq!(joypad.read(), 0b1111_1111);
+
+    // No selection mode while Select has been pressed
+    let irq = joypad.write(0b0011_0000, Some(JoypadInput::Action(ActionInput::Select)));
     assert!(!irq);
     assert_eq!(joypad.read(), 0b1111_1111);
 
