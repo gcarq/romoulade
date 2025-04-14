@@ -26,7 +26,8 @@ pub const SCREEN_WIDTH: u8 = 160;
 pub const SCREEN_HEIGHT: u8 = 144;
 pub const VERTICAL_BLANK_SCAN_LINE_MAX: u8 = 153;
 
-pub type GBResult<T> = Result<T, Box<dyn error::Error>>;
+pub type GBResult<T> = Result<T, GBError>;
+pub type GBError = Box<dyn error::Error>;
 
 /// This trait defines a common interface to interact with the memory bus.
 pub trait AddressSpace {

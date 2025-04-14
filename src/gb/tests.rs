@@ -217,9 +217,7 @@ fn test_interrupt_flags_read() {
 
 #[test]
 fn test_interrupt_flags_write() {
-    let mut flags = InterruptRegister::all();
-
-    flags = InterruptRegister::from_bits_retain(0b1111_1110);
+    let mut flags = InterruptRegister::from_bits_retain(0b1111_1110);
     assert!(!flags.contains(InterruptRegister::VBLANK));
 
     flags = InterruptRegister::from_bits_retain(0b1111_1100);
