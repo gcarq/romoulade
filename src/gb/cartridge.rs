@@ -182,7 +182,6 @@ impl Cartridge {
         // If MBC2 is enabled, bit 4 of the address must be zero.
         if self.header.banking == BankingMode::MBC2 && utils::bit_at(address as u8, 4) {
             todo!("implement RAM banking while MBC2 is enabled!");
-            return;
         }
 
         // If MBC1 is enabled, the lower nibble must be equal to 0b1010 to enable cartridge RAM.

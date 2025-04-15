@@ -123,15 +123,9 @@ impl ByteSource {
             ByteSource::BCI => bus.read(cpu.r.get_bc()),
             ByteSource::DEI => bus.read(cpu.r.get_de()),
             ByteSource::HLI => bus.read(cpu.r.get_hl()),
-            ByteSource::D16I => {
-                let address = cpu.consume_word(bus);
-                bus.read(address)
-            }
+            ByteSource::D16I => bus.read(cpu.consume_word(bus)),
             ByteSource::CIFF00 => bus.read(u16::from(cpu.r.c) | 0xFF00),
-            ByteSource::D8IFF00 => {
-                let address = u16::from(cpu.consume_byte(bus)) | 0xFF00;
-                bus.read(address)
-            }
+            ByteSource::D8IFF00 => bus.read(u16::from(cpu.consume_byte(bus)) | 0xFF00),
         }
     }
 

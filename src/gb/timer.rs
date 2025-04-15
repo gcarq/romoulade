@@ -121,6 +121,17 @@ pub enum Cycles {
     T(u16),
 }
 
+impl Cycles {
+    /// Returns the number of t-cycles.
+    #[inline]
+    pub fn as_t_cycles(&self) -> u16 {
+        match self {
+            Cycles::M(c) => c * M_CLOCK_MULTIPLIER,
+            Cycles::T(c) => *c,
+        }
+    }
+}
+
 /// Represents the internal Clock which
 /// can be used for each processing unit.
 #[derive(Default)]
@@ -131,21 +142,12 @@ pub struct Clock {
 impl Clock {
     #[inline]
     pub fn advance(&mut self, cycles: Cycles) {
-        let t_cycles = match cycles {
-            Cycles::M(c) => c * M_CLOCK_MULTIPLIER,
-            Cycles::T(c) => c,
-        };
-        self.t_cycles = self.t_cycles.wrapping_add(t_cycles);
+        self.t_cycles = self.t_cycles.wrapping_add(cycles.as_t_cycles());
     }
 
     #[inline]
     pub fn t_cycles(&self) -> u16 {
         self.t_cycles
-    }
-
-    #[inline]
-    pub fn m_cycles(&self) -> u16 {
-        self.t_cycles / M_CLOCK_MULTIPLIER
     }
 
     #[inline]
