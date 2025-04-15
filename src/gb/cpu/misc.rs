@@ -15,7 +15,7 @@ pub enum IncDecByteTarget {
 
 impl IncDecByteTarget {
     /// Resolves the referring value
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T) -> u8 {
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &T) -> u8 {
         match *self {
             IncDecByteTarget::A => cpu.r.a,
             IncDecByteTarget::B => cpu.r.b,
@@ -110,7 +110,7 @@ pub enum ByteSource {
 
 impl ByteSource {
     /// Resolves the referring value
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T) -> u8 {
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &T) -> u8 {
         match *self {
             ByteSource::A => cpu.r.a,
             ByteSource::B => cpu.r.b,
@@ -171,7 +171,7 @@ pub enum WordSource {
 
 impl WordSource {
     /// Resolves the referring value
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T) -> u16 {
+    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &T) -> u16 {
         match *self {
             WordSource::BC => cpu.r.get_bc(),
             WordSource::DE => cpu.r.get_de(),

@@ -141,14 +141,14 @@ impl CPU {
 
     /// Reads the next byte and increases pc
     #[inline]
-    pub fn consume_byte<T: AddressSpace>(&mut self, bus: &mut T) -> u8 {
+    pub fn consume_byte<T: AddressSpace>(&mut self, bus: &T) -> u8 {
         self.pc = self.pc.wrapping_add(1);
         bus.read(self.pc)
     }
 
     /// Reads the next word and increases pc
     #[inline]
-    pub fn consume_word<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
+    pub fn consume_word<T: AddressSpace>(&mut self, bus: &T) -> u16 {
         u16::from(self.consume_byte(bus)) | (u16::from(self.consume_byte(bus)) << 8)
     }
 
@@ -166,7 +166,7 @@ impl CPU {
 
     /// Pop a u16 value from the stack
     #[inline]
-    fn pop<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
+    fn pop<T: AddressSpace>(&mut self, bus: &T) -> u16 {
         let lsb = bus.read(self.sp) as u16;
         self.sp = self.sp.wrapping_add(1);
 
@@ -177,7 +177,7 @@ impl CPU {
     }
 
     /// Handles ADD instructions
-    fn handle_add<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_add<T: AddressSpace>(&mut self, source: ByteSource, bus: &T) -> u16 {
         let source_value = source.read(self, bus);
         let (new_value, did_overflow) = self.r.a.overflowing_add(source_value);
         // Half Carry is set if adding the lower nibbles of the value and register A
@@ -200,7 +200,7 @@ impl CPU {
     }
 
     /// Handles ADD HL, nn instructions
-    fn handle_add_hl<T: AddressSpace>(&mut self, source: WordSource, bus: &mut T) -> u16 {
+    fn handle_add_hl<T: AddressSpace>(&mut self, source: WordSource, bus: &T) -> u16 {
         let value = source.read(self, bus);
         let hl = self.r.get_hl();
         let (result, overflow) = hl.overflowing_add(value);
@@ -216,7 +216,7 @@ impl CPU {
     }
 
     /// Handles ADD SP, i8 instruction
-    fn handle_add_sp<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
+    fn handle_add_sp<T: AddressSpace>(&mut self, bus: &T) -> u16 {
         let sp = self.sp as i32;
         let byte = self.consume_byte(bus) as i8 as i32;
         let result = sp.wrapping_add(byte);
@@ -231,7 +231,7 @@ impl CPU {
     }
 
     /// Handles ADC instructions
-    fn handle_adc<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_adc<T: AddressSpace>(&mut self, source: ByteSource, bus: &T) -> u16 {
         let value = source.read(self, bus);
         let half_carry = ((self.r.a & 0b1111)
             + (value & 0b1111)
@@ -254,7 +254,7 @@ impl CPU {
     }
 
     /// Handles AND instructions
-    fn handle_and<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_and<T: AddressSpace>(&mut self, source: ByteSource, bus: &T) -> u16 {
         let value = source.read(self, bus);
         self.r.a &= value;
         self.r.f.update(self.r.a == 0, false, true, false);
@@ -266,7 +266,7 @@ impl CPU {
     }
 
     /// Handles BIT instructions
-    fn handle_bit<T: AddressSpace>(&mut self, bit: u8, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_bit<T: AddressSpace>(&mut self, bit: u8, source: ByteSource, bus: &T) -> u16 {
         let value = source.read(self, bus);
         self.r
             .f
@@ -305,7 +305,7 @@ impl CPU {
     }
 
     /// Handles CP instructions
-    fn handle_cp<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_cp<T: AddressSpace>(&mut self, source: ByteSource, bus: &T) -> u16 {
         let value = source.read(self, bus);
         let result = u32::from(self.r.a).wrapping_sub(u32::from(value));
 
@@ -429,7 +429,7 @@ impl CPU {
     }
 
     /// Handles JR instructions
-    fn handle_jr<T: AddressSpace>(&mut self, test: JumpTest, bus: &mut T) -> u16 {
+    fn handle_jr<T: AddressSpace>(&mut self, test: JumpTest, bus: &T) -> u16 {
         let should_jump = test.resolve(self);
 
         if should_jump {
@@ -446,12 +446,7 @@ impl CPU {
     }
 
     /// Handles JP instructions
-    fn handle_jp<T: AddressSpace>(
-        &mut self,
-        test: JumpTest,
-        source: WordSource,
-        bus: &mut T,
-    ) -> u16 {
+    fn handle_jp<T: AddressSpace>(&mut self, test: JumpTest, source: WordSource, bus: &T) -> u16 {
         let should_jump = test.resolve(self);
 
         if should_jump {
@@ -616,7 +611,7 @@ impl CPU {
     }
 
     /// Handles OR instructions
-    fn handle_or<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_or<T: AddressSpace>(&mut self, source: ByteSource, bus: &T) -> u16 {
         let value = source.read(self, bus);
         self.r.a |= value;
         self.r.f.update(self.r.a == 0, false, false, false);
@@ -629,7 +624,7 @@ impl CPU {
     }
 
     /// Handles POP instruction
-    fn handle_pop<T: AddressSpace>(&mut self, target: StackTarget, bus: &mut T) -> u16 {
+    fn handle_pop<T: AddressSpace>(&mut self, target: StackTarget, bus: &T) -> u16 {
         let result = self.pop(bus);
         match target {
             StackTarget::AF => self.r.set_af(result),
@@ -668,7 +663,7 @@ impl CPU {
     }
 
     /// Handles RET instruction
-    fn handle_ret<T: AddressSpace>(&mut self, test: JumpTest, bus: &mut T) -> u16 {
+    fn handle_ret<T: AddressSpace>(&mut self, test: JumpTest, bus: &T) -> u16 {
         let should_jump = test.resolve(self);
 
         let cycles = if test == JumpTest::Always {
@@ -688,7 +683,7 @@ impl CPU {
     }
 
     /// Handles RETI instruction
-    fn handle_reti<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
+    fn handle_reti<T: AddressSpace>(&mut self, bus: &T) -> u16 {
         self.clock.advance(CLOCKS_PER_CYCLE * 4);
         self.ime = true;
         self.pop(bus)
@@ -807,7 +802,7 @@ impl CPU {
     }
 
     /// Handles SBC instructions
-    fn handle_sbc<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_sbc<T: AddressSpace>(&mut self, source: ByteSource, bus: &T) -> u16 {
         let a = self.r.a as u32;
         let value = source.read(self, bus) as u32;
         let result = a
@@ -903,7 +898,7 @@ impl CPU {
     }
 
     /// Handles SUB instructions
-    fn handle_sub<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_sub<T: AddressSpace>(&mut self, source: ByteSource, bus: &T) -> u16 {
         let a = u16::from(self.r.a);
         let value = u16::from(source.read(self, bus));
         let result = a.wrapping_sub(value);
@@ -935,7 +930,7 @@ impl CPU {
     }
 
     /// Handles XOR instructions
-    fn handle_xor<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
+    fn handle_xor<T: AddressSpace>(&mut self, source: ByteSource, bus: &T) -> u16 {
         let value = source.read(self, bus);
         self.r.a ^= value;
         self.r.f.update(self.r.a == 0, false, false, false);
