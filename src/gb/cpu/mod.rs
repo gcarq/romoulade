@@ -1,4 +1,3 @@
-use crate::gb::AddressSpace;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::cpu::misc::{
@@ -9,6 +8,7 @@ use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::timer::Clock;
 use crate::gb::timer::Cycles::M;
 use crate::gb::utils;
+use crate::gb::{AddressSpace, GBResult};
 use registers::Registers;
 
 mod instruction;
@@ -54,11 +54,11 @@ impl Default for CPU {
 impl CPU {
     /// Makes one CPU step, this consumes one or more bytes depending on the
     /// next instruction and current CPU state (halted, stopped, etc.).
-    pub fn step<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
+    pub fn step<T: AddressSpace>(&mut self, bus: &mut T) -> GBResult<u16> {
         self.clock.reset();
         if self.is_halted {
             self.advance_clock(1);
-            return self.clock.t_cycles();
+            return Ok(self.clock.t_cycles());
         }
 
         self.sanity_check(self.pc);
@@ -74,10 +74,10 @@ impl CPU {
             Some(instruction) => self.execute(instruction, bus),
             None => {
                 let description = format!("0x{}{:02x}", if prefixed { "cb" } else { "" }, opcode);
-                panic!("Unresolved instruction: {}.\nHALTED!", description);
+                return Err(format!("Unrecognized opcode: {}.", description).into());
             }
         };
-        self.clock.t_cycles()
+        Ok(self.clock.t_cycles())
     }
 
     /// Advances the internal clock by the given number of machine cycles,
@@ -440,6 +440,8 @@ impl CPU {
     /// Handles EI and DI instructions
     #[inline]
     fn handle_interrupt(&mut self, state: ImeState) -> u16 {
+        // Advancing the clock before changing the IME is important,
+        // otherwise it will be activated immediately
         self.advance_clock(1);
         self.ime = state;
         self.pc.wrapping_add(1)

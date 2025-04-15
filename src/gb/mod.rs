@@ -62,10 +62,12 @@ impl Emulator {
         })
     }
 
-    fn step(&mut self) {
-        let t_cycles = self.cpu.step(&mut self.bus);
+    #[inline]
+    fn step(&mut self) -> GBResult<()> {
+        let t_cycles = self.cpu.step(&mut self.bus)?;
         self.bus.step(t_cycles);
         interrupt::handle(&mut self.cpu, &mut self.bus);
+        Ok(())
     }
 
     /// Handles messages from the frontend.
@@ -80,7 +82,8 @@ impl Emulator {
 
     pub fn run(&mut self) {
         while self.is_running {
-            self.step();
+            // TODO: implement proper error handling
+            self.step().expect("Unable to step CPU");
             self.handle_messages();
         }
     }

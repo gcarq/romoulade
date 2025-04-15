@@ -30,7 +30,7 @@ pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
     // CPU should be always woken up from HALT if there is a pending interrupt
     cpu.is_halted = false;
 
-    if cpu.ime == ImeState::Disabled {
+    if cpu.ime != ImeState::Enabled {
         return;
     }
 
