@@ -10,6 +10,7 @@ use crate::gb::interrupt::InterruptRegister;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDMode, LCDState, Registers};
 use crate::gb::timer::Clock;
+use crate::gb::timer::Cycles::T;
 use crate::gb::utils::bit_at;
 use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
 use display::Display;
@@ -38,13 +39,13 @@ impl PPU {
     }
 
     /// Steps the PPU for a given number of cycles.
-    pub fn step(&mut self, int_reg: &mut InterruptRegister, cycles: u16) {
+    pub fn step(&mut self, int_reg: &mut InterruptRegister, t_cycles: u16) {
         if !self.r.lcd_control.contains(LCDControl::LCD_EN) {
             // Screen is off, PPU remains idle.
             return;
         }
 
-        self.clock.advance(cycles);
+        self.clock.advance(T(t_cycles));
 
         let cur_mode = self.r.lcd_stat.get_lcd_mode();
 
@@ -52,7 +53,7 @@ impl PPU {
             // In this state, the PPU would scan the OAM (Objects Attribute Memory)
             // from 0xfe00 to 0xfe9f to mix sprite pixels in the current line later.
             // This always takes 40 ticks.
-            LCDMode::AccessOAM if self.clock.ticks() >= 40 => {
+            LCDMode::AccessOAM if self.clock.t_cycles() >= 40 => {
                 self.switch_mode(LCDMode::AccessVRAM, int_reg)
             }
             LCDMode::AccessVRAM => {
@@ -63,11 +64,11 @@ impl PPU {
             // A full scanline takes 456 clock cycles to complete. At the end of a
             // scanline, the PPU goes back to the initial OAM Search state.
             // When we reach line 144, we switch to VBlank state instead.
-            LCDMode::HBlank if self.clock.ticks() >= 456 => self.handle_hblank(int_reg),
+            LCDMode::HBlank if self.clock.t_cycles() >= 456 => self.handle_hblank(int_reg),
             // Nothing much to do here either. VBlank is when the CPU is supposed to
             // do stuff that takes time. It takes as many cycles as would be needed
             // to keep displaying scanlines up to line 153.
-            LCDMode::VBlank if self.clock.ticks() >= 456 => self.handle_vblank(int_reg),
+            LCDMode::VBlank if self.clock.t_cycles() >= 456 => self.handle_vblank(int_reg),
             _ => {}
         };
     }
@@ -124,7 +125,7 @@ impl PPU {
             self.switch_mode(LCDMode::AccessOAM, int_reg);
         } else {
             // TODO: use constant for VBlank cycle duration
-            self.clock.advance(114);
+            self.clock.advance(T(114));
         }
         self.handle_coincidence_flag(int_reg);
     }

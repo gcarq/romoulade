@@ -47,12 +47,12 @@ impl Bus {
         }
     }
 
-    pub fn step(&mut self, cycles: u16) {
-        self.ppu.step(&mut self.interrupt_flag, cycles);
-        if self.timer.step(cycles) {
+    pub fn step(&mut self, t_cycles: u16) {
+        self.ppu.step(&mut self.interrupt_flag, t_cycles);
+        if self.timer.step(t_cycles) {
             self.interrupt_flag |= InterruptRegister::TIMER;
         }
-        self.divider.step(cycles);
+        self.divider.step(t_cycles);
     }
 
     /// Indicates whether an interrupt is pending

@@ -63,8 +63,8 @@ impl Emulator {
     }
 
     fn step(&mut self) {
-        let cycles = self.cpu.step(&mut self.bus);
-        self.bus.step(cycles);
+        let t_cycles = self.cpu.step(&mut self.bus);
+        self.bus.step(t_cycles);
         interrupt::handle(&mut self.cpu, &mut self.bus);
     }
 

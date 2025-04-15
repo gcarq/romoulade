@@ -124,7 +124,9 @@ impl Cartridge {
     /// Creates a new Cartridge from the given Path
     pub fn from_path(path: &Path) -> GBResult<Self> {
         let buffer = fs::read(path)?;
-        verify_checksum(&buffer)?;
+        if let Err(msg) = verify_checksum(&buffer) {
+            eprintln!("WARNING: {}", msg);
+        }
         Ok(Self {
             header: CartridgeHeader::try_from(buffer.as_slice())?,
             rom: buffer,

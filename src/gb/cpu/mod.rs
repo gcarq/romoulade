@@ -7,6 +7,7 @@ use crate::gb::cpu::misc::{
 };
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::timer::Clock;
+use crate::gb::timer::Cycles::M;
 use crate::gb::utils;
 use registers::Registers;
 
@@ -16,16 +17,22 @@ mod registers;
 #[cfg(test)]
 mod tests;
 
-/// Number of clock cycles per CPU cycle
-pub const CLOCKS_PER_CYCLE: u16 = 4;
+/// IME (Interrupt Master Enable) state. The EI instruction enables the interrupt
+/// after one machine cycle has passed which puts it on state `ImeState::Pending`.
+#[derive(Debug, PartialEq)]
+pub enum ImeState {
+    Disabled,
+    Pending,
+    Enabled,
+}
 
 /// Implements the CPU for the GB (DMG-01),
 /// the CPU is LR35902 which is a subset of i8080 & Z80.
 pub struct CPU {
-    pub r: Registers, // CPU registers
-    pub pc: u16,      // Program counter
-    pub sp: u16,      // Stack Pointer
-    pub ime: bool,    // Interrupt Master Enable
+    pub r: Registers,  // CPU registers
+    pub pc: u16,       // Program counter
+    pub sp: u16,       // Stack Pointer
+    pub ime: ImeState, // Interrupt Master Enable
     pub is_halted: bool,
 
     pub clock: Clock,
@@ -37,7 +44,7 @@ impl Default for CPU {
             r: Registers::default(),
             pc: 0,
             sp: 0,
-            ime: true,
+            ime: ImeState::Enabled,
             is_halted: false,
             clock: Clock::default(),
         }
@@ -50,8 +57,8 @@ impl CPU {
     pub fn step<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
         self.clock.reset();
         if self.is_halted {
-            self.clock.advance(4);
-            return self.clock.ticks();
+            self.advance_clock(1);
+            return self.clock.t_cycles();
         }
 
         self.sanity_check(self.pc);
@@ -70,7 +77,17 @@ impl CPU {
                 panic!("Unresolved instruction: {}.\nHALTED!", description);
             }
         };
-        self.clock.ticks()
+        self.clock.t_cycles()
+    }
+
+    /// Advances the internal clock by the given number of machine cycles,
+    /// also sets the IME state from `Pending` to `Enabled` if one machine cycle has passed.
+    #[inline]
+    fn advance_clock(&mut self, m_cycles: u16) {
+        if m_cycles > self.clock.m_cycles() && self.ime == ImeState::Pending {
+            self.ime = ImeState::Enabled;
+        }
+        self.clock.advance(M(m_cycles));
     }
 
     /// Executes the given instruction, advances the internal clock
@@ -88,10 +105,10 @@ impl CPU {
             Instruction::CP(source) => self.handle_cp(source, bus),
             Instruction::CPL => self.handle_cpl(),
             Instruction::DAA => self.handle_daa(),
-            Instruction::DI => self.handle_interrupt(false),
+            Instruction::DI => self.handle_interrupt(ImeState::Disabled),
             Instruction::DEC(target) => self.handle_dec_byte(target, bus),
             Instruction::DEC2(target) => self.handle_dec_word(target),
-            Instruction::EI => self.handle_interrupt(true),
+            Instruction::EI => self.handle_interrupt(ImeState::Pending),
             Instruction::HALT => self.handle_halt(),
             Instruction::INC(target) => self.handle_inc_byte(target, bus),
             Instruction::INC2(target) => self.handle_inc_word(target),
@@ -192,8 +209,8 @@ impl CPU {
         self.r.a = new_value;
 
         match source {
-            ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            ByteSource::D8 | ByteSource::HLI => self.advance_clock(2),
+            _ => self.advance_clock(1),
         }
 
         self.pc.wrapping_add(1)
@@ -211,7 +228,7 @@ impl CPU {
         self.r.f.set(FlagsRegister::CARRY, overflow);
         self.r.set_hl(result);
 
-        self.clock.advance(CLOCKS_PER_CYCLE * 2);
+        self.advance_clock(2);
         self.pc.wrapping_add(1)
     }
 
@@ -226,7 +243,7 @@ impl CPU {
         let half_carry = (sp ^ byte ^ result) & 0x10 != 0;
         let carry = (sp ^ byte ^ result) & 0x100 != 0;
         self.r.f.update(false, false, half_carry, carry);
-        self.clock.advance(CLOCKS_PER_CYCLE * 4);
+        self.advance_clock(4);
         self.pc.wrapping_add(1)
     }
 
@@ -247,8 +264,8 @@ impl CPU {
         self.r.a = result;
 
         match source {
-            ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            ByteSource::D8 | ByteSource::HLI => self.advance_clock(2),
+            _ => self.advance_clock(1),
         }
         self.pc.wrapping_add(1)
     }
@@ -259,8 +276,8 @@ impl CPU {
         self.r.a &= value;
         self.r.f.update(self.r.a == 0, false, true, false);
         match source {
-            ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            ByteSource::D8 | ByteSource::HLI => self.advance_clock(2),
+            _ => self.advance_clock(1),
         }
         self.pc.wrapping_add(1)
     }
@@ -274,8 +291,8 @@ impl CPU {
         self.r.f.remove(FlagsRegister::SUBTRACTION);
         self.r.f.insert(FlagsRegister::HALF_CARRY);
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -285,11 +302,11 @@ impl CPU {
         let should_jump = test.resolve(self);
         let next_pc = self.pc.wrapping_add(3);
         if should_jump {
-            self.clock.advance(CLOCKS_PER_CYCLE * 6);
+            self.advance_clock(6);
             self.push(next_pc, bus);
             self.consume_word(bus)
         } else {
-            self.clock.advance(CLOCKS_PER_CYCLE * 3);
+            self.advance_clock(3);
             next_pc
         }
     }
@@ -300,7 +317,7 @@ impl CPU {
         self.r.f.remove(FlagsRegister::SUBTRACTION);
         self.r.f.remove(FlagsRegister::HALF_CARRY);
         self.r.f.toggle(FlagsRegister::CARRY);
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -318,8 +335,8 @@ impl CPU {
         self.r.f.insert(FlagsRegister::SUBTRACTION);
 
         match source {
-            ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            ByteSource::D8 | ByteSource::HLI => self.advance_clock(2),
+            _ => self.advance_clock(1),
         }
 
         self.pc.wrapping_add(1)
@@ -331,7 +348,7 @@ impl CPU {
         self.r.a = !self.r.a;
         self.r.f.insert(FlagsRegister::SUBTRACTION);
         self.r.f.insert(FlagsRegister::HALF_CARRY);
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -356,7 +373,7 @@ impl CPU {
         self.r.f.set(FlagsRegister::ZERO, self.r.a == 0);
         self.r.f.remove(FlagsRegister::HALF_CARRY);
 
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -371,8 +388,8 @@ impl CPU {
         self.r.f.set(FlagsRegister::ZERO, result == 0);
         self.r.f.insert(FlagsRegister::SUBTRACTION);
         match target {
-            IncDecByteTarget::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 3),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            IncDecByteTarget::HLI => self.advance_clock(3),
+            _ => self.advance_clock(1),
         }
         self.pc.wrapping_add(1)
     }
@@ -382,7 +399,7 @@ impl CPU {
         let value = target.read(self);
         let result = value.wrapping_sub(1);
         target.write(self, result);
-        self.clock.advance(CLOCKS_PER_CYCLE * 2);
+        self.advance_clock(2);
         self.pc.wrapping_add(1)
     }
 
@@ -390,7 +407,7 @@ impl CPU {
     #[inline]
     fn handle_halt(&mut self) -> u16 {
         self.is_halted = true;
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -405,8 +422,8 @@ impl CPU {
         self.r.f.set(FlagsRegister::ZERO, result == 0);
         self.r.f.remove(FlagsRegister::SUBTRACTION);
         match target {
-            IncDecByteTarget::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 3),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            IncDecByteTarget::HLI => self.advance_clock(3),
+            _ => self.advance_clock(1),
         }
         self.pc.wrapping_add(1)
     }
@@ -416,15 +433,15 @@ impl CPU {
         let value = target.read(self);
         let result = value.wrapping_add(1);
         target.write(self, result);
-        self.clock.advance(CLOCKS_PER_CYCLE * 2);
+        self.advance_clock(2);
         self.pc.wrapping_add(1)
     }
 
     /// Handles EI and DI instructions
     #[inline]
-    fn handle_interrupt(&mut self, enable: bool) -> u16 {
-        self.ime = enable;
-        self.clock.advance(CLOCKS_PER_CYCLE);
+    fn handle_interrupt(&mut self, state: ImeState) -> u16 {
+        self.advance_clock(1);
+        self.ime = state;
         self.pc.wrapping_add(1)
     }
 
@@ -433,11 +450,11 @@ impl CPU {
         let should_jump = test.resolve(self);
 
         if should_jump {
-            self.clock.advance(CLOCKS_PER_CYCLE * 4);
+            self.advance_clock(4);
             let offset = self.consume_byte(bus) as i8;
             (self.pc as i16).wrapping_add(1).wrapping_add(offset as i16) as u16
         } else {
-            self.clock.advance(CLOCKS_PER_CYCLE * 3);
+            self.advance_clock(3);
             // If we don't jump we need to still move the program
             // counter forward by 2 since the rel jump instruction is
             // 2 bytes wide (1 byte for tag and 1 bytes for jump address)
@@ -450,14 +467,14 @@ impl CPU {
         let should_jump = test.resolve(self);
 
         if should_jump {
-            self.clock.advance(CLOCKS_PER_CYCLE * 4);
+            self.advance_clock(4);
             return match source {
                 WordSource::HL => self.r.get_hl(),
                 WordSource::D16 => self.consume_word(bus),
                 _ => unimplemented!(),
             };
         }
-        self.clock.advance(CLOCKS_PER_CYCLE * 3);
+        self.advance_clock(3);
         // If we don't jump we need to still move the program
         // counter forward by 3 since the jump instruction is
         // 3 bytes wide (1 byte for tag and 2 bytes for jump address)
@@ -483,8 +500,8 @@ impl CPU {
                 }
 
                 match source {
-                    ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-                    _ => self.clock.advance(CLOCKS_PER_CYCLE),
+                    ByteSource::D8 | ByteSource::HLI => self.advance_clock(2),
+                    _ => self.advance_clock(1),
                 }
 
                 self.pc.wrapping_add(1)
@@ -498,7 +515,7 @@ impl CPU {
                     LoadWordTarget::SP => self.sp = value,
                     _ => unimplemented!(),
                 }
-                self.clock.advance(CLOCKS_PER_CYCLE * 3);
+                self.advance_clock(3);
                 self.pc.wrapping_add(1)
             }
             Load::IndirectFrom(target, source) => {
@@ -509,17 +526,17 @@ impl CPU {
                     LoadByteTarget::D16I => self.consume_word(bus),
                     LoadByteTarget::HLI => self.r.get_hl(),
                     LoadByteTarget::CIFF00 => {
-                        self.clock.advance(8);
+                        self.advance_clock(2);
                         u16::from(self.r.c) | 0xFF00
                     }
                     LoadByteTarget::D8IFF00 => {
-                        self.clock.advance(4);
+                        self.advance_clock(1);
                         u16::from(self.consume_byte(bus)) | 0xFF00
                     }
                     _ => unimplemented!(),
                 };
                 bus.write(addr, value);
-                self.clock.advance(CLOCKS_PER_CYCLE * 2);
+                self.advance_clock(2);
                 self.pc.wrapping_add(1)
             }
             Load::IndirectFromAInc(target) => {
@@ -533,7 +550,7 @@ impl CPU {
                     _ => unimplemented!(),
                 }
 
-                self.clock.advance(CLOCKS_PER_CYCLE * 2);
+                self.advance_clock(2);
                 self.pc.wrapping_add(1)
             }
             Load::IndirectFromADec(target) => {
@@ -546,7 +563,7 @@ impl CPU {
                     LoadByteTarget::HLI => self.r.set_hl(addr.wrapping_sub(1)),
                     _ => unimplemented!(),
                 }
-                self.clock.advance(CLOCKS_PER_CYCLE * 2);
+                self.advance_clock(2);
                 self.pc.wrapping_add(1)
             }
             Load::IndirectFromWord(target, source) => {
@@ -559,7 +576,7 @@ impl CPU {
                     }
                     _ => unimplemented!(),
                 };
-                self.clock.advance(CLOCKS_PER_CYCLE * 4);
+                self.advance_clock(4);
                 self.pc.wrapping_add(1)
             }
             Load::FromIndirectAInc(source) => {
@@ -569,7 +586,7 @@ impl CPU {
                     _ => unimplemented!(),
                 }
 
-                self.clock.advance(CLOCKS_PER_CYCLE * 2);
+                self.advance_clock(2);
                 self.pc.wrapping_add(1)
             }
             Load::FromIndirectADec(source) => {
@@ -579,7 +596,7 @@ impl CPU {
                     _ => unimplemented!(),
                 }
 
-                self.clock.advance(CLOCKS_PER_CYCLE * 2);
+                self.advance_clock(2);
                 self.pc.wrapping_add(1)
             }
             Load::IndirectFromSPi8(target) => {
@@ -597,7 +614,7 @@ impl CPU {
                     LoadWordTarget::HL => self.r.set_hl(result as u16),
                     _ => unimplemented!(),
                 };
-                self.clock.advance(CLOCKS_PER_CYCLE * 5);
+                self.advance_clock(5);
                 self.pc.wrapping_add(1)
             }
         }
@@ -606,7 +623,7 @@ impl CPU {
     /// Handles NOP instruction
     #[inline]
     fn handle_nop(&mut self) -> u16 {
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -617,8 +634,8 @@ impl CPU {
         self.r.f.update(self.r.a == 0, false, false, false);
 
         match source {
-            ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            ByteSource::D8 | ByteSource::HLI => self.advance_clock(2),
+            _ => self.advance_clock(1),
         }
         self.pc.wrapping_add(1)
     }
@@ -632,7 +649,7 @@ impl CPU {
             StackTarget::DE => self.r.set_de(result),
             StackTarget::HL => self.r.set_hl(result),
         };
-        self.clock.advance(CLOCKS_PER_CYCLE * 3);
+        self.advance_clock(3);
         self.pc.wrapping_add(1)
     }
 
@@ -645,7 +662,7 @@ impl CPU {
             StackTarget::HL => self.r.get_hl(),
         };
         self.push(value, bus);
-        self.clock.advance(CLOCKS_PER_CYCLE * 4);
+        self.advance_clock(4);
         self.pc.wrapping_add(1)
     }
 
@@ -656,8 +673,8 @@ impl CPU {
         source.write(self, bus, result);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -667,13 +684,13 @@ impl CPU {
         let should_jump = test.resolve(self);
 
         let cycles = if test == JumpTest::Always {
-            CLOCKS_PER_CYCLE * 4
+            4
         } else if should_jump {
-            CLOCKS_PER_CYCLE * 5
+            5
         } else {
-            CLOCKS_PER_CYCLE * 2
+            2
         };
-        self.clock.advance(cycles);
+        self.advance_clock(cycles);
 
         if should_jump {
             self.pop(bus)
@@ -684,8 +701,8 @@ impl CPU {
 
     /// Handles RETI instruction
     fn handle_reti<T: AddressSpace>(&mut self, bus: &T) -> u16 {
-        self.clock.advance(CLOCKS_PER_CYCLE * 4);
-        self.ime = true;
+        self.advance_clock(4);
+        self.ime = ImeState::Enabled;
         self.pop(bus)
     }
 
@@ -699,8 +716,8 @@ impl CPU {
         source.write(self, bus, result);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -712,7 +729,7 @@ impl CPU {
         let new_carry = (self.r.a >> 7) != 0;
         self.r.a = (self.r.a << 1) | self.r.f.contains(FlagsRegister::CARRY) as u8;
         self.r.f.update(false, false, false, new_carry);
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -726,8 +743,8 @@ impl CPU {
         source.write(self, bus, result);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -738,7 +755,7 @@ impl CPU {
         let carry = self.r.a & 0x80 != 0;
         self.r.a = (self.r.a << 1) | carry as u8;
         self.r.f.update(false, false, false, carry);
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -751,8 +768,8 @@ impl CPU {
         self.r.f.update(result == 0, false, false, carry);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -763,7 +780,7 @@ impl CPU {
         let carry = self.r.a & 0x01 != 0;
         self.r.a = (self.r.a >> 1) | (u8::from(self.r.f.contains(FlagsRegister::CARRY)) << 7);
         self.r.f.update(false, false, false, carry);
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -777,8 +794,8 @@ impl CPU {
         source.write(self, bus, result);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -789,14 +806,14 @@ impl CPU {
         let carry = self.r.a & 0x01;
         self.r.a = (self.r.a >> 1) | (carry << 7);
         self.r.f.update(false, false, false, carry != 0);
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
     /// Handles RST instructions
     #[inline]
     fn handle_rst<T: AddressSpace>(&mut self, code: ResetCode, bus: &mut T) -> u16 {
-        self.clock.advance(CLOCKS_PER_CYCLE * 6);
+        self.advance_clock(6);
         self.push(self.pc.wrapping_add(1), bus);
         code as u16
     }
@@ -816,8 +833,8 @@ impl CPU {
             result & 0x100 != 0,
         );
         match source {
-            ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            ByteSource::D8 | ByteSource::HLI => self.advance_clock(2),
+            _ => self.advance_clock(1),
         }
         self.pc.wrapping_add(1)
     }
@@ -828,7 +845,7 @@ impl CPU {
         self.r.f.remove(FlagsRegister::SUBTRACTION);
         self.r.f.remove(FlagsRegister::HALF_CARRY);
         self.r.f.insert(FlagsRegister::CARRY);
-        self.clock.advance(CLOCKS_PER_CYCLE);
+        self.advance_clock(1);
         self.pc.wrapping_add(1)
     }
 
@@ -839,8 +856,8 @@ impl CPU {
         source.write(self, bus, result);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -854,8 +871,8 @@ impl CPU {
         source.write(self, bus, result);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -869,8 +886,8 @@ impl CPU {
         source.write(self, bus, result);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -884,8 +901,8 @@ impl CPU {
         self.r.f.update(result == 0, false, false, carry);
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -893,7 +910,7 @@ impl CPU {
     /// Handles STOP instruction
     fn handle_stop(&mut self) -> u16 {
         todo!("STOP is not implemented");
-        self.clock.advance(4);
+        self.advance_clock(1);
         self.pc.wrapping_add(2)
     }
 
@@ -909,8 +926,8 @@ impl CPU {
         self.r.f.update(result == 0, true, half_carry, carry);
         self.r.a = result as u8;
         match source {
-            ByteSource::HLI | ByteSource::D8 => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            ByteSource::HLI | ByteSource::D8 => self.advance_clock(2),
+            _ => self.advance_clock(1),
         }
 
         self.pc.wrapping_add(1)
@@ -923,8 +940,8 @@ impl CPU {
         source.write(self, bus, value.rotate_right(4));
 
         match source {
-            ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 4),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE * 2),
+            ByteSource::HLI => self.advance_clock(4),
+            _ => self.advance_clock(2),
         }
         self.pc.wrapping_add(2)
     }
@@ -935,8 +952,8 @@ impl CPU {
         self.r.a ^= value;
         self.r.f.update(self.r.a == 0, false, false, false);
         match source {
-            ByteSource::D8 | ByteSource::HLI => self.clock.advance(CLOCKS_PER_CYCLE * 2),
-            _ => self.clock.advance(CLOCKS_PER_CYCLE),
+            ByteSource::D8 | ByteSource::HLI => self.advance_clock(2),
+            _ => self.advance_clock(1),
         }
 
         self.pc.wrapping_add(1)

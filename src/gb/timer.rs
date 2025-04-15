@@ -1,5 +1,8 @@
 use crate::gb::utils::set_bit;
 
+/// Number of t-cycles per m-cycle
+pub const M_CLOCK_MULTIPLIER: u16 = 4;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Frequency {
     Hz4096,
@@ -68,14 +71,14 @@ impl Timer {
         }
     }
 
-    pub fn step(&mut self, cycles: u16) -> bool {
+    pub fn step(&mut self, t_cycles: u16) -> bool {
         if !self.on {
             return false;
         }
 
         let mut irq = false;
 
-        self.cycles += cycles;
+        self.cycles += t_cycles;
         let cycles_per_tick = self.frequency.as_cycles();
         while self.cycles >= cycles_per_tick {
             self.cycles -= cycles_per_tick;
@@ -111,26 +114,42 @@ impl Timer {
     }
 }
 
+/// An m-cycle is made up of 4 t-cycles.
+/// Where t-cycles are clocked at a rate of ~4.19MHz.
+pub enum Cycles {
+    M(u16),
+    T(u16),
+}
+
 /// Represents the internal Clock which
 /// can be used for each processing unit.
 #[derive(Default)]
 pub struct Clock {
-    t_cycle: u16,
+    t_cycles: u16,
 }
 
 impl Clock {
     #[inline]
-    pub fn advance(&mut self, cycles: u16) {
-        self.t_cycle = self.t_cycle.wrapping_add(cycles);
+    pub fn advance(&mut self, cycles: Cycles) {
+        let t_cycles = match cycles {
+            Cycles::M(c) => c * M_CLOCK_MULTIPLIER,
+            Cycles::T(c) => c,
+        };
+        self.t_cycles = self.t_cycles.wrapping_add(t_cycles);
     }
 
     #[inline]
-    pub fn ticks(&self) -> u16 {
-        self.t_cycle
+    pub fn t_cycles(&self) -> u16 {
+        self.t_cycles
+    }
+
+    #[inline]
+    pub fn m_cycles(&self) -> u16 {
+        self.t_cycles / M_CLOCK_MULTIPLIER
     }
 
     #[inline]
     pub fn reset(&mut self) {
-        self.t_cycle = 0;
+        self.t_cycles = 0;
     }
 }
