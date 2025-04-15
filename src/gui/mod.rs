@@ -46,7 +46,10 @@ impl Romoulade {
             frontend.shutdown();
         }
 
-        let path = match rfd::FileDialog::new().pick_file() {
+        let path = match rfd::FileDialog::new()
+            .add_filter("Game Boy ROM", &["gb"])
+            .pick_file()
+        {
             Some(path) => path,
             None => return,
         };
