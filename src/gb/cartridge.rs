@@ -40,7 +40,7 @@ const CARTRIDGE_HEADER_CHECKSUM: u16 = 0x014D;
 const CARTRIDGE_GLOBAL_CHECKSUM1: u16 = 0x014E;
 const CARTRIDGE_GLOBAL_CHECKSUM2: u16 = 0x014F;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone)]
 #[repr(u8)]
 /// TODO: implement remaining modes including RAM banking
 pub enum BankingMode {
@@ -62,6 +62,16 @@ impl TryFrom<u8> for BankingMode {
             _ => return Err(format!("Cartridge type {:#04X} not implemented", value).into()),
         };
         Ok(mode)
+    }
+}
+
+impl fmt::Display for BankingMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BankingMode::None => write!(f, "ROM Only"),
+            BankingMode::MBC1 => write!(f, "MBC1"),
+            BankingMode::MBC2 => write!(f, "MBC2"),
+        }
     }
 }
 
@@ -98,18 +108,14 @@ impl CartridgeHeader {
 
 impl fmt::Display for CartridgeHeader {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Title: {} (banking: {:?}, cgb_flag: {:#04X})",
-            self.title, self.banking, self.cgb_flag
-        )
+        write!(f, "{} (MBCs: {})", self.title, self.banking)
     }
 }
 
 /// Contains all data for a cartridge
 #[derive(Clone)]
 pub struct Cartridge {
-    pub header: CartridgeHeader,
+    header: CartridgeHeader,
     rom: Vec<u8>,
     ram: [u8; CRAM_SIZE * 4],
     cur_rom_bank: u8,
@@ -125,7 +131,7 @@ impl Cartridge {
     pub fn from_path(path: &Path) -> GBResult<Self> {
         let buffer = fs::read(path)?;
         if let Err(msg) = verify_checksum(&buffer) {
-            eprintln!("WARNING: {}", msg);
+            eprintln!("WARNING: {msg}");
         }
         Ok(Self {
             header: CartridgeHeader::try_from(buffer.as_slice())?,
@@ -234,6 +240,12 @@ impl Cartridge {
     }
 }
 
+impl fmt::Display for Cartridge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.header)
+    }
+}
+
 impl AddressSpace for Cartridge {
     fn write(&mut self, address: u16, value: u8) {
         match address {
@@ -246,7 +258,7 @@ impl AddressSpace for Cartridge {
         }
     }
 
-    fn read(&self, address: u16) -> u8 {
+    fn read(&mut self, address: u16) -> u8 {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_0_END => self.rom[(address - ROM_BANK_0_BEGIN) as usize],
             ROM_BANK_N_BEGIN..=ROM_BANK_N_END => {

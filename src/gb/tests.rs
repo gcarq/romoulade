@@ -1,6 +1,6 @@
 use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{ActionInput, DPadInput, Joypad, JoypadInput};
-use crate::gb::timer::{Frequency, Timer};
+use crate::gb::timer::{Timer, TimerControl};
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
 
 #[test]
@@ -159,39 +159,35 @@ fn test_half_carry_u8_false() {
 }
 
 #[test]
-fn test_timer_ctrl_read() {
-    let mut timer = Timer::new(Frequency::Hz4096);
-    assert_eq!(timer.read_control(), 0b1111_1000);
+fn test_timer_counter() {
+    let mut int_reg = InterruptRegister::empty();
+    let mut timer = Timer::default();
+    timer.control = TimerControl::from_bits_truncate(0b0000_0101);
+    timer.divider = 0b0001_0111;
+    assert!(timer.control.is_enabled());
 
-    timer.on = true;
-    timer.frequency = Frequency::Hz16384;
-    assert_eq!(timer.read_control(), 0b1111_1111);
-
-    timer.frequency = Frequency::Hz65536;
-    assert_eq!(timer.read_control(), 0b1111_1110);
-
-    timer.frequency = Frequency::Hz262144;
-    assert_eq!(timer.read_control(), 0b1111_1101);
+    timer.step(&mut int_reg);
+    assert_eq!(timer.divider, 0b0001_1000);
+    assert_eq!(timer.counter, 0b0000_0001);
+    assert!(!int_reg.contains(InterruptRegister::TIMER));
 }
 
 #[test]
-fn test_timer_ctrl_write() {
-    let mut timer = Timer::new(Frequency::Hz4096);
-    timer.write_control(0b0000_0000);
-    assert_eq!(timer.on, false);
-    assert_eq!(timer.frequency, Frequency::Hz4096);
+fn test_timer_counter_overflow() {
+    let mut int_reg = InterruptRegister::empty();
+    let mut timer = Timer::default();
+    timer.control = TimerControl::from_bits_truncate(0b0000_0101);
+    timer.divider = 0b0001_0011;
+    timer.counter = 0b1111_1111;
 
-    timer.write_control(0b0000_0101);
-    assert_eq!(timer.on, true);
-    assert_eq!(timer.frequency, Frequency::Hz262144);
+    // Simulate a timer overflow, the interrupt shouldn't be fired immediately
+    timer.step(&mut int_reg);
+    assert_eq!(timer.counter, 0b0000_0000);
+    assert!(!int_reg.contains(InterruptRegister::TIMER));
 
-    timer.write_control(0b0000_0110);
-    assert_eq!(timer.on, true);
-    assert_eq!(timer.frequency, Frequency::Hz65536);
-
-    timer.write_control(0b0000_0011);
-    assert_eq!(timer.on, false);
-    assert_eq!(timer.frequency, Frequency::Hz16384);
+    timer.step(&mut int_reg);
+    assert_eq!(timer.counter, 0b0000_0000);
+    assert!(int_reg.contains(InterruptRegister::TIMER));
 }
 
 #[test]

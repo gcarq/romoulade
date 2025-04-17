@@ -1,157 +1,150 @@
-use crate::gb::utils::set_bit;
+use crate::gb::AddressSpace;
+use crate::gb::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
+use crate::gb::interrupt::InterruptRegister;
 
 /// Number of t-cycles per m-cycle
 pub const M_CLOCK_MULTIPLIER: u16 = 4;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Frequency {
-    Hz4096,
-    Hz16384,
-    Hz65536,
-    Hz262144,
-}
-
-impl Frequency {
-    /// Returns the number of CPU cycles for the given frequency.
-    /// This is equal to the number of cpu cycles per second (4194304)
-    /// divided by the timer frequency.
-    #[inline]
-    pub fn as_cycles(&self) -> u16 {
-        match self {
-            Frequency::Hz4096 => 1024,
-            Frequency::Hz16384 => 256,
-            Frequency::Hz65536 => 64,
-            Frequency::Hz262144 => 16,
-        }
+bitflags! {
+    /// Represents the control register TAC at 0xFF07
+    #[derive(Copy, Clone, PartialEq)]
+    pub struct TimerControl: u8 {
+        const TIMER_FREQ   = 0b0000_0011; // Frequency select
+        const TIMER_ENABLE = 0b0000_0100; // Enable timer
     }
 }
 
-impl From<u8> for Frequency {
+impl TimerControl {
+    /// Returns the counter mask used for edge detection.
     #[inline]
-    fn from(value: u8) -> Self {
-        match value & 0b11 {
-            0b00 => Frequency::Hz4096,
-            0b01 => Frequency::Hz262144,
-            0b10 => Frequency::Hz65536,
-            0b11 => Frequency::Hz16384,
+    pub fn divider_mask(&self) -> u16 {
+        match self.bits() & Self::TIMER_FREQ.bits() {
+            0b00 => 1 << 7, // 4096 Hz
+            0b01 => 1 << 1, // 262144 Hz
+            0b10 => 1 << 3, // 65536 Hz
+            0b11 => 1 << 5, // 16384 Hz
             _ => unreachable!(),
         }
     }
-}
 
-impl From<Frequency> for u8 {
+    /// Returns whether the timer is enabled.
     #[inline]
-    fn from(value: Frequency) -> Self {
-        match value {
-            Frequency::Hz4096 => 0b00,
-            Frequency::Hz262144 => 0b01,
-            Frequency::Hz65536 => 0b10,
-            Frequency::Hz16384 => 0b11,
-        }
+    pub fn is_enabled(&self) -> bool {
+        self.contains(Self::TIMER_ENABLE)
     }
 }
 
+/// This struct holds all timer related registers.
+/// See https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
 pub struct Timer {
-    pub frequency: Frequency,
-    cycles: u16,
-    pub value: u8,
-    pub modulo: u8,
-    pub on: bool,
+    pub divider: u16, // DIV, this is an 16-bit register, but only the upper 8 bits are mapped to memory
+    pub counter: u8,  // TIMA
+    pub modulo: u8,   // TMA
+    pub control: TimerControl, // TAC
+    counter_overflow: bool, // Indicates whether the counter overflowed during the last cycle
+}
+
+impl Default for Timer {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            divider: 0,
+            counter: 0,
+            modulo: 0,
+            control: TimerControl::empty(),
+            counter_overflow: false,
+        }
+    }
 }
 
 impl Timer {
-    #[inline]
-    pub fn new(frequency: Frequency) -> Self {
-        Self {
-            frequency,
-            cycles: 0,
-            value: 0,
-            modulo: 0,
-            on: false,
-        }
-    }
+    /// Steps the timer by the given number of cycles.
+    pub fn step(&mut self, int_flag: &mut InterruptRegister) {
+        let prev_divider = self.divider;
+        self.divider = self.divider.wrapping_add(1);
 
-    pub fn step(&mut self, t_cycles: u16) -> bool {
-        if !self.on {
-            return false;
-        }
-
-        let mut irq = false;
-
-        self.cycles += t_cycles;
-        let cycles_per_tick = self.frequency.as_cycles();
-        while self.cycles >= cycles_per_tick {
-            self.cycles -= cycles_per_tick;
-
-            let (counter, overflow) = match self.value.checked_add(1) {
-                Some(counter) => (counter, false),
-                None => (self.modulo, true),
-            };
-
-            self.value = counter;
-            if overflow {
-                irq = true
+        // Handle TIMA overflow
+        if self.counter_overflow {
+            self.counter = self.modulo;
+            self.counter_overflow = false;
+            int_flag.insert(InterruptRegister::TIMER);
+        } else if self.control.is_enabled() {
+            // Detect falling edge
+            if self.edge_bit(prev_divider) && !self.edge_bit(self.divider) {
+                self.increment_counter();
             }
         }
-        irq
     }
 
-    /// Sets the frequency and the on/off state of the timer
-    /// based on the given value.
+    /// Returns the current state of the divider bit for the selected frequency.
     #[inline]
-    pub fn write_control(&mut self, value: u8) {
-        self.frequency = Frequency::from(value);
-        self.on = (value & 0b100) == 0b100;
+    fn edge_bit(&self, divider: u16) -> bool {
+        (divider & self.control.divider_mask()) != 0
     }
 
-    /// Returns the current control state of the timer
-    /// when read from the TAC register.
+    /// Increments the counter and handles overflow.
     #[inline]
-    pub fn read_control(&self) -> u8 {
-        let state = u8::from(self.frequency);
-        let state = set_bit(state, 2, self.on);
-        state | 0b1111_1000 // Undocumented bits should be 1
+    fn increment_counter(&mut self) {
+        let (counter, overflow) = self.counter.overflowing_add(1);
+        self.counter = counter;
+        self.counter_overflow = overflow;
     }
-}
 
-/// An m-cycle is made up of 4 t-cycles.
-/// Where t-cycles are clocked at a rate of ~4.19MHz.
-pub enum Cycles {
-    M(u16),
-    T(u16),
-}
-
-impl Cycles {
-    /// Returns the number of t-cycles.
+    /// Writes a value to the divider (DIV).
     #[inline]
-    pub fn as_t_cycles(&self) -> u16 {
-        match self {
-            Cycles::M(c) => c * M_CLOCK_MULTIPLIER,
-            Cycles::T(c) => *c,
+    fn write_divider(&mut self) {
+        if self.edge_bit(self.divider) {
+            self.increment_counter();
+        }
+        self.divider = 0;
+    }
+
+    /// Writes a value to the counter (TIMA).
+    #[inline]
+    fn write_counter(&mut self, value: u8) {
+        if !self.counter_overflow {
+            self.counter = value;
+        }
+    }
+
+    /// Writes a value to the modulo (TMA).
+    #[inline]
+    fn write_modulo(&mut self, value: u8) {
+        self.modulo = value;
+        if self.counter_overflow {
+            self.counter = value;
+        }
+    }
+
+    /// Writes a value to the control register (TAC).
+    fn write_control(&mut self, value: u8) {
+        let old_bit = self.control.is_enabled() && self.edge_bit(self.divider);
+        self.control = TimerControl::from_bits_truncate(value);
+        let new_bit = self.control.is_enabled() && self.edge_bit(self.divider);
+        if old_bit && !new_bit {
+            self.increment_counter();
         }
     }
 }
 
-/// Represents the internal Clock which
-/// can be used for each processing unit.
-#[derive(Default)]
-pub struct Clock {
-    t_cycles: u16,
-}
-
-impl Clock {
-    #[inline]
-    pub fn advance(&mut self, cycles: Cycles) {
-        self.t_cycles = self.t_cycles.wrapping_add(cycles.as_t_cycles());
+impl AddressSpace for Timer {
+    fn write(&mut self, address: u16, value: u8) {
+        match address {
+            TIMER_DIVIDER => self.write_divider(),
+            TIMER_COUNTER => self.write_counter(value),
+            TIMER_MODULO => self.write_modulo(value),
+            TIMER_CTRL => self.write_control(value),
+            _ => unreachable!(),
+        }
     }
 
-    #[inline]
-    pub fn t_cycles(&self) -> u16 {
-        self.t_cycles
-    }
-
-    #[inline]
-    pub fn reset(&mut self) {
-        self.t_cycles = 0;
+    fn read(&mut self, address: u16) -> u8 {
+        match address {
+            TIMER_DIVIDER => (self.divider >> 6) as u8, // Only the upper 8 bits are mapped to memory
+            TIMER_COUNTER => self.counter,
+            TIMER_MODULO => self.modulo,
+            TIMER_CTRL => self.control.bits() | 0b1111_1000, // Undocumented bits should be 1,
+            _ => unreachable!(),
+        }
     }
 }

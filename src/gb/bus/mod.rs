@@ -1,23 +1,24 @@
-use crate::gb::AddressSpace;
 use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
+use crate::gb::cpu::ImeState;
 use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{Joypad, JoypadInput};
 use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
-use crate::gb::timer::{Frequency, Timer};
+use crate::gb::timer::Timer;
+use crate::gb::{AddressSpace, HardwareContext};
 
 /// Defines a global Bus, all processing units should access memory through it.
 pub struct Bus {
     boot_rom_off: u8,
     audio_processor: AudioProcessor,
-    cartridge: Cartridge,
+    pub cartridge: Cartridge,
     timer: Timer,
-    divider: Timer,
     ppu: PPU,
     joypad: Joypad,
     pending_joypad_event: Option<JoypadInput>,
+    ime: ImeState, // Interrupt Master Enable
     pub interrupt_enable: InterruptRegister,
     pub interrupt_flag: InterruptRegister,
     wram: [u8; WRAM_SIZE],
@@ -27,32 +28,21 @@ pub struct Bus {
 
 impl Bus {
     pub fn new(cartridge: Cartridge, display: Display) -> Self {
-        let mut divider = Timer::new(Frequency::Hz16384);
-        divider.on = true;
-        divider.value = 0xAB;
         Self {
             boot_rom_off: 0,
             audio_processor: AudioProcessor::default(),
             cartridge,
-            divider,
             ppu: PPU::new(display),
             joypad: Joypad::default(),
             pending_joypad_event: None,
+            ime: ImeState::Enabled,
             interrupt_enable: InterruptRegister::empty(),
             interrupt_flag: InterruptRegister::empty(),
-            timer: Timer::new(Frequency::Hz4096),
+            timer: Timer::default(),
             wram: [0u8; WRAM_SIZE],
             eram: [0u8; ERAM_SIZE],
             hram: [0u8; HRAM_SIZE],
         }
-    }
-
-    pub fn step(&mut self, t_cycles: u16) {
-        self.ppu.step(&mut self.interrupt_flag, t_cycles);
-        if self.timer.step(t_cycles) {
-            self.interrupt_flag |= InterruptRegister::TIMER;
-        }
-        self.divider.step(t_cycles);
     }
 
     /// Indicates whether an interrupt is pending
@@ -70,7 +60,7 @@ impl Bus {
 
     /// Reads value from boot ROM or cartridge
     /// depending on BOOT_ROM_OFF register
-    fn read_cartridge(&self, address: u16) -> u8 {
+    fn read_cartridge(&mut self, address: u16) -> u8 {
         match address {
             BOOT_BEGIN..=BOOT_END if self.boot_rom_off == 0 => BOOT_ROM[address as usize],
             _ => self.cartridge.read(address),
@@ -102,20 +92,18 @@ impl Bus {
             // Whenever a ROM writes to this register we will handle the pending input events
             JOYPAD => {
                 if self.joypad.write(value, self.pending_joypad_event) {
-                    self.interrupt_flag |= InterruptRegister::JOYPAD;
+                    self.interrupt_flag.insert(InterruptRegister::JOYPAD);
                     self.pending_joypad_event = None;
                 }
             }
             SERIAL_TRANSFER_DATA => {} // TODO: implement me
             SERIAL_TRANSFER_CTRL => {} // TODO: implement me
-            0xFF03 => {}               // undocumented
+            // undocumented
+            0xFF03 => {}
             // Whenever a ROM writes to this register it will reset to 0
-            TIMER_DIVIDER => self.divider.value = 0x00,
-            TIMER_COUNTER => self.timer.value = value,
-            TIMER_MODULO => self.timer.modulo = value,
-            // Only the lower 3 bits are R/W
-            TIMER_CTRL => self.timer.write_control(value),
-            0xFF08..=0xFF0E => {} // undocumented
+            TIMER_DIVIDER..=TIMER_CTRL => self.timer.write(address, value),
+            // undocumented
+            0xFF08..=0xFF0E => {}
             INTERRUPT_FLAG => self.interrupt_flag = InterruptRegister::from_bits_retain(value),
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => {
                 self.audio_processor.write(address, value)
@@ -142,43 +130,53 @@ impl Bus {
     }
 
     /// Handles all reads from the I/O registers (0xFF00-0xFF7F)
-    fn read_io(&self, address: u16) -> u8 {
+    fn read_io(&mut self, address: u16) -> u8 {
         match address {
             JOYPAD => self.joypad.read(),
             SERIAL_TRANSFER_DATA => 0x00,        // TODO: implement me
             SERIAL_TRANSFER_CTRL => 0b0111_1110, // TODO: implement me
             0xFF03 => 0xFF,                      // undocumented
-            TIMER_DIVIDER => self.divider.value,
-            TIMER_COUNTER => self.timer.value,
-            TIMER_MODULO => self.timer.modulo,
-            TIMER_CTRL => self.timer.read_control(),
+            TIMER_DIVIDER..=TIMER_CTRL => self.timer.read(address),
             0xFF08..=0xFF0E => 0xFF, // undocumented
-            INTERRUPT_FLAG => self.interrupt_flag.bits() | 0b1110_0000, // Undocumented bits should be 1
+            // Undocumented bits should be 1
+            INTERRUPT_FLAG => self.interrupt_flag.bits() | 0b1110_0000,
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.audio_processor.read(address),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.read(address),
             0xFF4C => 0xFF,                   // only used in GBC mode
             CGB_PREPARE_SPEED_SWITCH => 0xFF, // only used in GBC mode
             0xFF4E => 0xFF,                   // undocumented
             0xFF4F => 0xFF,                   // only used in GBC mode
-            BOOT_ROM_OFF => 0xFF,             // When read, this register is always 0xFF
-            0xFF51..=0xFF56 => 0xFF,          // only used in GBC mode
-            0xFF57..=0xFF67 => 0xFF,          // undocumented
-            0xFF68..=0xFF6F => 0xFF,          // only used in GBC mode
-            CGB_WRAM_BANK => 0xFF,            // only used in GBC mode
-            0xFF71..=0xFF75 => 0xFF,          // undocumented
-            PCM_AMPLITUDES12 => 0xFF,         // only used in GBC mode
-            PCM_AMPLITUDES34 => 0xFF,         // only used in GBC mode
-            0xFF78..=0xFF7F => 0xFF,          // undocumented
+            // When read, this register is always 0xFF
+            BOOT_ROM_OFF => 0xFF,
+            0xFF51..=0xFF56 => 0xFF,  // only used in GBC mode
+            0xFF57..=0xFF67 => 0xFF,  // undocumented
+            0xFF68..=0xFF6F => 0xFF,  // only used in GBC mode
+            CGB_WRAM_BANK => 0xFF,    // only used in GBC mode
+            0xFF71..=0xFF75 => 0xFF,  // undocumented
+            PCM_AMPLITUDES12 => 0xFF, // only used in GBC mode
+            PCM_AMPLITUDES34 => 0xFF, // only used in GBC mode
+            0xFF78..=0xFF7F => 0xFF,  // undocumented
             _ => panic!(
                 "Attempt to read from unmapped I/O register: 0x{:X}",
                 address
             ),
         }
     }
+
+    /// This function is used to step all components.
+    #[inline]
+    fn cycle(&mut self) {
+        if self.ime == ImeState::Pending {
+            self.ime = ImeState::Enabled;
+        }
+        self.ppu.step(&mut self.interrupt_flag);
+        self.timer.step(&mut self.interrupt_flag);
+    }
 }
 
 impl AddressSpace for Bus {
     fn write(&mut self, address: u16, value: u8) {
+        self.cycle();
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.ppu.write(address, value),
@@ -193,7 +191,8 @@ impl AddressSpace for Bus {
         }
     }
 
-    fn read(&self, address: u16) -> u8 {
+    fn read(&mut self, address: u16) -> u8 {
+        self.cycle();
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.read_cartridge(address),
             VRAM_BEGIN..=VRAM_END => self.ppu.read(address),
@@ -206,5 +205,22 @@ impl AddressSpace for Bus {
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],
             INTERRUPT_ENABLE => self.interrupt_enable.bits(),
         }
+    }
+}
+
+impl HardwareContext for Bus {
+    #[inline]
+    fn set_ime(&mut self, ime: ImeState) {
+        self.ime = ime;
+    }
+
+    #[inline]
+    fn ime(&self) -> ImeState {
+        self.ime
+    }
+
+    #[inline]
+    fn tick(&mut self) {
+        self.cycle();
     }
 }

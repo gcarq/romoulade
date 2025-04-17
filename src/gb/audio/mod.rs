@@ -113,7 +113,7 @@ impl AddressSpace for AudioProcessor {
         }
     }
 
-    fn read(&self, address: u16) -> u8 {
+    fn read(&mut self, address: u16) -> u8 {
         let offset = (address - AUDIO_REGISTERS_START) as usize;
         match address {
             AUDIO_SOUND_CHANNEL_1_SWEEP => self.r[offset] | 0b1000_0000, // Undocumented bits should be 1

@@ -58,6 +58,7 @@ impl Registers {
 }
 
 impl Default for Registers {
+    #[inline]
     fn default() -> Self {
         Self {
             a: 0,
@@ -93,6 +94,7 @@ bitflags! {
 }
 
 impl FlagsRegister {
+    #[inline]
     pub fn update(&mut self, zero: bool, negative: bool, half_carry: bool, carry: bool) {
         self.set(FlagsRegister::ZERO, zero);
         self.set(FlagsRegister::SUBTRACTION, negative);

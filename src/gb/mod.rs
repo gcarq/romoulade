@@ -1,6 +1,6 @@
 use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
-use crate::gb::cpu::CPU;
+use crate::gb::cpu::{CPU, ImeState};
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
 use crate::gui::FrontendMessage;
@@ -29,10 +29,17 @@ pub const VERTICAL_BLANK_SCAN_LINE_MAX: u8 = 153;
 pub type GBResult<T> = Result<T, GBError>;
 pub type GBError = Box<dyn error::Error>;
 
+/// This trait defines a common interface to interact with the hardware context.
+pub trait HardwareContext {
+    fn set_ime(&mut self, ime: ImeState);
+    fn ime(&self) -> ImeState;
+    fn tick(&mut self);
+}
+
 /// This trait defines a common interface to interact with the memory bus.
 pub trait AddressSpace {
     fn write(&mut self, address: u16, value: u8);
-    fn read(&self, address: u16) -> u8;
+    fn read(&mut self, address: u16) -> u8;
 }
 
 pub enum EmulatorMessage {
@@ -64,8 +71,7 @@ impl Emulator {
 
     #[inline]
     fn step(&mut self) -> GBResult<()> {
-        let t_cycles = self.cpu.step(&mut self.bus)?;
-        self.bus.step(t_cycles);
+        self.cpu.step(&mut self.bus)?;
         interrupt::handle(&mut self.cpu, &mut self.bus);
         Ok(())
     }
@@ -81,6 +87,8 @@ impl Emulator {
     }
 
     pub fn run(&mut self) {
+        println!("Starting emulator...");
+        println!("Loaded ROM: {}", self.bus.cartridge);
         while self.is_running {
             // TODO: implement proper error handling
             self.step().expect("Unable to step CPU");

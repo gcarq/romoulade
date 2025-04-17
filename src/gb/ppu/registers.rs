@@ -1,4 +1,5 @@
 use crate::gb::ppu::misc::Palette;
+use crate::gb::ppu::{ACCESS_OAM_CYCLES, ACCESS_VRAM_CYCLES, HBLANK_CYCLES, VBLANK_LINE_CYCLES};
 
 /// Holds all PPU Registers
 #[derive(Copy, Clone)]
@@ -54,13 +55,13 @@ bitflags! {
     /// Represents PPU_STAT at 0xFF41
     #[derive(Copy, Clone)]
     pub struct LCDState: u8 {
-        const LCD_MODE1   = 0b00000001; // LCD Mode
-        const LCD_MODE2   = 0b00000010; // LCD Mode
-        const LYC_STAT    = 0b00000100; // LY Flag
-        const H_BLANK_INT = 0b00001000; // Mode 0 H-Blank Interrupt
-        const V_BLANK_INT = 0b00010000; // Mode 1 V-Blank Interrupt
-        const OAM_INT     = 0b00100000; // Mode 2 OAM Interrupt
-        const LY_INT      = 0b01000000; // LY Interrupt
+        const PPU_MODE1   = 0b00000001; // Indicates the PPUs current status
+        const PPU_MODE2   = 0b00000010; // Indicates the PPUs current status
+        const LYC_STAT    = 0b00000100; // Set when LY contains the same value as LYC
+        const H_BLANK_INT = 0b00001000; // Selects the Mode 0 for the STAT interrupt
+        const V_BLANK_INT = 0b00010000; // Selects the Mode 1 for the STAT interrupt
+        const OAM_INT     = 0b00100000; // Selects the Mode 2 for the STAT interrupt
+        const LY_INT      = 0b01000000; // selects the LYC == LY condition for the STAT interrupt
     }
 }
 
@@ -87,49 +88,63 @@ impl LCDControl {
 }
 
 impl LCDState {
-    /// Returns the `LCDMode` based on the first two bits of PPU_STAT.
+    /// Returns the `PPUMode` based on the first two bits of PPU_STAT.
     #[inline]
-    pub fn get_lcd_mode(&self) -> LCDMode {
-        LCDMode::from(self.bits() & 0b11)
+    pub fn ppu_mode(&self) -> PPUMode {
+        PPUMode::from(self.bits())
     }
 
-    /// Sets the first two bits of PPU_STAT to the given `LCDMode`.
+    /// Sets the first two bits of PPU_STAT to the given `PPUMode`.
     #[inline]
-    pub fn set_lcd_mode(&mut self, mode: LCDMode) {
+    pub fn set_ppu_mode(&mut self, mode: PPUMode) {
         *self = LCDState::from_bits_truncate((self.bits() & 0b11111100) | u8::from(mode));
     }
 }
 
 /// Represents the first two bits in LCDState for convenience.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum LCDMode {
+pub enum PPUMode {
     HBlank,     // 0b00
     VBlank,     // 0b01
     AccessOAM,  // 0b10
     AccessVRAM, // 0b11
 }
 
-impl From<LCDMode> for u8 {
+impl PPUMode {
+    /// Returns the number of cycles for the current mode.
+    /// TODO: handle timing offset of PPU_SCX
     #[inline]
-    fn from(value: LCDMode) -> u8 {
-        match value {
-            LCDMode::HBlank => 0b00,
-            LCDMode::VBlank => 0b01,
-            LCDMode::AccessOAM => 0b10,
-            LCDMode::AccessVRAM => 0b11,
+    pub fn cycles(&self) -> isize {
+        match self {
+            PPUMode::HBlank => HBLANK_CYCLES,
+            PPUMode::VBlank => VBLANK_LINE_CYCLES,
+            PPUMode::AccessOAM => ACCESS_OAM_CYCLES,
+            PPUMode::AccessVRAM => ACCESS_VRAM_CYCLES,
         }
     }
 }
 
-impl From<u8> for LCDMode {
+impl From<PPUMode> for u8 {
+    #[inline]
+    fn from(value: PPUMode) -> u8 {
+        match value {
+            PPUMode::HBlank => 0b00,
+            PPUMode::VBlank => 0b01,
+            PPUMode::AccessOAM => 0b10,
+            PPUMode::AccessVRAM => 0b11,
+        }
+    }
+}
+
+impl From<u8> for PPUMode {
     #[inline]
     fn from(value: u8) -> Self {
-        match value {
-            0b00 => LCDMode::HBlank,
-            0b01 => LCDMode::VBlank,
-            0b10 => LCDMode::AccessOAM,
-            0b11 => LCDMode::AccessVRAM,
-            _ => unimplemented!(),
+        match value & 0b11 {
+            0b00 => PPUMode::HBlank,
+            0b01 => PPUMode::VBlank,
+            0b10 => PPUMode::AccessOAM,
+            0b11 => PPUMode::AccessVRAM,
+            _ => unreachable!(),
         }
     }
 }

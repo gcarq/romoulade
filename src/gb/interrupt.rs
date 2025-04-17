@@ -1,6 +1,6 @@
+use crate::gb::HardwareContext;
 use crate::gb::bus::Bus;
 use crate::gb::cpu::{CPU, ImeState};
-use crate::gb::timer::Cycles::M;
 
 const VBLANK_IRQ_ADDRESS: u16 = 0x40;
 const LCD_IRQ_ADDRESS: u16 = 0x48;
@@ -30,7 +30,7 @@ pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
     // CPU should be always woken up from HALT if there is a pending interrupt
     cpu.is_halted = false;
 
-    if cpu.ime != ImeState::Enabled {
+    if bus.ime() != ImeState::Enabled {
         return;
     }
 
@@ -53,9 +53,10 @@ pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
 /// Handles interrupt request
 #[inline]
 fn interrupt(cpu: &mut CPU, bus: &mut Bus, address: u16) {
-    cpu.ime = ImeState::Disabled;
+    bus.set_ime(ImeState::Disabled);
+    bus.tick();
+    bus.tick();
     // Save current execution address by pushing it onto the stack
     cpu.push(cpu.pc, bus);
     cpu.pc = address;
-    cpu.clock.advance(M(5));
 }

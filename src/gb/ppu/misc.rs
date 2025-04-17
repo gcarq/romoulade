@@ -71,7 +71,7 @@ impl From<u8> for Pixel {
             0b01 => Pixel::One,
             0b10 => Pixel::Two,
             0b11 => Pixel::Three,
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     }
 }
@@ -106,7 +106,7 @@ impl From<u8> for ColoredPixel {
             0b01 => ColoredPixel::LightGrey,
             0b10 => ColoredPixel::DarkGrey,
             0b11 => ColoredPixel::Black,
-            _ => unimplemented!(),
+            _ => unreachable!(),
         }
     }
 }

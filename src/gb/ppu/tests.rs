@@ -1,32 +1,32 @@
-use crate::gb::ppu::registers::{LCDMode, LCDState};
+use crate::gb::ppu::registers::{LCDState, PPUMode};
 
 #[test]
 fn test_get_lcd_mode() {
     let mut state = LCDState::empty();
-    assert_eq!(state.get_lcd_mode(), LCDMode::HBlank);
+    assert_eq!(state.ppu_mode(), PPUMode::HBlank);
 
-    state = LCDState::LCD_MODE1;
-    assert_eq!(state.get_lcd_mode(), LCDMode::VBlank);
+    state = LCDState::PPU_MODE1;
+    assert_eq!(state.ppu_mode(), PPUMode::VBlank);
 
-    state = LCDState::LCD_MODE2;
-    assert_eq!(state.get_lcd_mode(), LCDMode::AccessOAM);
+    state = LCDState::PPU_MODE2;
+    assert_eq!(state.ppu_mode(), PPUMode::AccessOAM);
 
-    state = LCDState::LCD_MODE1 | LCDState::LCD_MODE2;
-    assert_eq!(state.get_lcd_mode(), LCDMode::AccessVRAM);
+    state = LCDState::PPU_MODE1 | LCDState::PPU_MODE2;
+    assert_eq!(state.ppu_mode(), PPUMode::AccessVRAM);
 }
 
 #[test]
 fn test_set_lcd_mode() {
     let mut state = LCDState::empty();
-    state.set_lcd_mode(LCDMode::HBlank);
+    state.set_ppu_mode(PPUMode::HBlank);
     assert_eq!(state.bits(), 0b00000000);
 
-    state.set_lcd_mode(LCDMode::VBlank);
+    state.set_ppu_mode(PPUMode::VBlank);
     assert_eq!(state.bits(), 0b00000001);
 
-    state.set_lcd_mode(LCDMode::AccessOAM);
+    state.set_ppu_mode(PPUMode::AccessOAM);
     assert_eq!(state.bits(), 0b00000010);
 
-    state.set_lcd_mode(LCDMode::AccessVRAM);
+    state.set_ppu_mode(PPUMode::AccessVRAM);
     assert_eq!(state.bits(), 0b00000011);
 }
