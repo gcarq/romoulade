@@ -6,6 +6,7 @@ use crate::gb::cpu::misc::{
 use std::fmt;
 use std::fmt::Formatter;
 
+#[derive(Copy, Clone)]
 pub enum Instruction {
     ADD(ByteSource),          // Add n to target
     ADDHL(WordSource),        // Add nn to HL

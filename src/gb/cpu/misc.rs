@@ -4,6 +4,7 @@ use crate::gb::cpu::registers::FlagsRegister;
 use std::fmt;
 use std::fmt::Formatter;
 
+#[derive(Copy, Clone)]
 pub enum IncDecByteTarget {
     A,
     B,
@@ -61,6 +62,7 @@ impl fmt::Display for IncDecByteTarget {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum IncDecWordTarget {
     BC,
     DE,
@@ -104,6 +106,7 @@ impl fmt::Display for IncDecWordTarget {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum LoadByteTarget {
     A,
     B,
@@ -141,7 +144,7 @@ impl fmt::Display for LoadByteTarget {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub enum ByteSource {
     A,
     B,
@@ -226,6 +229,7 @@ impl fmt::Display for ByteSource {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum LoadWordTarget {
     BC,
     DE,
@@ -247,6 +251,7 @@ impl fmt::Display for LoadWordTarget {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum WordSource {
     BC,
     DE,
@@ -281,6 +286,7 @@ impl fmt::Display for WordSource {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum StackTarget {
     AF,
     BC,
@@ -319,7 +325,7 @@ impl fmt::Display for ResetCode {
     }
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub enum JumpTest {
     NotZero,
     Zero,
@@ -355,6 +361,7 @@ impl fmt::Display for JumpTest {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum Load {
     Byte(LoadByteTarget, ByteSource),
     Word(LoadWordTarget, WordSource), // just like the Byte type except with 16-bit values

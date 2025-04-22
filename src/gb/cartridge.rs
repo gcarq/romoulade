@@ -98,11 +98,15 @@ impl TryFrom<&[u8]> for CartridgeHeader {
 impl CartridgeHeader {
     /// Returns the cartridge title from the cartridge header.
     fn parse_title(buf: &[u8]) -> String {
-        buf[CARTRIDGE_TITLE_BEGIN as usize..=CARTRIDGE_TITLE_END as usize]
+        let title = buf[CARTRIDGE_TITLE_BEGIN as usize..=CARTRIDGE_TITLE_END as usize]
             .iter()
             .filter(|b| b.is_ascii_alphanumeric())
             .map(|b| char::from(*b))
-            .collect()
+            .collect::<String>();
+        match title.is_empty() {
+            true => "Unnamed".to_string(),
+            false => title,
+        }
     }
 }
 

@@ -2,17 +2,14 @@ use crate::gb::AddressSpace;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::cpu::instruction::Instruction::*;
-use crate::gb::cpu::misc::{
-    ByteSource, IncDecByteTarget, IncDecWordTarget, JumpTest, Load, LoadByteTarget, LoadWordTarget,
-    ResetCode, StackTarget, WordSource,
-};
+use crate::gb::cpu::misc::*;
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::{GBResult, HardwareContext, utils};
 use registers::Registers;
 
-mod instruction;
+pub mod instruction;
 mod misc;
-mod registers;
+pub mod registers;
 #[cfg(test)]
 mod tests;
 
@@ -27,7 +24,7 @@ pub enum ImeState {
 
 /// Implements the CPU for the GB (DMG-01),
 /// the CPU is LR35902 which is a subset of i8080 & Z80.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct CPU {
     pub r: Registers, // CPU registers
     pub pc: u16,      // Program counter

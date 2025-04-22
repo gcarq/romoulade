@@ -1,9 +1,10 @@
 use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::{CPU, ImeState};
+use crate::gb::debugger::{Debugger, EmulatorDebugMessage, FrontendDebugMessage};
+use crate::gb::joypad::JoypadInput;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
-use crate::gui::FrontendMessage;
 use std::error;
 use std::sync::mpsc::{Receiver, Sender};
 
@@ -12,6 +13,7 @@ pub mod bus;
 pub mod cartridge;
 pub mod constants;
 pub mod cpu;
+pub mod debugger;
 pub mod interrupt;
 pub mod joypad;
 pub mod ppu;
@@ -42,15 +44,27 @@ pub trait AddressSpace {
     fn read(&mut self, address: u16) -> u8;
 }
 
+/// This enum defines the possible messages that can be sent from the emulator to the frontend.
 pub enum EmulatorMessage {
     Frame(FrameBuffer),
+    Debug(EmulatorDebugMessage),
+}
+
+/// This enum defines the possible messages that can be sent from the frontend to the emulator.
+pub enum FrontendMessage {
+    Stop,
+    Input(JoypadInput),
+    AttachDebugger,
+    Debug(FrontendDebugMessage),
 }
 
 pub struct Emulator {
     cpu: CPU,
     bus: Bus,
+    sender: Sender<EmulatorMessage>,
     receiver: Receiver<FrontendMessage>,
     is_running: bool,
+    debugger: Option<Debugger>,
 }
 
 impl Emulator {
@@ -59,14 +73,47 @@ impl Emulator {
         receiver: Receiver<FrontendMessage>,
         cartridge: Cartridge,
         upscale: usize,
+        debug: bool,
     ) -> GBResult<Self> {
-        let display = Display::new(sender, upscale)?;
+        let display = Display::new(sender.clone(), upscale)?;
+        let cpu = CPU::default();
+        let mut bus = Bus::new(cartridge, display);
+        let debugger = match debug {
+            true => Some(Debugger::new(&cpu, &mut bus, sender.clone())),
+            false => None,
+        };
         Ok(Self {
-            cpu: CPU::default(),
-            bus: Bus::new(cartridge, display),
-            receiver,
             is_running: true,
+            cpu,
+            bus,
+            debugger,
+            sender,
+            receiver,
         })
+    }
+
+    /// Runs the emulator loop.
+    /// TODO: implement proper error handling
+    pub fn run(&mut self) {
+        println!("Starting emulator...");
+        println!("Loaded ROM: {}", self.bus.cartridge);
+
+        while self.is_running {
+            self.handle_message();
+            if let Some(debugger) = &mut self.debugger {
+                debugger
+                    .maybe_step(&mut self.cpu, &mut self.bus)
+                    .expect("Unable to step debugger");
+            } else {
+                self.step().expect("Unable to step emulator");
+            }
+        }
+    }
+
+    /// Attaches a debugger to the emulator.
+    #[inline]
+    fn attach_debugger(&mut self) {
+        self.debugger = Some(Debugger::new(&self.cpu, &mut self.bus, self.sender.clone()))
     }
 
     #[inline]
@@ -77,22 +124,18 @@ impl Emulator {
     }
 
     /// Handles messages from the frontend.
-    fn handle_messages(&mut self) {
+    fn handle_message(&mut self) {
         if let Ok(message) = self.receiver.try_recv() {
             match message {
                 FrontendMessage::Stop => self.is_running = false,
                 FrontendMessage::Input(input) => self.bus.handle_joypad_event(input),
+                FrontendMessage::AttachDebugger => self.attach_debugger(),
+                FrontendMessage::Debug(message) => {
+                    if let Some(debugger) = &mut self.debugger {
+                        debugger.handle_message(message)
+                    }
+                }
             }
-        }
-    }
-
-    pub fn run(&mut self) {
-        println!("Starting emulator...");
-        println!("Loaded ROM: {}", self.bus.cartridge);
-        while self.is_running {
-            // TODO: implement proper error handling
-            self.step().expect("Unable to step CPU");
-            self.handle_messages();
         }
     }
 }

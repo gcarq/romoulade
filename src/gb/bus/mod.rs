@@ -172,11 +172,8 @@ impl Bus {
         self.ppu.step(&mut self.interrupt_flag);
         self.timer.step(&mut self.interrupt_flag);
     }
-}
 
-impl AddressSpace for Bus {
-    fn write(&mut self, address: u16, value: u8) {
-        self.cycle();
+    fn write_raw(&mut self, address: u16, value: u8) {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.ppu.write(address, value),
@@ -191,8 +188,7 @@ impl AddressSpace for Bus {
         }
     }
 
-    fn read(&mut self, address: u16) -> u8 {
-        self.cycle();
+    pub fn read_raw(&mut self, address: u16) -> u8 {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.read_cartridge(address),
             VRAM_BEGIN..=VRAM_END => self.ppu.read(address),
@@ -205,6 +201,18 @@ impl AddressSpace for Bus {
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],
             INTERRUPT_ENABLE => self.interrupt_enable.bits(),
         }
+    }
+}
+
+impl AddressSpace for Bus {
+    fn write(&mut self, address: u16, value: u8) {
+        self.cycle();
+        self.write_raw(address, value);
+    }
+
+    fn read(&mut self, address: u16) -> u8 {
+        self.cycle();
+        self.read_raw(address)
     }
 }
 
