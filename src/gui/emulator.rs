@@ -37,7 +37,8 @@ impl EmulatorChannel {
     }
 }
 
-/// Holds the emulation frontend that is responsible for the interaction with the emulation backend.
+/// The emulator frontend is responsible for handling the emulator instance,
+/// it runs in a separate thread and communicates with the emulator using a channel.
 pub struct EmulatorFrontend {
     thread: JoinHandle<()>,
     channel: EmulatorChannel,
@@ -90,6 +91,8 @@ impl EmulatorFrontend {
         self.recv_message(ctx);
         self.handle_user_input(ui);
         self.draw_emulator_frame(ctx, ui);
+
+        let mut stop_debugger = false;
         if let Some(debugger) = &mut self.debugger {
             ctx.show_viewport_immediate(
                 ViewportId::from_hash_of("debugger"),
@@ -100,12 +103,15 @@ impl EmulatorFrontend {
                         "This egui backend doesn't support multiple viewports"
                     );
                     debugger.update(ctx);
+                    // Check if the debugger window is closed
                     if ctx.input(|i| i.viewport().close_requested()) {
-                        // TODO: implement proper shutdown
-                        //self.debugger = None;
+                        stop_debugger = true;
                     }
                 },
             );
+        }
+        if stop_debugger {
+            self.detach_debugger();
         }
     }
 
@@ -113,8 +119,17 @@ impl EmulatorFrontend {
     /// if `send_msg` is true.
     #[inline]
     pub fn attach_debugger(&mut self) {
+        println!("Attaching debugger ...");
         self.debugger = Some(DebuggerFrontend::new(self.channel.sender.clone()));
         self.send_message(FrontendMessage::AttachDebugger);
+    }
+
+    /// Closes the debugger frontend and sends a `DetachDebugger` message to the emulator.
+    #[inline]
+    fn detach_debugger(&mut self) {
+        println!("Detaching debugger ...");
+        self.debugger = None;
+        self.send_message(FrontendMessage::DetachDebugger);
     }
 
     /// Draws the latest frame from the emulator to the screen

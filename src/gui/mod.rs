@@ -13,6 +13,7 @@ pub struct Romoulade {
 }
 
 impl Romoulade {
+    /// Loads a ROM file using a file dialog.
     fn load_rom(&mut self) {
         if let Some(frontend) = &self.frontend {
             frontend.shutdown();
@@ -50,7 +51,6 @@ impl Romoulade {
             }
             if ui.button("Attach Debugger").clicked() {
                 if let Some(frontend) = &mut self.frontend {
-                    println!("Attaching debugger to running instance ...");
                     frontend.attach_debugger();
                 } else {
                     self.run(true);

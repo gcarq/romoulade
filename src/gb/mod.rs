@@ -55,6 +55,7 @@ pub enum FrontendMessage {
     Stop,
     Input(JoypadInput),
     AttachDebugger,
+    DetachDebugger,
     Debug(FrontendDebugMessage),
 }
 
@@ -130,6 +131,7 @@ impl Emulator {
                 FrontendMessage::Stop => self.is_running = false,
                 FrontendMessage::Input(input) => self.bus.handle_joypad_event(input),
                 FrontendMessage::AttachDebugger => self.attach_debugger(),
+                FrontendMessage::DetachDebugger => self.debugger = None,
                 FrontendMessage::Debug(message) => {
                     if let Some(debugger) = &mut self.debugger {
                         debugger.handle_message(message)
