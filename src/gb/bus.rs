@@ -4,8 +4,8 @@ use crate::gb::constants::*;
 use crate::gb::cpu::ImeState;
 use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{Joypad, JoypadInput};
-use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
+use crate::gb::ppu::PPU;
 use crate::gb::timer::Timer;
 use crate::gb::{AddressSpace, HardwareContext};
 
