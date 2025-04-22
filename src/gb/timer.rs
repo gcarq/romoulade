@@ -2,9 +2,6 @@ use crate::gb::AddressSpace;
 use crate::gb::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
 use crate::gb::interrupt::InterruptRegister;
 
-/// Number of t-cycles per m-cycle
-pub const M_CLOCK_MULTIPLIER: u16 = 4;
-
 bitflags! {
     /// Represents the control register TAC at 0xFF07
     #[derive(Copy, Clone, PartialEq)]
