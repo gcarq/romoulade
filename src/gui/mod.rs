@@ -4,7 +4,7 @@ pub mod emulator;
 use crate::gb::cartridge::Cartridge;
 use crate::gui::emulator::EmulatorFrontend;
 use eframe::egui;
-use egui::{CentralPanel, Color32, TopBottomPanel, Ui};
+use egui::{CentralPanel, Color32, Label, RichText, TopBottomPanel, Ui, Widget};
 
 #[derive(Default)]
 pub struct Romoulade {
@@ -47,6 +47,9 @@ impl Romoulade {
             }
             ui.separator();
             if ui.button("Run").clicked() {
+                if let Some(frontend) = &self.frontend {
+                    frontend.shutdown();
+                }
                 self.run(false);
             }
             if ui.button("Attach Debugger").clicked() {
@@ -61,14 +64,16 @@ impl Romoulade {
                     frontend.shutdown();
                     self.frontend = None;
                 } else {
-                    println!("Emulator is alredy stopped");
+                    println!("Emulator is already stopped");
                 }
             }
             ui.separator();
             if let Some(cartridge) = &self.cartridge {
-                ui.colored_label(Color32::ORANGE, format!("{}", cartridge));
+                Label::new((RichText::new(format!("{cartridge}"))).color(Color32::ORANGE))
+                    .selectable(false)
+                    .ui(ui);
             } else {
-                ui.label("No ROM loaded");
+                Label::new("No ROM loaded").selectable(false).ui(ui);
             }
         });
     }

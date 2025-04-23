@@ -4,8 +4,8 @@ use crate::gb::constants::*;
 use crate::gb::cpu::ImeState;
 use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{Joypad, JoypadInput};
-use crate::gb::ppu::display::Display;
 use crate::gb::ppu::PPU;
+use crate::gb::ppu::display::Display;
 use crate::gb::timer::Timer;
 use crate::gb::{AddressSpace, HardwareContext};
 
@@ -173,6 +173,7 @@ impl Bus {
         self.timer.step(&mut self.interrupt_flag);
     }
 
+    /// TODO: this is a hacky solution to avoid stepping the components when writing while debugging
     fn write_raw(&mut self, address: u16, value: u8) {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
@@ -188,6 +189,7 @@ impl Bus {
         }
     }
 
+    /// TODO: this is a hacky solution to avoid stepping the components when reading while debugging
     pub fn read_raw(&mut self, address: u16) -> u8 {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.read_cartridge(address),

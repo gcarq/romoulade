@@ -19,9 +19,6 @@ pub const SCREEN_HEIGHT: usize = 144;
 // TODO: make this configurable
 pub const UPSCALE: usize = 3;
 
-pub const UPSCALED_WIDTH: usize = SCREEN_WIDTH * UPSCALE;
-pub const UPSCALED_HEIGHT: usize = SCREEN_HEIGHT * UPSCALE;
-
 /// A channel to communicate between the emulator and the frontend.
 /// The frontend can send messages with `sender`
 /// and receive messages from the emulator with `receiver`.
@@ -97,12 +94,9 @@ impl EmulatorFrontend {
             ctx.show_viewport_immediate(
                 ViewportId::from_hash_of("debugger"),
                 ViewportBuilder::default().with_title("Debugger"),
-                |ctx, class| {
-                    assert!(
-                        class == egui::ViewportClass::Immediate,
-                        "This egui backend doesn't support multiple viewports"
-                    );
+                |ctx, _| {
                     debugger.update(ctx);
+
                     // Check if the debugger window is closed
                     if ctx.input(|i| i.viewport().close_requested()) {
                         stop_debugger = true;
@@ -135,7 +129,10 @@ impl EmulatorFrontend {
     /// Draws the latest frame from the emulator to the screen
     fn draw_emulator_frame(&self, ctx: &egui::Context, ui: &mut Ui) {
         if let Some(frame) = &self.frame {
-            let size = Vec2::new(UPSCALED_WIDTH as f32, UPSCALED_HEIGHT as f32);
+            let size = Vec2::new(
+                (SCREEN_WIDTH * UPSCALE) as f32,
+                (SCREEN_HEIGHT * UPSCALE) as f32,
+            );
             ui.image((frame.id(), size));
             ctx.request_repaint();
         }
@@ -145,7 +142,7 @@ impl EmulatorFrontend {
     #[inline]
     fn set_frame_texture(&mut self, frame: FrameBuffer, ctx: &egui::Context) {
         let image = ColorImage {
-            size: [UPSCALED_WIDTH, UPSCALED_HEIGHT],
+            size: [SCREEN_WIDTH * UPSCALE, SCREEN_HEIGHT * UPSCALE],
             pixels: frame.buffer,
         };
         // Set the new frame to the texture or create a new one if it doesn't exist

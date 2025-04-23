@@ -1,12 +1,10 @@
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::cpu::{CPU, ImeState};
-use crate::gb::interrupt::InterruptRegister;
 use crate::gb::{AddressSpace, HardwareContext};
 
 /// Represents a mock for MemoryBus
 struct MockBus {
     ime: ImeState,
-    int_flag: InterruptRegister,
     data: Vec<u8>,
 }
 
@@ -14,7 +12,6 @@ impl MockBus {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             ime: ImeState::Enabled,
-            int_flag: InterruptRegister::empty(),
             data,
         }
     }

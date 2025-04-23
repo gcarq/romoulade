@@ -38,21 +38,7 @@ impl DebuggerFrontend {
             TopBottomPanel::top("actions")
                 .resizable(false)
                 .show_inside(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        if ui.button("Step").clicked() {
-                            self.send_message(FrontendDebugMessage::Step);
-                        }
-                        if ui.button("Continue").clicked() {
-                            self.send_message(FrontendDebugMessage::Continue);
-                        }
-                        ui.separator();
-                        if ui.button("Pause").clicked() {
-                            self.send_message(FrontendDebugMessage::Pause);
-                        }
-                        if ui.button("Skip Boot ROM").clicked() {
-                            self.send_message(FrontendDebugMessage::SkipBootRom);
-                        }
-                    });
+                    self.draw_top_panel(ui);
                 });
 
             SidePanel::left("instructions")
@@ -72,6 +58,25 @@ impl DebuggerFrontend {
                 });
                 self.update_cpu_registers(ui);
             });
+        });
+    }
+
+    /// Draws the top panel for the debugger.
+    fn draw_top_panel(&self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            if ui.button("Step").clicked() {
+                self.send_message(FrontendDebugMessage::Step);
+            }
+            if ui.button("Continue").clicked() {
+                self.send_message(FrontendDebugMessage::Continue);
+            }
+            ui.separator();
+            if ui.button("Pause").clicked() {
+                self.send_message(FrontendDebugMessage::Pause);
+            }
+            if ui.button("Skip Boot ROM").clicked() {
+                self.send_message(FrontendDebugMessage::SkipBootRom);
+            }
         });
     }
 
