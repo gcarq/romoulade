@@ -4,7 +4,7 @@ use crate::gb::cpu::registers::FlagsRegister;
 use std::fmt;
 use std::fmt::Formatter;
 
-/// Defines the 8-bit registers of the CPU
+/// Defines an operation on the 8-bit registers of the CPU.
 #[derive(Copy, Clone)]
 pub enum Register {
     A,
@@ -17,10 +17,10 @@ pub enum Register {
 }
 
 impl Register {
-    /// Reads the referring value from the register
+    /// Reads value from the register.
     #[inline]
-    pub fn read(&self, cpu: &mut CPU) -> u8 {
-        match *self {
+    pub fn read(&self, cpu: &CPU) -> u8 {
+        match self {
             Register::A => cpu.r.a,
             Register::B => cpu.r.b,
             Register::C => cpu.r.c,
@@ -31,10 +31,10 @@ impl Register {
         }
     }
 
-    /// Writes to the referring register
+    /// Writes value to the register.
     #[inline]
     pub fn write(&self, cpu: &mut CPU, value: u8) {
-        match *self {
+        match self {
             Register::A => cpu.r.a = value,
             Register::B => cpu.r.b = value,
             Register::C => cpu.r.c = value,
@@ -57,11 +57,11 @@ impl fmt::Display for Register {
             Register::H => "H",
             Register::L => "L",
         };
-        write!(f, "{ident}")
+        f.write_str(ident)
     }
 }
 
-/// Defines paired registers that can be used in instructions to read and write from.
+/// Defines an operation on paired registers of the CPU.
 #[derive(Clone, Copy)]
 pub enum PairedRegister {
     AF,
@@ -72,10 +72,10 @@ pub enum PairedRegister {
 }
 
 impl PairedRegister {
-    /// Read from register
+    /// Read from register.
     #[inline]
-    pub fn read(&self, cpu: &mut CPU) -> u16 {
-        match *self {
+    pub fn read(&self, cpu: &CPU) -> u16 {
+        match self {
             PairedRegister::AF => cpu.r.get_af(),
             PairedRegister::BC => cpu.r.get_bc(),
             PairedRegister::DE => cpu.r.get_de(),
@@ -87,7 +87,7 @@ impl PairedRegister {
     /// Write value to register
     #[inline]
     pub fn write(&self, cpu: &mut CPU, value: u16) {
-        match *self {
+        match self {
             PairedRegister::AF => cpu.r.set_af(value),
             PairedRegister::BC => cpu.r.set_bc(value),
             PairedRegister::DE => cpu.r.set_de(value),
@@ -99,39 +99,39 @@ impl PairedRegister {
 
 impl fmt::Display for PairedRegister {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let ident = match *self {
+        let ident = match self {
             PairedRegister::AF => "AF",
             PairedRegister::BC => "BC",
             PairedRegister::DE => "DE",
             PairedRegister::HL => "HL",
             PairedRegister::SP => "SP",
         };
-        write!(f, "{ident}")
+        f.write_str(ident)
     }
 }
 
 #[derive(Copy, Clone)]
 pub enum ByteTarget {
     R(Register),
-    HLI,
+    I(ByteRef),
 }
 
 impl ByteTarget {
     /// Reads the referring value from the CPU or memory
     #[inline]
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T) -> u8 {
-        match *self {
+    pub fn read<T: AddressSpace>(&self, cpu: &CPU, bus: &mut T) -> u8 {
+        match self {
             ByteTarget::R(reg) => reg.read(cpu),
-            ByteTarget::HLI => bus.read(cpu.r.get_hl()),
+            ByteTarget::I(indirect) => bus.read(indirect.resolve(cpu)),
         }
     }
 
     /// Writes to the referring register or memory location
     #[inline]
     pub fn write<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T, value: u8) {
-        match *self {
+        match self {
             ByteTarget::R(reg) => reg.write(cpu, value),
-            ByteTarget::HLI => bus.write(cpu.r.get_hl(), value),
+            ByteTarget::I(indirect) => bus.write(indirect.resolve(cpu), value),
         }
     }
 }
@@ -140,79 +140,43 @@ impl fmt::Display for ByteTarget {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let ident = match self {
             ByteTarget::R(reg) => format!("{reg}"),
-            ByteTarget::HLI => "(HL)".into(),
+            ByteTarget::I(indirect) => format!("{indirect}"),
         };
-        write!(f, "{ident}")
+        f.write_str(&ident)
     }
 }
 
+/// Defines a source which yields an address that can be used to read or write a byte value
 #[derive(Copy, Clone)]
-pub enum WordTarget {
-    R(PairedRegister),
-    D16I(u16), // value refers to memory at address from the next 16 bits
+pub enum ByteRef {
+    R(PairedRegister), // value refers to memory at address from one of the paired registers
+    D16(u16),          // value refers to memory at address from the next 16 bits
+    C,                 // value refers to memory at address from C register | 0xFF00
+    D8(u8),            // value refers to memory at the address from the next 8 bits | 0xFF00
 }
 
-impl WordTarget {
-    /// Writes to the referring register
-    #[inline]
-    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T, value: u16) {
-        match *self {
-            WordTarget::R(reg) => reg.write(cpu, value),
-            WordTarget::D16I(address) => {
-                bus.write(address, value as u8);
-                bus.write(address + 1, (value >> 8) as u8)
-            }
-        }
-    }
-}
-
-impl fmt::Display for WordTarget {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let ident = match self {
-            WordTarget::R(reg) => format!("{reg}"),
-            WordTarget::D16I(address) => format!("({address:#06x})"),
-        };
-        write!(f, "{ident}")
-    }
-}
-
-/// Defines a source we can read from to get a byte value
-#[derive(Copy, Clone)]
-pub enum IndirectByteRef {
-    BCI,       // value refers to memory at address from BC register
-    DEI,       // value refers to memory at address from DE register
-    HLI,       // value refers to memory at address from HL register
-    D16I(u16), // value refers to memory at address from the next 16 bits
-    CI,        // value refers to memory at address from C register | 0xFF00
-    D8I(u8),   // value refers to memory at the address from the next 8 bits | 0xFF00
-}
-
-impl IndirectByteRef {
+impl ByteRef {
     /// Resolves and returns the referring address.
     #[inline]
-    pub fn resolve(&self, cpu: &mut CPU) -> u16 {
-        match *self {
-            IndirectByteRef::BCI => cpu.r.get_bc(),
-            IndirectByteRef::DEI => cpu.r.get_de(),
-            IndirectByteRef::D16I(address) => address,
-            IndirectByteRef::HLI => cpu.r.get_hl(),
-            IndirectByteRef::CI => u16::from(cpu.r.c) | 0xFF00,
-            IndirectByteRef::D8I(offset) => u16::from(offset) | 0xFF00,
+    pub fn resolve(&self, cpu: &CPU) -> u16 {
+        match self {
+            ByteRef::R(reg) => reg.read(cpu),
+            ByteRef::D16(address) => *address,
+            ByteRef::C => u16::from(cpu.r.c) | 0xFF00,
+            ByteRef::D8(offset) => u16::from(*offset) | 0xFF00,
         }
     }
 }
 
-impl fmt::Display for IndirectByteRef {
+impl fmt::Display for ByteRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let ident = match *self {
-            IndirectByteRef::BCI => "(BC)".into(),
-            IndirectByteRef::DEI => "(DE)".into(),
-            IndirectByteRef::HLI => "(HL)".into(),
-            IndirectByteRef::D16I(address) => format!("({address:#06x})"),
-            IndirectByteRef::CI => "(C)".into(),
-            IndirectByteRef::D8I(offset) => format!("({:#06x})", u16::from(offset) | 0xFF00),
+        let ident = match self {
+            ByteRef::R(reg) => format!("({reg})"),
+            ByteRef::D16(address) => format!("({address:#06x})"),
+            ByteRef::C => "C".into(),
+            ByteRef::D8(offset) => format!("({:#06x})", u16::from(*offset) | 0xFF00),
         };
-        write!(f, "{ident}")
+        f.write_str(&ident)
     }
 }
 
@@ -220,27 +184,17 @@ impl fmt::Display for IndirectByteRef {
 #[derive(Copy, Clone)]
 pub enum ByteSource {
     R(Register),
-    D8(u8),    // value comes from the next 8 bits
-    BCI,       // value refers to memory at address from BC register
-    DEI,       // value refers to memory at address from DE register
-    HLI,       // value refers to memory at address from HL register
-    D16I(u16), // value refers to memory at address from the next 16 bits
-    CI,        // value refers to memory at address from C register | 0xFF00
-    D8I(u8),   // value refers to memory at the address from the next 8 bits | 0xFF00
+    I(ByteRef),
+    D8(u8), // value comes from the next 8 bits
 }
 
 impl ByteSource {
     /// Read byte from the CPU or memory.
-    pub fn read<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T) -> u8 {
-        match *self {
+    pub fn read<T: AddressSpace>(&self, cpu: &CPU, bus: &mut T) -> u8 {
+        match self {
             ByteSource::R(reg) => reg.read(cpu),
-            ByteSource::D8(value) => value,
-            ByteSource::BCI => bus.read(cpu.r.get_bc()),
-            ByteSource::DEI => bus.read(cpu.r.get_de()),
-            ByteSource::HLI => bus.read(cpu.r.get_hl()),
-            ByteSource::D16I(address) => bus.read(address),
-            ByteSource::CI => bus.read(u16::from(cpu.r.c) | 0xFF00),
-            ByteSource::D8I(offset) => bus.read(u16::from(offset) | 0xFF00),
+            ByteSource::D8(value) => *value,
+            ByteSource::I(indirect) => bus.read(indirect.resolve(cpu)),
         }
     }
 }
@@ -250,14 +204,118 @@ impl fmt::Display for ByteSource {
         let ident = match self {
             ByteSource::R(reg) => format!("{reg}"),
             ByteSource::D8(value) => format!("{value:#04x}"),
-            ByteSource::BCI => "(BC)".into(),
-            ByteSource::DEI => "(DE)".into(),
-            ByteSource::HLI => "(HL)".into(),
-            ByteSource::D16I(address) => format!("({address:#06x})"),
-            ByteSource::CI => "(C)".into(),
-            ByteSource::D8I(offset) => format!("({:#06x})", u16::from(*offset) | 0xFF00),
+            ByteSource::I(indirect) => format!("{indirect}"),
         };
-        write!(f, "{ident}")
+        f.write_str(&ident)
+    }
+}
+
+/// Defines the source of a word value
+#[derive(Copy, Clone)]
+pub enum WordSource {
+    R(PairedRegister),
+    D16(u16), // value comes from the next 16 bits
+}
+
+impl WordSource {
+    /// Resolves the referring value
+    #[inline]
+    pub fn read(&self, cpu: &CPU) -> u16 {
+        match self {
+            WordSource::R(reg) => reg.read(cpu),
+            WordSource::D16(word) => *word,
+        }
+    }
+}
+
+impl fmt::Display for WordSource {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let ident = match self {
+            WordSource::R(reg) => format!("{reg}"),
+            WordSource::D16(word) => format!("{word:#06x}"),
+        };
+        f.write_str(&ident)
+    }
+}
+
+/// Defines the possible load operations
+#[derive(Copy, Clone)]
+pub enum Load {
+    Byte(ByteTarget, ByteSource),
+    Word(PairedRegister, WordSource),
+    // Store the contents of `ByteSource` in the memory location specified by `ByteRef`.
+    IndirectFrom(ByteRef, ByteSource),
+    // Store the contents of register A into the memory location specified by register pair HL,
+    // and simultaneously increment the contents of HL.
+    HLIFromAInc,
+    // Store the contents of register A into the memory location specified by register pair HL,
+    // and simultaneously decrement the contents of HL.
+    HLIFromADec,
+    // Load the contents of memory specified by register pair HL into register A,
+    // and simultaneously increment the contents of HL.
+    HLIToAInc,
+    // Load the contents of memory specified by register pair HL into register A,
+    // and simultaneously decrement the contents of HL.
+    HLIToADec,
+    // Store the lower byte of stack pointer SP at the address specified by the 16-bit immediate
+    // operand a16, and store the upper byte of SP at address a16 + 1.
+    IndirectFromSP(ByteRef),
+    // Add the 8-bit signed operand to the stack pointer SP,
+    // and store the result in register pair HL.
+    HLFromSPi8(i8),
+}
+
+impl fmt::Display for Load {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let ident = match self {
+            Load::Byte(target, source) => format!("{target}, {source}"),
+            Load::Word(target, source) => format!("{target}, {source}"),
+            Load::IndirectFrom(indirect, source) => format!("{indirect}, {source}"),
+            Load::HLIFromAInc => "(HL+), A".into(),
+            Load::HLIFromADec => "(HL-), A".into(),
+            Load::HLIToAInc => "A, (HL+)".into(),
+            Load::HLIToADec => "A, (HL-)".into(),
+            Load::IndirectFromSP(target) => format!("({target}), SP"),
+            Load::HLFromSPi8(value) => format!("HL, SP + {value:#04x}"),
+        };
+        f.write_str(&ident)
+    }
+}
+
+/// Possible conditions for conditional instructions like JP, JR, CALL and RET
+#[derive(Eq, PartialEq, Copy, Clone)]
+pub enum JumpCondition {
+    NotZero,
+    Zero,
+    NotCarry,
+    Carry,
+    Always,
+}
+
+impl JumpCondition {
+    /// Resolves whether the condition is met
+    #[inline]
+    pub fn resolve(&self, cpu: &CPU) -> bool {
+        match self {
+            JumpCondition::NotZero => !cpu.r.f.contains(FlagsRegister::ZERO),
+            JumpCondition::Zero => cpu.r.f.contains(FlagsRegister::ZERO),
+            JumpCondition::NotCarry => !cpu.r.f.contains(FlagsRegister::CARRY),
+            JumpCondition::Carry => cpu.r.f.contains(FlagsRegister::CARRY),
+            JumpCondition::Always => true,
+        }
+    }
+}
+
+impl fmt::Display for JumpCondition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let ident = match self {
+            JumpCondition::NotZero => "NZ",
+            JumpCondition::Zero => "Z",
+            JumpCondition::NotCarry => "NC",
+            JumpCondition::Carry => "C",
+            JumpCondition::Always => "",
+        };
+        f.write_str(ident)
     }
 }
 
@@ -272,8 +330,8 @@ impl JumpTarget {
     /// Resolves and returns the referring target address
     #[inline]
     pub fn read(&self, cpu: &CPU) -> u16 {
-        match *self {
-            JumpTarget::D16(word) => word,
+        match self {
+            JumpTarget::D16(word) => *word,
             JumpTarget::HL => cpu.r.get_hl(),
         }
     }
@@ -284,34 +342,6 @@ impl fmt::Display for JumpTarget {
         let ident = match self {
             JumpTarget::D16(word) => format!("{word:#06x}"),
             JumpTarget::HL => "HL".to_string(),
-        };
-        write!(f, "{ident}")
-    }
-}
-
-/// Defines the source of a word value
-#[derive(Copy, Clone)]
-pub enum WordSource {
-    R(PairedRegister),
-    D16(u16), // value comes from the next 16 bits
-}
-
-impl WordSource {
-    /// Resolves the referring value
-    #[inline]
-    pub fn read(&self, cpu: &mut CPU) -> u16 {
-        match *self {
-            WordSource::R(reg) => reg.read(cpu),
-            WordSource::D16(word) => word,
-        }
-    }
-}
-
-impl fmt::Display for WordSource {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let ident = match self {
-            WordSource::R(reg) => format!("{reg}"),
-            WordSource::D16(word) => format!("{word:#06x}"),
         };
         write!(f, "{ident}")
     }
@@ -333,74 +363,5 @@ pub enum ResetCode {
 impl fmt::Display for ResetCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{:#04x}", *self as u16)
-    }
-}
-
-/// Possible conditions for conditional instructions like JP, JR, CALL and RET
-#[derive(Eq, PartialEq, Copy, Clone)]
-pub enum JumpCondition {
-    NotZero,
-    Zero,
-    NotCarry,
-    Carry,
-    Always,
-}
-
-impl JumpCondition {
-    /// Resolves whether the condition is met
-    #[inline]
-    pub fn resolve(&self, cpu: &mut CPU) -> bool {
-        match *self {
-            JumpCondition::NotZero => !cpu.r.f.contains(FlagsRegister::ZERO),
-            JumpCondition::Zero => cpu.r.f.contains(FlagsRegister::ZERO),
-            JumpCondition::NotCarry => !cpu.r.f.contains(FlagsRegister::CARRY),
-            JumpCondition::Carry => cpu.r.f.contains(FlagsRegister::CARRY),
-            JumpCondition::Always => true,
-        }
-    }
-}
-
-impl fmt::Display for JumpCondition {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let ident = match self {
-            JumpCondition::NotZero => "NZ",
-            JumpCondition::Zero => "Z",
-            JumpCondition::NotCarry => "NC",
-            JumpCondition::Carry => "C",
-            JumpCondition::Always => "",
-        };
-        write!(f, "{ident}")
-    }
-}
-
-/// Defines the possible load operations
-#[derive(Copy, Clone)]
-pub enum Load {
-    Byte(ByteTarget, ByteSource),
-    Word(WordTarget, WordSource),
-    IndirectFrom(IndirectByteRef, ByteSource), // load a memory location whose address is stored in AddressSource with the contents of the register ByteSource
-    IndirectFromAInc(IndirectByteRef),
-    IndirectFromADec(IndirectByteRef), // Same as IndirectFromA, source value is decremented afterward
-    FromIndirectAInc(ByteSource),
-    FromIndirectADec(ByteSource),
-    IndirectFromWord(WordTarget, WordSource),
-    IndirectFromSPi8(WordTarget, i8), // Put SP plus 8 bit immediate value into target.
-}
-
-impl fmt::Display for Load {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        // TODO: fix formatting for indirect inc, dec loads
-        let ident = match self {
-            Load::Byte(target, source) => format!("{target}, {source}"),
-            Load::Word(target, source) => format!("{target}, {source}"),
-            Load::IndirectFrom(target, source) => format!("{target}, {source}"),
-            Load::IndirectFromAInc(target) => format!("{target}+, A",),
-            Load::IndirectFromADec(target) => format!("{target}-, A",),
-            Load::FromIndirectAInc(source) => format!("A, {source}+",),
-            Load::FromIndirectADec(source) => format!("A, {source}-"),
-            Load::IndirectFromWord(target, source) => format!("{target}, {source}"),
-            Load::IndirectFromSPi8(target, value) => format!("{target}, SP + {value:#04x}"),
-        };
-        write!(f, "{ident}")
     }
 }

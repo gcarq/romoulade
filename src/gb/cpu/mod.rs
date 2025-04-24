@@ -44,7 +44,7 @@ impl CPU {
         self.sanity_check();
 
         // Parse instruction from address, execute it and update program counter
-        match Instruction::new(self.pc, bus) {
+        match Instruction::from_memory(self.pc, bus) {
             (Some(instruction), address) => {
                 self.pc = address;
                 self.pc = self.execute(instruction, bus);
@@ -71,7 +71,7 @@ impl CPU {
             ADDSP(value) => self.handle_add_sp(value),
             ADC(source) => self.handle_adc(source, bus),
             AND(source) => self.handle_and(source, bus),
-            BIT(bit, target) => self.handle_bit(bit, target, bus),
+            BIT(bit, source) => self.handle_bit(bit, source, bus),
             CALL(test, address) => self.handle_call(test, address, bus),
             CCF => self.handle_ccf(),
             CP(source) => self.handle_cp(source, bus),
@@ -131,7 +131,6 @@ impl CPU {
     }
 
     /// Push an u16 value onto the stack.
-    #[inline]
     pub fn push<T: AddressSpace + HardwareContext>(&mut self, value: u16, bus: &mut T) {
         bus.tick();
         self.sp = self.sp.wrapping_sub(1);
@@ -143,18 +142,17 @@ impl CPU {
     }
 
     /// Pop an u16 value from the stack.
-    #[inline]
     fn pop<T: AddressSpace>(&mut self, bus: &mut T) -> u16 {
-        let lsb = bus.read(self.sp) as u16;
+        let low = bus.read(self.sp) as u16;
         self.sp = self.sp.wrapping_add(1);
 
-        let msb = bus.read(self.sp) as u16;
+        let high = bus.read(self.sp) as u16;
         self.sp = self.sp.wrapping_add(1);
 
-        (msb << 8) | lsb
+        (high << 8) | low
     }
 
-    /// Handles ADD instructions
+    /// Handles ADD A, n instructions
     fn handle_add<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let source_value = source.read(self, bus);
         let (new_value, did_overflow) = self.r.a.overflowing_add(source_value);
@@ -227,8 +225,8 @@ impl CPU {
     }
 
     /// Handles BIT instructions
-    fn handle_bit<T: AddressSpace>(&mut self, bit: u8, target: ByteTarget, bus: &mut T) -> u16 {
-        let value = target.read(self, bus);
+    fn handle_bit<T: AddressSpace>(&mut self, bit: u8, source: ByteSource, bus: &mut T) -> u16 {
+        let value = source.read(self, bus);
         self.r
             .f
             .set(FlagsRegister::ZERO, !utils::bit_at(value, bit));
@@ -395,45 +393,39 @@ impl CPU {
             }
             Load::Word(target, source) => {
                 let value = source.read(self);
-                target.write(self, bus, value);
+                target.write(self, value);
             }
             Load::IndirectFrom(target, source) => {
                 let value = source.read(self, bus);
                 let addr = target.resolve(self);
                 bus.write(addr, value);
             }
-            Load::IndirectFromAInc(target) => {
-                let addr = target.resolve(self);
+            Load::HLIFromAInc => {
+                let addr = self.r.get_hl();
                 bus.write(addr, self.r.a);
-                if let IndirectByteRef::HLI = target {
-                    self.r.set_hl(addr.wrapping_add(1));
-                }
+                self.r.set_hl(addr.wrapping_add(1));
             }
-            Load::IndirectFromADec(target) => {
-                let addr = target.resolve(self);
+            Load::HLIFromADec => {
+                let addr = self.r.get_hl();
                 bus.write(addr, self.r.a);
-                if let IndirectByteRef::HLI = target {
-                    self.r.set_hl(addr.wrapping_sub(1));
-                }
+                self.r.set_hl(addr.wrapping_sub(1));
             }
-            Load::IndirectFromWord(target, source) => {
-                let value = source.read(self);
-                target.write(self, bus, value);
+            Load::IndirectFromSP(target) => {
+                let value = self.sp;
+                let address = target.resolve(self);
+                bus.write(address, (value >> 8) as u8);
             }
-            Load::FromIndirectAInc(source) => {
-                self.r.a = source.read(self, bus);
-                if let ByteSource::HLI = source {
-                    self.r.set_hl(self.r.get_hl().wrapping_add(1));
-                }
+            Load::HLIToAInc => {
+                let addr = self.r.get_hl();
+                self.r.a = bus.read(addr);
+                self.r.set_hl(addr.wrapping_add(1));
             }
-            Load::FromIndirectADec(source) => {
-                self.r.a = source.read(self, bus);
-                if let ByteSource::HLI = source {
-                    self.r.set_hl(self.r.get_hl().wrapping_sub(1));
-                }
+            Load::HLIToADec => {
+                let addr = self.r.get_hl();
+                self.r.a = bus.read(addr);
+                self.r.set_hl(addr.wrapping_sub(1));
             }
-            Load::IndirectFromSPi8(target, value) => {
-                // TODO: generalize this
+            Load::HLFromSPi8(value) => {
                 let sp = self.sp as i32;
                 let nn = value as i32;
 
@@ -441,7 +433,7 @@ impl CPU {
                 let carry = (sp ^ nn ^ result) & 0b1_0000_0000 != 0;
                 let half_carry = (sp ^ nn ^ result) & 0b0001_0000 != 0;
                 self.r.f.update(false, false, half_carry, carry);
-                target.write(self, bus, result as u16);
+                self.r.set_hl(result as u16);
             }
         }
         self.pc

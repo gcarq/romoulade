@@ -128,7 +128,7 @@ fn populate_instructions(bus: &mut Bus) -> BTreeMap<u16, Option<Instruction>> {
     let mut pc = ROM_BANK_0_BEGIN;
 
     while pc < ROM_BANK_0_END {
-        let (instruction, next_pc) = Instruction::new(pc, &mut bus);
+        let (instruction, next_pc) = Instruction::from_memory(pc, &mut bus);
         instructions.insert(pc, instruction);
         pc = next_pc;
     }
