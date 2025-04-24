@@ -13,18 +13,10 @@ mod gui;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
-struct Args {
-    /// Enable debugger
-    #[arg(short, long)]
-    debug: bool,
-}
+struct Args {}
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let args = Args::parse();
-    if args.debug {
-        // TODO: Implement debugger
-        println!("Debugger enabled");
-    }
+    let _args = Args::parse();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_resizable(false)

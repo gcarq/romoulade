@@ -39,17 +39,25 @@ impl Romoulade {
         }
     }
 
+    /// Shuts down the emulator and cleans up resources.
+    #[inline]
+    fn shutdown(&mut self) {
+        if let Some(frontend) = &self.frontend {
+            frontend.shutdown();
+            self.frontend = None;
+        }
+    }
+
     /// Draws the top panel of the main window.
     fn draw_top_panel(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             if ui.button("Load ROM").clicked() {
+                self.shutdown();
                 self.load_rom();
             }
             ui.separator();
             if ui.button("Run").clicked() {
-                if let Some(frontend) = &self.frontend {
-                    frontend.shutdown();
-                }
+                self.shutdown();
                 self.run(false);
             }
             if ui.button("Attach Debugger").clicked() {
@@ -60,16 +68,11 @@ impl Romoulade {
                 }
             }
             if ui.button("Stop").clicked() {
-                if let Some(frontend) = &self.frontend {
-                    frontend.shutdown();
-                    self.frontend = None;
-                } else {
-                    println!("Emulator is already stopped");
-                }
+                self.shutdown();
             }
             ui.separator();
             if let Some(cartridge) = &self.cartridge {
-                Label::new((RichText::new(format!("{cartridge}"))).color(Color32::ORANGE))
+                Label::new(RichText::new(format!("{cartridge}")).color(Color32::ORANGE))
                     .selectable(false)
                     .ui(ui);
             } else {

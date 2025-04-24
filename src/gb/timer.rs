@@ -33,6 +33,7 @@ impl TimerControl {
 
 /// This struct holds all timer related registers.
 /// See https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
+#[derive(Clone)]
 pub struct Timer {
     pub divider: u16, // DIV, this is an 16-bit register, but only the upper 8 bits are mapped to memory
     pub counter: u8,  // TIMA

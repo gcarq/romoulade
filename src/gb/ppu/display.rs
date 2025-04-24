@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 /// The display holds the current screen in the framebuffer and sends it to the frontend,
 /// once requested. It also takes care of syncing the frame rate.
+#[derive(Clone)]
 pub struct Display {
     sender: Sender<EmulatorMessage>,
     buffer: FrameBuffer,
@@ -40,6 +41,7 @@ impl Display {
 }
 
 /// Limits FPS with the configured refresh rate.
+#[derive(Clone)]
 struct FrameLimiter {
     frame_duration: Duration,
     last_call: Instant,

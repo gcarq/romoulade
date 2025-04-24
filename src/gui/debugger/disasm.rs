@@ -24,7 +24,7 @@ impl Disassembler {
 
         let mut table = TableBuilder::new(ui)
             .resizable(false)
-            .column(Column::auto().at_least(250.0))
+            .column(Column::auto().at_least(300.0))
             .sense(egui::Sense::click());
 
         if let Some(address) = self.scroll_to_address {
@@ -42,11 +42,11 @@ impl Disassembler {
                     .map(|i| i.to_string())
                     .unwrap_or_else(|| "???".to_string());
                 let text = if addr == state.cpu.pc {
-                    RichText::from(format!("-> {:04X}\t\t{}", addr, instruction))
+                    RichText::from(format!("-> {:#06X}\t\t{}", addr, instruction))
                         .monospace()
                         .color(Color32::LIGHT_GREEN)
                 } else {
-                    RichText::from(format!("   {:04X}\t\t{}", addr, instruction))
+                    RichText::from(format!("   {:#06X}\t\t{}", addr, instruction))
                         .monospace()
                         .color(Color32::WHITE)
                 };

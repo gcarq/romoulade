@@ -10,6 +10,7 @@ use crate::gb::timer::Timer;
 use crate::gb::{AddressSpace, HardwareContext};
 
 /// Defines a global Bus, all processing units should access memory through it.
+#[derive(Clone)]
 pub struct Bus {
     boot_rom_off: u8,
     audio_processor: AudioProcessor,
@@ -174,7 +175,7 @@ impl Bus {
     }
 
     /// TODO: this is a hacky solution to avoid stepping the components when writing while debugging
-    fn write_raw(&mut self, address: u16, value: u8) {
+    pub fn write_raw(&mut self, address: u16, value: u8) {
         match address {
             ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.ppu.write(address, value),

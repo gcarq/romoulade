@@ -113,10 +113,10 @@ pub const PPU_OBP1: u16 = 0xFF49;
 pub const PPU_WY: u16 = 0xFF4A;
 pub const PPU_WX: u16 = 0xFF4B;
 
-/// This register is used to prepare the gameboy to switch
+/// This register is used to prepare the Game Boy to switch
 /// between CGB Double Speed Mode and Normal Speed Mode.
 /// The actual speed switch is performed by executing a STOP command after Bit 0 has been set.
-/// After that Bit 0 will be cleared automatically, and the gameboy will operate at the 'other' speed.
+/// After that Bit 0 will be cleared automatically, and the Game Boy will operate at the 'other' speed.
 pub const CGB_PREPARE_SPEED_SWITCH: u16 = 0xFF4D;
 
 /// In CGB Mode 32 KBytes internal RAM are available.

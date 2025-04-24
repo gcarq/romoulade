@@ -22,6 +22,7 @@ const HBLANK_CYCLES: isize = 51;
 const VBLANK_LINE_CYCLES: isize = 114;
 
 /// Pixel Processing Unit
+#[derive(Clone)]
 pub struct PPU {
     pub r: Registers,
     vram: [u8; VRAM_SIZE],

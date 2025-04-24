@@ -65,6 +65,7 @@ pub const AUDIO_MASTER_CONTROL: u16 = 0xFF26;
 pub const AUDIO_WAVE_PATTERN_START: u16 = 0xFF30;
 pub const AUDIO_WAVE_PATTERN_END: u16 = 0xFF3F;
 
+#[derive(Clone)]
 pub struct AudioProcessor {
     r: [u8; AUDIO_REGISTERS_SIZE],
 }
