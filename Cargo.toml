@@ -13,6 +13,7 @@ eframe = { version = "0.31.1", default-features = false, features = ["default_fo
 egui = { version = "0.31.1", default-features = false }
 egui_extras = { version = "0.31.1", default-features = false }
 rfd = { version = "0.15.3", default-features = false, features = ["xdg-portal", "async-std"] }
+bitvec = { version = "1.0.1", default-features = false, features = [] }
 
 [profile.dev]
 opt-level = 2

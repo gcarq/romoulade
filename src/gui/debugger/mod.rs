@@ -1,12 +1,14 @@
 mod disasm;
 
+mod registers;
+
 use crate::gb::FrontendMessage;
 use crate::gb::cpu::CPU;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::debugger::{EmulatorDebugMessage, FrontendDebugMessage};
 use crate::gui::debugger::disasm::Disassembler;
-use eframe::emath::Align;
-use egui::{CentralPanel, Frame, Layout, SidePanel, TopBottomPanel, Ui, Vec2};
+use crate::gui::debugger::registers::Registers;
+use egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Sender;
 
@@ -21,6 +23,7 @@ pub struct DebuggerFrontend {
     sender: Sender<FrontendMessage>,
     state: EmulatorState,
     disassembler: Disassembler,
+    registers: Registers,
 }
 
 impl DebuggerFrontend {
@@ -29,6 +32,7 @@ impl DebuggerFrontend {
             sender,
             state: EmulatorState::default(),
             disassembler: Disassembler::default(),
+            registers: Registers,
         }
     }
 
@@ -43,9 +47,8 @@ impl DebuggerFrontend {
 
             SidePanel::left("instructions")
                 .resizable(false)
-                .min_width(250.0)
                 .show_inside(ui, |ui| {
-                    if self.disassembler.update_assembly(&self.state, ui) {
+                    if self.disassembler.update(&self.state, ui) {
                         self.send_message(FrontendDebugMessage::Breakpoints(
                             self.disassembler.breakpoints.clone(),
                         ));
@@ -53,10 +56,7 @@ impl DebuggerFrontend {
                 });
 
             CentralPanel::default().show_inside(ui, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.heading("Central Panel");
-                });
-                self.update_cpu_registers(ui);
+                self.registers.update(&self.state, ui);
             });
         });
     }
@@ -100,51 +100,5 @@ impl DebuggerFrontend {
                 self.state.instructions = instructions;
             }
         }
-    }
-
-    /// Draws a CPU register with its name and value.
-    fn draw_cpu_register(&self, ui: &mut Ui, name: &str, value: u8) {
-        Frame::default()
-            .stroke(ui.visuals().widgets.noninteractive.bg_stroke)
-            .corner_radius(ui.visuals().widgets.noninteractive.corner_radius)
-            .show(ui, |ui| {
-                ui.vertical(|ui| {
-                    ui.monospace(format!("{} = {:#04X}", name, value));
-                    ui.monospace(format!("{:08b}", value));
-                });
-            });
-    }
-
-    /// Updates the CPU registers in the UI.
-    fn update_cpu_registers(&self, ui: &mut Ui) {
-        ui.allocate_ui_with_layout(
-            Vec2::new(400.0, 400.0),
-            Layout::top_down(Align::Center),
-            |ui| {
-                CentralPanel::default()
-                    .frame(Frame::default())
-                    .show_inside(ui, |ui| {
-                        ui.vertical(|ui| {
-                            ui.label("CPU Registers");
-                            ui.horizontal(|ui| {
-                                self.draw_cpu_register(ui, "A", self.state.cpu.r.a);
-                                self.draw_cpu_register(ui, "F", self.state.cpu.r.f.bits());
-                            });
-                            ui.horizontal(|ui| {
-                                self.draw_cpu_register(ui, "B", self.state.cpu.r.b);
-                                self.draw_cpu_register(ui, "C", self.state.cpu.r.c);
-                            });
-                            ui.horizontal(|ui| {
-                                self.draw_cpu_register(ui, "D", self.state.cpu.r.d);
-                                self.draw_cpu_register(ui, "E", self.state.cpu.r.e);
-                            });
-                            ui.horizontal(|ui| {
-                                self.draw_cpu_register(ui, "H", self.state.cpu.r.h);
-                                self.draw_cpu_register(ui, "L", self.state.cpu.r.l);
-                            });
-                        });
-                    });
-            },
-        );
     }
 }

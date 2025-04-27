@@ -3,6 +3,7 @@ use egui::{Align, Color32, Label, RichText, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
 use std::collections::HashSet;
 
+/// Represents the disassembler view in the debugger UI.
 #[derive(Default)]
 pub struct Disassembler {
     pub breakpoints: HashSet<u16>,
@@ -12,7 +13,7 @@ pub struct Disassembler {
 impl Disassembler {
     /// Updates the assembly view with the current state.
     /// Returns true if breakpoints were modified.
-    pub fn update_assembly(&mut self, state: &EmulatorState, ui: &mut Ui) -> bool {
+    pub fn update(&mut self, state: &EmulatorState, ui: &mut Ui) -> bool {
         let mut breakpoints_changed = false;
 
         let text_height = egui::TextStyle::Monospace

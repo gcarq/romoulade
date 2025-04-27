@@ -113,6 +113,10 @@ impl EmulatorFrontend {
     /// if `send_msg` is true.
     #[inline]
     pub fn attach_debugger(&mut self) {
+        if self.debugger.is_some() {
+            println!("Debugger already attached");
+            return;
+        }
         println!("Attaching debugger ...");
         self.debugger = Some(DebuggerFrontend::new(self.channel.sender.clone()));
         self.send_message(FrontendMessage::AttachDebugger);
