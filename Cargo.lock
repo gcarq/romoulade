@@ -2413,6 +2413,7 @@ dependencies = [
  "egui",
  "egui_extras",
  "rfd",
+ "spin_sleep",
 ]
 
 [[package]]
@@ -2593,6 +2594,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "spin_sleep"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17db5ecef7e0bebeb8bf8bc4c4b554e05e0205d7008f10bb37787892e7a6507b"
+dependencies = [
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

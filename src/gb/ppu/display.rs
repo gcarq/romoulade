@@ -2,7 +2,6 @@ use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::ColoredPixel;
 use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage, GBResult};
 use std::sync::mpsc::Sender;
-use std::thread;
 use std::time::{Duration, Instant};
 
 /// The display holds the current frame in the `FrameBuffer` and sends it to the frontend.
@@ -48,6 +47,7 @@ struct FrameLimiter {
 
 impl FrameLimiter {
     /// Creates a new frame limiter with the given refresh rate.
+    #[inline]
     pub fn new(refresh_rate: u32) -> Self {
         Self {
             frame_duration: Duration::from_secs(1) / refresh_rate,
@@ -59,7 +59,7 @@ impl FrameLimiter {
     pub fn wait(&mut self) {
         let elapsed = self.last_call.elapsed();
         if elapsed < self.frame_duration {
-            thread::sleep(self.frame_duration - elapsed);
+            spin_sleep::sleep(self.frame_duration - elapsed);
         }
         self.last_call = Instant::now();
     }
