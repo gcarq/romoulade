@@ -21,7 +21,7 @@ impl Disassembler {
             .size
             .max(ui.spacing().interact_size.y);
 
-        let instructions = Vec::from_iter(state.instructions.clone());
+        let instructions = state.instructions.as_slice();
 
         let mut table = TableBuilder::new(ui)
             .resizable(false)

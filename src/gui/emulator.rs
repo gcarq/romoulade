@@ -44,6 +44,31 @@ pub struct EmulatorFrontend {
 }
 
 impl EmulatorFrontend {
+    pub fn update(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+        self.handle_user_input(ui);
+        self.recv_message(ctx);
+        self.draw_emulator_frame(ctx, ui);
+
+        let mut stop_debugger = false;
+        if let Some(debugger) = &mut self.debugger {
+            ctx.show_viewport_immediate(
+                ViewportId::from_hash_of("debugger"),
+                ViewportBuilder::default().with_title("Debugger"),
+                |ctx, _| {
+                    debugger.update(ctx);
+
+                    // Check if the debugger window is closed
+                    if ctx.input(|i| i.viewport().close_requested()) {
+                        stop_debugger = true;
+                    }
+                },
+            );
+        }
+        if stop_debugger {
+            self.detach_debugger();
+        }
+    }
+
     /// Starts the emulator with the given cartridge.
     pub fn start(cartridge: &Cartridge, debug: bool) -> Self {
         let (emulator_sender, emulator_receiver) = mpsc::channel();
@@ -84,31 +109,6 @@ impl EmulatorFrontend {
         }
     }
 
-    pub fn update(&mut self, ctx: &egui::Context, ui: &mut Ui) {
-        self.recv_message(ctx);
-        self.handle_user_input(ui);
-        self.draw_emulator_frame(ctx, ui);
-
-        let mut stop_debugger = false;
-        if let Some(debugger) = &mut self.debugger {
-            ctx.show_viewport_immediate(
-                ViewportId::from_hash_of("debugger"),
-                ViewportBuilder::default().with_title("Debugger"),
-                |ctx, _| {
-                    debugger.update(ctx);
-
-                    // Check if the debugger window is closed
-                    if ctx.input(|i| i.viewport().close_requested()) {
-                        stop_debugger = true;
-                    }
-                },
-            );
-        }
-        if stop_debugger {
-            self.detach_debugger();
-        }
-    }
-
     /// Attaches a debugger to the frontend and sends a `AttachDebugger` to the emulator
     /// if `send_msg` is true.
     #[inline]
@@ -131,6 +131,7 @@ impl EmulatorFrontend {
     }
 
     /// Draws the latest frame from the emulator to the screen
+    #[inline]
     fn draw_emulator_frame(&self, ctx: &egui::Context, ui: &mut Ui) {
         if let Some(frame) = &self.frame {
             let size = Vec2::new(
@@ -143,17 +144,18 @@ impl EmulatorFrontend {
     }
 
     /// Sets the frame texture to the given `FrameBuffer`.
-    #[inline]
     fn set_frame_texture(&mut self, frame: FrameBuffer, ctx: &egui::Context) {
         let image = ColorImage {
             size: [SCREEN_WIDTH * UPSCALE, SCREEN_HEIGHT * UPSCALE],
             pixels: frame.buffer,
         };
+        let options = TextureOptions::LINEAR;
+
         // Set the new frame to the texture or create a new one if it doesn't exist
         if let Some(frame) = &mut self.frame {
-            frame.set(image, TextureOptions::LINEAR);
+            frame.set(image, options);
         } else {
-            self.frame = Some(ctx.load_texture("frame", image, TextureOptions::LINEAR));
+            self.frame = Some(ctx.load_texture("frame", image, options));
         }
     }
 
@@ -181,7 +183,6 @@ impl EmulatorFrontend {
     }
 
     /// Handles user input and sends it to the emulator.
-    #[inline]
     fn handle_user_input(&self, ui: &mut Ui) {
         ui.input(|i| {
             for key in &i.keys_down {

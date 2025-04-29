@@ -5,32 +5,48 @@ mod registers;
 use crate::gb::FrontendMessage;
 use crate::gb::cpu::CPU;
 use crate::gb::cpu::instruction::Instruction;
-use crate::gb::debugger::{EmulatorDebugMessage, FrontendDebugMessage};
+use crate::gb::debugger::bus::DebugBus;
+use crate::gb::debugger::{DebugMessage, FrontendDebugMessage};
 use crate::gui::debugger::disasm::Disassembler;
 use crate::gui::debugger::registers::Registers;
 use egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};
-use std::collections::BTreeMap;
+use egui_extras::{Size, StripBuilder};
 use std::sync::mpsc::Sender;
 
 /// Holds the current state of the emulator that is relevant for debugging.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 struct EmulatorState {
     pub cpu: CPU,
-    pub instructions: BTreeMap<u16, Option<Instruction>>,
+    pub bus: DebugBus,
+    pub instructions: Vec<(u16, Option<Instruction>)>,
+}
+
+impl EmulatorState {
+    pub fn new(cpu: CPU, bus: DebugBus) -> Self {
+        let mut bus = bus;
+        let instructions = bus.fetch_instructions();
+
+        Self {
+            cpu,
+            bus,
+            instructions,
+        }
+    }
 }
 
 pub struct DebuggerFrontend {
     sender: Sender<FrontendMessage>,
-    state: EmulatorState,
+    state: Option<EmulatorState>,
     disassembler: Disassembler,
     registers: Registers,
 }
 
 impl DebuggerFrontend {
+    #[inline]
     pub fn new(sender: Sender<FrontendMessage>) -> Self {
         Self {
             sender,
-            state: EmulatorState::default(),
+            state: None,
             disassembler: Disassembler::default(),
             registers: Registers,
         }
@@ -38,26 +54,38 @@ impl DebuggerFrontend {
 
     /// Updates the UI of the debugger.
     pub fn update(&mut self, ctx: &egui::Context) {
-        CentralPanel::default().show(ctx, |ui| {
-            TopBottomPanel::top("actions")
-                .resizable(false)
-                .show_inside(ui, |ui| {
-                    self.draw_top_panel(ui);
-                });
+        TopBottomPanel::top("actions")
+            .resizable(false)
+            .show(ctx, |ui| {
+                self.draw_top_panel(ui);
+            });
 
-            SidePanel::left("instructions")
-                .resizable(false)
-                .show_inside(ui, |ui| {
-                    if self.disassembler.update(&self.state, ui) {
+        SidePanel::left("instructions")
+            .resizable(false)
+            .show(ctx, |ui| {
+                if let Some(state) = &self.state {
+                    if self.disassembler.update(state, ui) {
                         self.send_message(FrontendDebugMessage::Breakpoints(
                             self.disassembler.breakpoints.clone(),
                         ));
                     }
-                });
-
-            CentralPanel::default().show_inside(ui, |ui| {
-                self.registers.update(&self.state, ui);
+                }
             });
+        CentralPanel::default().show(ctx, |ui| {
+            StripBuilder::new(ui)
+                .size(Size::exact(145.0))
+                .size(Size::remainder())
+                .horizontal(|mut strip| {
+                    strip.strip(|builder| {
+                        builder.sizes(Size::remainder(), 1).horizontal(|mut strip| {
+                            strip.cell(|ui| {
+                                if let Some(state) = &self.state {
+                                    self.registers.update(state, ui);
+                                }
+                            });
+                        });
+                    });
+                });
         });
     }
 
@@ -83,6 +111,7 @@ impl DebuggerFrontend {
     /// Sends a debug message to the emulator.
     #[inline]
     fn send_message(&self, message: FrontendDebugMessage) {
+        // TODO: Handle errors properly, currently panics if the channel is closed.
         self.sender
             .send(FrontendMessage::Debug(message))
             .expect("Unable to send debug message");
@@ -90,15 +119,9 @@ impl DebuggerFrontend {
 
     /// Handles the given `EmulatorDebugMessage` message from the emulator.
     #[inline]
-    pub fn handle_message(&mut self, msg: EmulatorDebugMessage) {
-        match msg {
-            EmulatorDebugMessage::Cpu(cpu) => {
-                self.state.cpu = cpu;
-                self.disassembler.scroll_to_address(self.state.cpu.pc);
-            }
-            EmulatorDebugMessage::Instructions(instructions) => {
-                self.state.instructions = instructions;
-            }
-        }
+    pub fn handle_message(&mut self, msg: DebugMessage) {
+        let pc = msg.cpu.pc;
+        self.disassembler.scroll_to_address(pc);
+        self.state = Some(EmulatorState::new(msg.cpu, msg.bus));
     }
 }

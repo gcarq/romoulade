@@ -15,31 +15,54 @@ use display::Display;
 use std::cmp::Ordering;
 
 const ACCESS_OAM_CYCLES: isize = 21;
-
 const ACCESS_VRAM_CYCLES: isize = 43;
-
 const HBLANK_CYCLES: isize = 51;
 const VBLANK_LINE_CYCLES: isize = 114;
 
 /// Pixel Processing Unit
-#[derive(Clone)]
 pub struct PPU {
     pub r: Registers,
     vram: [u8; VRAM_SIZE],
     oam: [u8; OAM_SIZE],
     cycles: isize,
-    display: Display,
+    display: Option<Display>,
     window_line_counter: u8,
 }
 
-impl PPU {
-    pub fn new(display: Display) -> Self {
+impl Clone for PPU {
+    fn clone(&self) -> Self {
+        Self {
+            r: self.r,
+            vram: self.vram,
+            oam: self.oam,
+            cycles: self.cycles,
+            display: None,
+            window_line_counter: self.window_line_counter,
+        }
+    }
+}
+
+impl Default for PPU {
+    fn default() -> Self {
         Self {
             r: Registers::default(),
             vram: [0u8; VRAM_SIZE],
             oam: [0u8; OAM_SIZE],
             cycles: ACCESS_OAM_CYCLES,
-            display,
+            display: None,
+            window_line_counter: 0,
+        }
+    }
+}
+
+impl PPU {
+    pub fn with_display(display: Display) -> Self {
+        Self {
+            r: Registers::default(),
+            vram: [0u8; VRAM_SIZE],
+            oam: [0u8; OAM_SIZE],
+            cycles: ACCESS_OAM_CYCLES,
+            display: Some(display),
             window_line_counter: 0,
         }
     }
@@ -120,7 +143,9 @@ impl PPU {
     fn handle_hblank(&mut self, int_reg: &mut InterruptRegister) {
         self.r.ly += 1;
         if self.r.ly >= SCREEN_HEIGHT {
-            self.display.send_frame();
+            if let Some(display) = &mut self.display {
+                display.send_frame();
+            }
             self.switch_mode(PPUMode::VBlank, int_reg);
         } else {
             self.switch_mode(PPUMode::AccessOAM, int_reg);
@@ -170,7 +195,9 @@ impl PPU {
             let pixel = Pixel::from(color_value);
             let color = self.r.bg_palette.colorize(pixel);
             bg_prio[i as usize] = pixel != Pixel::Zero;
-            self.display.write_pixel(i, self.r.ly, color);
+            if let Some(display) = &mut self.display {
+                display.write_pixel(i, self.r.ly, color);
+            }
         }
     }
 
@@ -208,7 +235,9 @@ impl PPU {
             let pixel = Pixel::from(color_value);
             let color = self.r.bg_palette.colorize(pixel);
             bg_prio[i as usize] = pixel != Pixel::Zero;
-            self.display.write_pixel(i, self.r.ly, color);
+            if let Some(display) = &mut self.display {
+                display.write_pixel(i, self.r.ly, color);
+            }
         }
     }
 
@@ -289,7 +318,9 @@ impl PPU {
                     || !bg_prio[target_x as usize];
                 if target_x < SCREEN_WIDTH && pixel != Pixel::Zero && should_draw {
                     let color = palette.colorize(pixel);
-                    self.display.write_pixel(target_x, self.r.ly, color);
+                    if let Some(display) = &mut self.display {
+                        display.write_pixel(target_x, self.r.ly, color);
+                    }
                 }
             }
         }

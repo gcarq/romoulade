@@ -5,9 +5,8 @@ use std::sync::mpsc::Sender;
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// The display holds the current screen in the framebuffer and sends it to the frontend,
-/// once requested. It also takes care of syncing the frame rate.
-#[derive(Clone)]
+/// The display holds the current frame in the `FrameBuffer` and sends it to the frontend.
+/// It also takes care of syncing the frame rate.
 pub struct Display {
     sender: Sender<EmulatorMessage>,
     buffer: FrameBuffer,

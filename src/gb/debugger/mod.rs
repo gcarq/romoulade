@@ -1,12 +1,11 @@
-mod bus;
+pub mod bus;
 
 use crate::gb::bus::Bus;
-use crate::gb::constants::{BOOT_END, ROM_BANK_0_BEGIN, ROM_BANK_0_END};
+use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
-use crate::gb::cpu::instruction::Instruction;
 use crate::gb::debugger::bus::DebugBus;
 use crate::gb::{EmulatorMessage, GBResult, interrupt};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 
 /// This enum defines the possible debug messages that can be sent from
@@ -19,17 +18,25 @@ pub enum FrontendDebugMessage {
     Breakpoints(HashSet<u16>),
 }
 
-/// This enum defines the possible debug messages that can be sent from
-/// the emulator to the frontend.
-pub enum EmulatorDebugMessage {
-    Cpu(CPU),
-    Instructions(BTreeMap<u16, Option<Instruction>>),
+/// This struct holds the current state of the emulator that is relevant for debugging.
+pub struct DebugMessage {
+    pub cpu: CPU,
+    pub bus: DebugBus,
+}
+
+impl DebugMessage {
+    #[inline]
+    pub fn new(cpu: &CPU, bus: &Bus) -> Self {
+        Self {
+            cpu: cpu.clone(),
+            bus: DebugBus::from(bus.clone()),
+        }
+    }
 }
 
 /// The debugger is responsible for handling the debug state of the emulator.
 pub struct Debugger {
     message: Option<FrontendDebugMessage>,
-    instructions: BTreeMap<u16, Option<Instruction>>,
     breakpoints: HashSet<u16>,
     sender: Sender<EmulatorMessage>,
 }
@@ -39,14 +46,12 @@ impl Debugger {
     pub fn new(cpu: &CPU, bus: &mut Bus, sender: Sender<EmulatorMessage>) -> Self {
         let instance = Self {
             message: None,
-            instructions: populate_instructions(bus),
             breakpoints: HashSet::new(),
             sender,
         };
         // Send the initial state to the frontend
         // TODO: find a better solution
-        instance.send_message(EmulatorDebugMessage::Cpu(cpu.clone()));
-        instance.send_instructions();
+        instance.send_message(DebugMessage::new(cpu, bus));
         instance
     }
 
@@ -54,83 +59,64 @@ impl Debugger {
     /// Only does a single step per call.
     pub fn maybe_step(&mut self, cpu: &mut CPU, bus: &mut Bus) -> GBResult<()> {
         match &self.message {
+            // The frontend requested a single step
             Some(FrontendDebugMessage::Step) => {
-                cpu.step(bus)?;
-                interrupt::handle(cpu, bus);
-                self.send_message(EmulatorDebugMessage::Cpu(cpu.clone()));
+                self.step(cpu, bus)?;
+                self.send_message(DebugMessage::new(cpu, bus));
                 self.message = None;
             }
+            // The frontend requested normal execution, the cpu should step until breakpoint is hit
             Some(FrontendDebugMessage::Continue) => {
-                cpu.step(bus)?;
-                interrupt::handle(cpu, bus);
+                self.step(cpu, bus)?;
                 if self.breakpoints.contains(&cpu.pc) {
-                    self.send_message(EmulatorDebugMessage::Cpu(cpu.clone()));
+                    self.send_message(DebugMessage::new(cpu, bus));
                     self.message = None;
                 }
             }
+            // The frontend requested a pause, the cpu should stop executing
             Some(FrontendDebugMessage::Pause) => {
-                self.send_message(EmulatorDebugMessage::Cpu(cpu.clone()));
+                self.send_message(DebugMessage::new(cpu, bus));
                 self.message = None;
             }
+            // The frontend requested to skip the boot ROM,
+            // the cpu should step until the end of the boot ROM
             Some(FrontendDebugMessage::SkipBootRom) => {
-                if cpu.pc == BOOT_END + 1 {
-                    self.send_message(EmulatorDebugMessage::Cpu(cpu.clone()));
+                if bus.is_boot_rom_active && cpu.pc == BOOT_END - 1 {
+                    self.step(cpu, bus)?;
+                    self.send_message(DebugMessage::new(cpu, bus));
                     self.message = None;
                 } else {
-                    cpu.step(bus)?;
-                    interrupt::handle(cpu, bus);
+                    self.step(cpu, bus)?;
                 }
             }
+            // The frontend sent a new set of breakpoints
             Some(FrontendDebugMessage::Breakpoints(breakpoints)) => {
                 self.breakpoints = breakpoints.clone();
             }
             None => {}
         }
-
-        // After the boot ROM is finished we have to populate
-        // the instructions from the cartridge ROM
-        if cpu.pc == BOOT_END + 1 {
-            self.instructions = populate_instructions(bus);
-            self.send_instructions();
-        }
-
         Ok(())
     }
 
     /// Handles a message from the frontend.
-    #[inline]
+    #[inline(always)]
     pub fn handle_message(&mut self, message: FrontendDebugMessage) {
         self.message = Some(message);
     }
 
+    /// Steps the CPU and handles interrupts.
+    #[inline]
+    fn step(&mut self, cpu: &mut CPU, bus: &mut Bus) -> GBResult<()> {
+        cpu.step(bus)?;
+        interrupt::handle(cpu, bus);
+        Ok(())
+    }
+
     /// Sends a message to the frontend.
     #[inline]
-    fn send_message(&self, message: EmulatorDebugMessage) {
+    fn send_message(&self, message: DebugMessage) {
         self.sender
             .send(EmulatorMessage::Debug(message))
             .expect("Unable to send debug message");
     }
-
-    /// Sends the current instructions to the frontend.
-    #[inline]
-    fn send_instructions(&self) {
-        self.send_message(EmulatorDebugMessage::Instructions(
-            self.instructions.clone(),
-        ));
-    }
-}
-
-/// Prefetch all instructions from ROM bank 0.
-/// TODO: adapt for banking
-fn populate_instructions(bus: &mut Bus) -> BTreeMap<u16, Option<Instruction>> {
-    let mut bus = DebugBus::from(bus.clone());
-    let mut instructions = BTreeMap::new();
-    let mut pc = ROM_BANK_0_BEGIN;
-
-    while pc < ROM_BANK_0_END {
-        let (instruction, next_pc) = Instruction::from_memory(pc, &mut bus);
-        instructions.insert(pc, instruction);
-        pc = next_pc;
-    }
-    instructions
 }

@@ -12,7 +12,7 @@ use crate::gb::{AddressSpace, HardwareContext};
 /// Defines a global Bus, all processing units should access memory through it.
 #[derive(Clone)]
 pub struct Bus {
-    boot_rom_off: u8,
+    pub is_boot_rom_active: bool,
     audio_processor: AudioProcessor,
     pub cartridge: Cartridge,
     timer: Timer,
@@ -28,12 +28,12 @@ pub struct Bus {
 }
 
 impl Bus {
-    pub fn new(cartridge: Cartridge, display: Display) -> Self {
+    pub fn with_cartridge(cartridge: Cartridge, display: Display) -> Self {
         Self {
-            boot_rom_off: 0,
-            audio_processor: AudioProcessor::default(),
             cartridge,
-            ppu: PPU::new(display),
+            is_boot_rom_active: true,
+            audio_processor: AudioProcessor::default(),
+            ppu: PPU::with_display(display),
             joypad: Joypad::default(),
             pending_joypad_event: None,
             ime: ImeState::Enabled,
@@ -63,7 +63,7 @@ impl Bus {
     /// depending on BOOT_ROM_OFF register
     fn read_cartridge(&mut self, address: u16) -> u8 {
         match address {
-            BOOT_BEGIN..=BOOT_END if self.boot_rom_off == 0 => BOOT_ROM[address as usize],
+            BOOT_BEGIN..=BOOT_END if self.is_boot_rom_active => BOOT_ROM[address as usize],
             _ => self.cartridge.read(address),
         }
     }
@@ -117,7 +117,11 @@ impl Bus {
             CGB_PREPARE_SPEED_SWITCH => {} // only used in GBC mode
             0xFF4E => {}                   // undocumented
             0xFF4F => {}                   // only used in GBC mode
-            BOOT_ROM_OFF => self.boot_rom_off = value,
+            BOOT_ROM_OFF => {
+                if value > 0 {
+                    self.is_boot_rom_active = false
+                }
+            }
             0xFF51..=0xFF56 => {}  // only used in GBC mode
             0xFF57..=0xFF67 => {}  // undocumented
             0xFF68..=0xFF6F => {}  // only used in GBC mode

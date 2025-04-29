@@ -1,7 +1,7 @@
 use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::cpu::{CPU, ImeState};
-use crate::gb::debugger::{Debugger, EmulatorDebugMessage, FrontendDebugMessage};
+use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
 use crate::gb::joypad::JoypadInput;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
@@ -47,7 +47,7 @@ pub trait AddressSpace {
 /// This enum defines the possible messages that can be sent from the emulator to the frontend.
 pub enum EmulatorMessage {
     Frame(FrameBuffer),
-    Debug(EmulatorDebugMessage),
+    Debug(DebugMessage),
 }
 
 /// This enum defines the possible messages that can be sent from the frontend to the emulator.
@@ -78,7 +78,7 @@ impl Emulator {
     ) -> GBResult<Self> {
         let display = Display::new(sender.clone(), upscale)?;
         let cpu = CPU::default();
-        let mut bus = Bus::new(cartridge, display);
+        let mut bus = Bus::with_cartridge(cartridge, display);
         let debugger = match debug {
             true => Some(Debugger::new(&cpu, &mut bus, sender.clone())),
             false => None,
