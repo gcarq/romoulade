@@ -4,8 +4,9 @@ use crate::gb::constants::*;
 use crate::gb::cpu::ImeState;
 use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{Joypad, JoypadInput};
-use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
+use crate::gb::ppu::PPU;
+use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
 use crate::gb::{AddressSpace, HardwareContext};
 
@@ -14,6 +15,7 @@ use crate::gb::{AddressSpace, HardwareContext};
 pub struct Bus {
     pub is_boot_rom_active: bool,
     audio_processor: AudioProcessor,
+    serial_transfer: SerialTransfer,
     pub cartridge: Cartridge,
     timer: Timer,
     ppu: PPU,
@@ -33,6 +35,7 @@ impl Bus {
             cartridge,
             is_boot_rom_active: true,
             audio_processor: AudioProcessor::default(),
+            serial_transfer: SerialTransfer::default(),
             ppu: PPU::with_display(display),
             joypad: Joypad::default(),
             pending_joypad_event: None,
@@ -97,8 +100,8 @@ impl Bus {
                     self.pending_joypad_event = None;
                 }
             }
-            SERIAL_TRANSFER_DATA => {} // TODO: implement me
-            SERIAL_TRANSFER_CTRL => {} // TODO: implement me
+            SERIAL_TRANSFER_DATA => self.serial_transfer.write(address, value),
+            SERIAL_TRANSFER_CTRL => self.serial_transfer.write(address, value),
             // undocumented
             0xFF03 => {}
             // Whenever a ROM writes to this register it will reset to 0
@@ -138,8 +141,8 @@ impl Bus {
     fn read_io(&mut self, address: u16) -> u8 {
         match address {
             JOYPAD => self.joypad.read(),
-            SERIAL_TRANSFER_DATA => 0x00,        // TODO: implement me
-            SERIAL_TRANSFER_CTRL => 0b0111_1110, // TODO: implement me
+            SERIAL_TRANSFER_DATA => self.serial_transfer.read(address),
+            SERIAL_TRANSFER_CTRL => self.serial_transfer.read(address),
             0xFF03 => 0xFF,                      // undocumented
             TIMER_DIVIDER..=TIMER_CTRL => self.timer.read(address),
             0xFF08..=0xFF0E => 0xFF, // undocumented
