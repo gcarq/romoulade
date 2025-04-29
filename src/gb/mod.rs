@@ -1,6 +1,6 @@
 use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
-use crate::gb::cpu::{ImeState, CPU};
+use crate::gb::cpu::{CPU, ImeState};
 use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
 use crate::gb::joypad::JoypadInput;
 use crate::gb::ppu::buffer::FrameBuffer;
@@ -17,11 +17,11 @@ pub mod debugger;
 pub mod interrupt;
 pub mod joypad;
 pub mod ppu;
+mod serial;
 #[cfg(test)]
 mod tests;
 pub mod timer;
 mod utils;
-mod serial;
 
 pub const DISPLAY_REFRESH_RATE: u32 = 60; // TODO: exact refresh rate is 59.7
 

@@ -142,6 +142,10 @@ pub const PCM_AMPLITUDES34: u16 = 0xFF77;
 pub const INTERRUPT_FLAG: u16 = 0xFF0F;
 pub const INTERRUPT_ENABLE: u16 = 0xFFFF;
 
+/// This defines the default value when reading from an undefined memory address,
+/// or when reading from a memory region that is currently not readable.
+pub const UNDEFINED_READ: u8 = 0xFF;
+
 /// Contains the DMG Bootstrap ROM,
 /// disassembled code is outlined here: https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM.
 pub(crate) const BOOT_ROM: [u8; BOOT_SIZE] = [

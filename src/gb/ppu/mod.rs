@@ -73,10 +73,9 @@ impl PPU {
             // Screen is off, PPU remains idle.
             return;
         }
-        let mode = self.r.lcd_stat.ppu_mode();
+        let mode = self.r.lcd_stat.mode();
 
         self.cycles -= 1;
-
         if self.cycles == 1 && mode == PPUMode::AccessVRAM {
             // STAT mode=0 interrupt happens one cycle before the actual mode switch!
             if self.r.lcd_stat.contains(LCDState::H_BLANK_INT) {
@@ -111,7 +110,7 @@ impl PPU {
 
     /// Switches the LCD mode and handles interrupts if needed.
     fn switch_mode(&mut self, mode: PPUMode, int_reg: &mut InterruptRegister) {
-        self.r.lcd_stat.set_ppu_mode(mode);
+        self.r.lcd_stat.set_mode(mode);
         self.cycles += mode.cycles();
         match mode {
             PPUMode::AccessOAM => {
@@ -122,6 +121,9 @@ impl PPU {
             PPUMode::VBlank => {
                 int_reg.insert(InterruptRegister::VBLANK);
                 if self.r.lcd_stat.contains(LCDState::V_BLANK_INT) {
+                    int_reg.insert(InterruptRegister::STAT);
+                }
+                if self.r.lcd_stat.contains(LCDState::OAM_INT) {
                     int_reg.insert(InterruptRegister::STAT);
                 }
             }
@@ -136,7 +138,9 @@ impl PPU {
             return;
         }
         self.r.lcd_stat.insert(LCDState::LYC_STAT);
-        int_reg.insert(InterruptRegister::STAT);
+        if self.r.lcd_stat.contains(LCDState::LY_INT) {
+            int_reg.insert(InterruptRegister::STAT);
+        }
     }
 
     /// Handles the HBlank mode, requests an OAM and/or STAT interrupt if needed
@@ -348,17 +352,17 @@ impl PPU {
     }
 
     /// Writes to the LCD control register (PPU_LCDC).
-    fn write_lcd_control(&mut self, value: u8) {
+    fn write_control(&mut self, value: u8) {
         let cur = self.r.lcd_control;
         let new = LCDControl::from_bits_truncate(value);
         if new.contains(LCDControl::LCD_EN) && !cur.contains(LCDControl::LCD_EN) {
             // LCD is being turned on
-            self.r.lcd_stat.set_ppu_mode(PPUMode::HBlank);
+            self.r.lcd_stat.set_mode(PPUMode::HBlank);
             self.cycles = PPUMode::AccessOAM.cycles();
             self.r.lcd_stat.insert(LCDState::LYC_STAT);
         } else if !new.contains(LCDControl::LCD_EN) && cur.contains(LCDControl::LCD_EN) {
             // LCD is being turned off, reset the LY register to 0.
-            if self.r.lcd_stat.ppu_mode() != PPUMode::VBlank {
+            if self.r.lcd_stat.mode() != PPUMode::VBlank {
                 panic!("FATAL: LCD off, but not in VBlank");
             }
             self.r.ly = 0;
@@ -369,7 +373,7 @@ impl PPU {
     /// Writes to the LCD status register (PPU_STAT),
     /// the first two bits are only writable by the PPU.
     #[inline]
-    fn write_lcd_stat(&mut self, value: u8) {
+    fn write_stat(&mut self, value: u8) {
         let cur = self.r.lcd_stat;
         let mut new = LCDState::from_bits_truncate(value);
         new.set(LCDState::PPU_MODE1, cur.contains(LCDState::PPU_MODE1));
@@ -383,19 +387,19 @@ impl AddressSpace for PPU {
         match address {
             VRAM_BEGIN..=VRAM_END => {
                 // VRAM is not accessible during Pixel Transfer mode.
-                if self.r.lcd_stat.ppu_mode() != PPUMode::AccessVRAM {
+                if self.r.lcd_stat.mode() != PPUMode::AccessVRAM {
                     self.vram[usize::from(address - VRAM_BEGIN)] = value;
                 }
             }
             OAM_BEGIN..=OAM_END => {
                 // OAM is not accessible during Pixel Transfer or OAM Search.
-                match self.r.lcd_stat.ppu_mode() {
+                match self.r.lcd_stat.mode() {
                     PPUMode::AccessOAM | PPUMode::AccessVRAM => {}
                     _ => self.oam[(address - OAM_BEGIN) as usize] = value,
                 }
             }
-            PPU_LCDC => self.write_lcd_control(value),
-            PPU_STAT => self.write_lcd_stat(value),
+            PPU_LCDC => self.write_control(value),
+            PPU_STAT => self.write_stat(value),
             PPU_SCY => self.r.scy = value,
             PPU_SCX => self.r.scx = value,
             PPU_LY => {} // LY is read-only
@@ -412,18 +416,16 @@ impl AddressSpace for PPU {
     fn read(&mut self, address: u16) -> u8 {
         match address {
             VRAM_BEGIN..=VRAM_END => {
-                match self.r.lcd_stat.ppu_mode() {
+                match self.r.lcd_stat.mode() {
                     // In Pixel Transfer mode, the VRAM is not accessible.
-                    // Return 0xFF to indicate that the value is not available.
-                    PPUMode::AccessVRAM => 0xFF,
+                    PPUMode::AccessVRAM => UNDEFINED_READ,
                     _ => self.vram[usize::from(address - VRAM_BEGIN)],
                 }
             }
             OAM_BEGIN..=OAM_END => {
-                match self.r.lcd_stat.ppu_mode() {
+                match self.r.lcd_stat.mode() {
                     // In Pixel Transfer mode or during OAM Search, the OAM is not accessible.
-                    // Return 0xFF to indicate that the value is not available.
-                    PPUMode::AccessOAM | PPUMode::AccessVRAM => 0xFF,
+                    PPUMode::AccessOAM | PPUMode::AccessVRAM => UNDEFINED_READ,
                     _ => self.oam[(address - OAM_BEGIN) as usize],
                 }
             }

@@ -1,5 +1,5 @@
-use crate::gb::constants::*;
 use crate::gb::AddressSpace;
+use crate::gb::constants::*;
 
 bitflags! {
     /// Represents the Serial transfer control register at 0xFF02
@@ -36,7 +36,10 @@ impl AddressSpace for SerialTransfer {
         match address {
             SERIAL_TRANSFER_DATA => self.data = value,
             SERIAL_TRANSFER_CTRL => self.control = SerialTransferControl::from_bits_truncate(value),
-            _ => panic!("Attempt to write to unmapped serial register: 0x{:X}", address),
+            _ => panic!(
+                "Attempt to write to unmapped serial register: 0x{:X}",
+                address
+            ),
         }
     }
 
@@ -45,7 +48,10 @@ impl AddressSpace for SerialTransfer {
             SERIAL_TRANSFER_DATA => self.data,
             // Undocumented bits should be 1
             SERIAL_TRANSFER_CTRL => self.control.bits() | 0b0111_1110,
-            _ => panic!("Attempt to read from unmapped serial register: 0x{:X}", address),
+            _ => panic!(
+                "Attempt to read from unmapped serial register: 0x{:X}",
+                address
+            ),
         }
     }
 }

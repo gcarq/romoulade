@@ -90,13 +90,13 @@ impl LCDControl {
 impl LCDState {
     /// Returns the `PPUMode` based on the first two bits of PPU_STAT.
     #[inline]
-    pub fn ppu_mode(&self) -> PPUMode {
+    pub fn mode(&self) -> PPUMode {
         PPUMode::from(self.bits())
     }
 
     /// Sets the first two bits of PPU_STAT to the given `PPUMode`.
     #[inline]
-    pub fn set_ppu_mode(&mut self, mode: PPUMode) {
+    pub fn set_mode(&mut self, mode: PPUMode) {
         *self = LCDState::from_bits_truncate((self.bits() & 0b11111100) | u8::from(mode));
     }
 }
@@ -112,14 +112,13 @@ pub enum PPUMode {
 
 impl PPUMode {
     /// Returns the number of cycles for the current mode.
-    /// TODO: handle timing offset of PPU_SCX
     #[inline]
     pub fn cycles(&self) -> isize {
         match self {
-            PPUMode::HBlank => HBLANK_CYCLES,
-            PPUMode::VBlank => VBLANK_LINE_CYCLES,
             PPUMode::AccessOAM => ACCESS_OAM_CYCLES,
             PPUMode::AccessVRAM => ACCESS_VRAM_CYCLES,
+            PPUMode::HBlank => HBLANK_CYCLES,
+            PPUMode::VBlank => VBLANK_LINE_CYCLES,
         }
     }
 }

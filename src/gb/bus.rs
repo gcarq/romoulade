@@ -4,8 +4,8 @@ use crate::gb::constants::*;
 use crate::gb::cpu::ImeState;
 use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{Joypad, JoypadInput};
-use crate::gb::ppu::display::Display;
 use crate::gb::ppu::PPU;
+use crate::gb::ppu::display::Display;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
 use crate::gb::{AddressSpace, HardwareContext};
@@ -143,27 +143,27 @@ impl Bus {
             JOYPAD => self.joypad.read(),
             SERIAL_TRANSFER_DATA => self.serial_transfer.read(address),
             SERIAL_TRANSFER_CTRL => self.serial_transfer.read(address),
-            0xFF03 => 0xFF,                      // undocumented
+            0xFF03 => UNDEFINED_READ, // undocumented
             TIMER_DIVIDER..=TIMER_CTRL => self.timer.read(address),
-            0xFF08..=0xFF0E => 0xFF, // undocumented
+            0xFF08..=0xFF0E => UNDEFINED_READ, // undocumented
             // Undocumented bits should be 1
             INTERRUPT_FLAG => self.interrupt_flag.bits() | 0b1110_0000,
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.audio_processor.read(address),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.read(address),
-            0xFF4C => 0xFF,                   // only used in GBC mode
-            CGB_PREPARE_SPEED_SWITCH => 0xFF, // only used in GBC mode
-            0xFF4E => 0xFF,                   // undocumented
-            0xFF4F => 0xFF,                   // only used in GBC mode
+            0xFF4C => UNDEFINED_READ, // only used in GBC mode
+            CGB_PREPARE_SPEED_SWITCH => UNDEFINED_READ, // only used in GBC mode
+            0xFF4E => UNDEFINED_READ, // undocumented
+            0xFF4F => UNDEFINED_READ, // only used in GBC mode
             // When read, this register is always 0xFF
-            BOOT_ROM_OFF => 0xFF,
-            0xFF51..=0xFF56 => 0xFF,  // only used in GBC mode
-            0xFF57..=0xFF67 => 0xFF,  // undocumented
-            0xFF68..=0xFF6F => 0xFF,  // only used in GBC mode
-            CGB_WRAM_BANK => 0xFF,    // only used in GBC mode
-            0xFF71..=0xFF75 => 0xFF,  // undocumented
-            PCM_AMPLITUDES12 => 0xFF, // only used in GBC mode
-            PCM_AMPLITUDES34 => 0xFF, // only used in GBC mode
-            0xFF78..=0xFF7F => 0xFF,  // undocumented
+            BOOT_ROM_OFF => UNDEFINED_READ,
+            0xFF51..=0xFF56 => UNDEFINED_READ, // only used in GBC mode
+            0xFF57..=0xFF67 => UNDEFINED_READ, // undocumented
+            0xFF68..=0xFF6F => UNDEFINED_READ, // only used in GBC mode
+            CGB_WRAM_BANK => UNDEFINED_READ,   // only used in GBC mode
+            0xFF71..=0xFF75 => UNDEFINED_READ, // undocumented
+            PCM_AMPLITUDES12 => UNDEFINED_READ, // only used in GBC mode
+            PCM_AMPLITUDES34 => UNDEFINED_READ, // only used in GBC mode
+            0xFF78..=0xFF7F => UNDEFINED_READ, // undocumented
             _ => panic!(
                 "Attempt to read from unmapped I/O register: 0x{:X}",
                 address
@@ -206,7 +206,7 @@ impl Bus {
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize],
             ERAM_BEGIN..=ERAM_END => self.eram[(address - ERAM_BEGIN) as usize],
             OAM_BEGIN..=OAM_END => self.ppu.read(address),
-            UNUSED_BEGIN..=UNUSED_END => 0xFF,
+            UNUSED_BEGIN..=UNUSED_END => UNDEFINED_READ,
             IO_BEGIN..=IO_END => self.read_io(address),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],
             INTERRUPT_ENABLE => self.interrupt_enable.bits(),
