@@ -1,11 +1,13 @@
 mod debugger;
 pub mod emulator;
 
+use crate::gb::GBResult;
 use crate::gb::cartridge::Cartridge;
 use crate::gui::emulator::EmulatorFrontend;
 use eframe::egui;
 use egui::{CentralPanel, Color32, Label, RichText, TopBottomPanel, Ui, Widget};
 use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 
 #[derive(Default)]
@@ -15,25 +17,25 @@ pub struct Romoulade {
 }
 
 impl Romoulade {
-    /// Loads a ROM file using a file dialog.
-    fn load_rom(&mut self) {
+    /// Loads a cartridge from the given `Path`.
+    pub fn load_cartridge(&mut self, path: &Path) -> GBResult<()> {
+        println!("Loading Cartridge: {}", path.display());
+        let rom = fs::read(path)?;
+        self.cartridge = Some(Cartridge::try_from(Arc::from(rom.into_boxed_slice()))?);
+        Ok(())
+    }
+
+    /// Loads a cartridge using a file dialog.
+    fn choose_cartridge(&mut self) {
         if let Some(frontend) = &self.frontend {
             frontend.shutdown();
         }
 
-        let path = match rfd::FileDialog::new()
-            .add_filter("Game Boy ROM", &["gb"])
-            .pick_file()
-        {
-            Some(path) => path,
-            None => return,
-        };
-        println!("Loading ROM: {}", path.display());
-        let rom = fs::read(path).expect("Unable to load cartridge from path");
-        self.cartridge = Some(
-            Cartridge::try_from(Arc::from(rom.into_boxed_slice()))
-                .expect("Cartridge is corrupt or unsupported"),
-        );
+        let dialog = rfd::FileDialog::new().add_filter("Game Boy ROM", &["gb"]);
+        if let Some(path) = dialog.pick_file() {
+            self.load_cartridge(&path)
+                .expect("Failed to load cartridge");
+        }
     }
 
     /// Starts the emulator with the loaded cartridge.
@@ -57,7 +59,7 @@ impl Romoulade {
         ui.horizontal(|ui| {
             if ui.button("Load ROM").clicked() {
                 self.shutdown();
-                self.load_rom();
+                self.choose_cartridge();
             }
             ui.separator();
             if ui.button("Run").clicked() {
