@@ -14,14 +14,14 @@ use crate::gb::{AddressSpace, HardwareContext};
 #[derive(Clone)]
 pub struct Bus {
     pub is_boot_rom_active: bool,
-    audio_processor: AudioProcessor,
+    apu: AudioProcessor,
     serial_transfer: SerialTransfer,
     pub cartridge: Cartridge,
+    ime: ImeState, // Interrupt Master Enable
     timer: Timer,
     ppu: PPU,
     joypad: Joypad,
     pending_joypad_event: Option<JoypadInput>,
-    ime: ImeState, // Interrupt Master Enable
     pub interrupt_enable: InterruptRegister,
     pub interrupt_flag: InterruptRegister,
     wram: [u8; WRAM_SIZE],
@@ -34,12 +34,12 @@ impl Bus {
         Self {
             cartridge,
             is_boot_rom_active: true,
-            audio_processor: AudioProcessor::default(),
+            apu: AudioProcessor::default(),
             serial_transfer: SerialTransfer::default(),
+            ime: ImeState::Enabled,
             ppu: PPU::with_display(display),
             joypad: Joypad::default(),
             pending_joypad_event: None,
-            ime: ImeState::Enabled,
             interrupt_enable: InterruptRegister::empty(),
             interrupt_flag: InterruptRegister::empty(),
             timer: Timer::default(),
@@ -71,18 +71,6 @@ impl Bus {
         }
     }
 
-    /// Initiate DMA transfer, the passed value specifies the upper half of the source address.
-    /// See https://gbdev.io/pandocs/OAM_DMA_Transfer.html
-    #[inline]
-    fn dma_transfer(&mut self, value: u8) {
-        self.ppu.r.dma = value;
-        let address = u16::from(value) << 8;
-        for offset in 0..0xA0 {
-            let byte = self.read(address + offset);
-            self.write(OAM_BEGIN + offset, byte);
-        }
-    }
-
     /// Writes to Echo RAM, effectively mirroring to Working RAM
     #[inline]
     fn write_eram(&mut self, address: u16, value: u8) {
@@ -109,12 +97,7 @@ impl Bus {
             // undocumented
             0xFF08..=0xFF0E => {}
             INTERRUPT_FLAG => self.interrupt_flag = InterruptRegister::from_bits_retain(value),
-            AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => {
-                self.audio_processor.write(address, value)
-            }
-            // TODO: consider moving dma_transfer to the PPU, for now it lives here because we need
-            //  to access the ROM
-            PPU_DMA => self.dma_transfer(value),
+            AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.apu.write(address, value),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.write(address, value),
             0xFF4C => {}                   // only used in GBC mode
             CGB_PREPARE_SPEED_SWITCH => {} // only used in GBC mode
@@ -133,7 +116,7 @@ impl Bus {
             PCM_AMPLITUDES12 => {} // only used in GBC mode
             PCM_AMPLITUDES34 => {} // only used in GBC mode
             0xFF78..=0xFF7F => {}  // undocumented
-            _ => panic!("Attempt to write to unmapped I/O register: 0x{:X}", address),
+            _ => panic!("Attempt to write to unmapped I/O register: {address:#06x}"),
         }
     }
 
@@ -148,7 +131,7 @@ impl Bus {
             0xFF08..=0xFF0E => UNDEFINED_READ, // undocumented
             // Undocumented bits should be 1
             INTERRUPT_FLAG => self.interrupt_flag.bits() | 0b1110_0000,
-            AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.audio_processor.read(address),
+            AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.apu.read(address),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.read(address),
             0xFF4C => UNDEFINED_READ, // only used in GBC mode
             CGB_PREPARE_SPEED_SWITCH => UNDEFINED_READ, // only used in GBC mode
@@ -171,12 +154,29 @@ impl Bus {
         }
     }
 
+    /// Checks if the OAM DMA transfer is active and transfers the data to the OAM
+    fn oam_transfer(&mut self) {
+        if let Some(source_address) = self.ppu.r.oam_dma.transfer() {
+            let value = self.read_raw(source_address);
+            let offset = source_address & 0b1111_1111;
+            let target_address = OAM_BEGIN + offset;
+            self.ppu.write(target_address, value);
+        }
+        if let Some(source) = self.ppu.r.oam_dma.pending.take() {
+            self.ppu.r.oam_dma.start(source);
+        }
+        if let Some(source) = self.ppu.r.oam_dma.requested.take() {
+            self.ppu.r.oam_dma.pending = Some(source);
+        }
+    }
+
     /// This function is used to step all components.
     #[inline]
     fn cycle(&mut self) {
         if self.ime == ImeState::Pending {
             self.ime = ImeState::Enabled;
         }
+        self.oam_transfer();
         self.ppu.step(&mut self.interrupt_flag);
         self.timer.step(&mut self.interrupt_flag);
     }
@@ -184,12 +184,16 @@ impl Bus {
     /// TODO: this is a hacky solution to avoid stepping the components when writing while debugging
     pub fn write_raw(&mut self, address: u16, value: u8) {
         match address {
-            ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.cartridge.write(address, value),
+            ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.ppu.write(address, value),
-            CRAM_BEGIN..=CRAM_END => self.cartridge.write(address, value),
+            CRAM_BANK_BEGIN..=CRAM_BANK_END => self.cartridge.write(address, value),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize] = value,
             ERAM_BEGIN..=ERAM_END => self.write_eram(address, value),
-            OAM_BEGIN..=OAM_END => self.ppu.write(address, value),
+            OAM_BEGIN..=OAM_END => match self.ppu.r.oam_dma.is_running {
+                // Writes are ignored while OAM DMA transfer is running.
+                true => {}
+                false => self.ppu.write(address, value),
+            },
             UNUSED_BEGIN..=UNUSED_END => {}
             IO_BEGIN..=IO_END => self.write_io(address, value),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize] = value,
@@ -200,12 +204,16 @@ impl Bus {
     /// TODO: this is a hacky solution to avoid stepping the components when reading while debugging
     pub fn read_raw(&mut self, address: u16) -> u8 {
         match address {
-            ROM_BANK_0_BEGIN..=ROM_BANK_N_END => self.read_cartridge(address),
+            ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END => self.read_cartridge(address),
             VRAM_BEGIN..=VRAM_END => self.ppu.read(address),
-            CRAM_BEGIN..=CRAM_END => self.read_cartridge(address),
+            CRAM_BANK_BEGIN..=CRAM_BANK_END => self.read_cartridge(address),
             WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize],
             ERAM_BEGIN..=ERAM_END => self.eram[(address - ERAM_BEGIN) as usize],
-            OAM_BEGIN..=OAM_END => self.ppu.read(address),
+            // During OAM DMA transfer the OAM is not accessible.
+            OAM_BEGIN..=OAM_END => match self.ppu.r.oam_dma.is_running {
+                true => UNDEFINED_READ,
+                false => self.ppu.read(address),
+            },
             UNUSED_BEGIN..=UNUSED_END => UNDEFINED_READ,
             IO_BEGIN..=IO_END => self.read_io(address),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],

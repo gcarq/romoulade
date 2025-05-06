@@ -275,7 +275,7 @@ impl fmt::Display for Load {
             Load::HLIFromADec => "(HL-), A".into(),
             Load::HLIToAInc => "A, (HL+)".into(),
             Load::HLIToADec => "A, (HL-)".into(),
-            Load::IndirectFromSP(target) => format!("({target}), SP"),
+            Load::IndirectFromSP(target) => format!("{target}, SP"),
             Load::HLFromSPi8(value) => format!("HL, SP + {value:#04x}"),
         };
         f.write_str(&ident)

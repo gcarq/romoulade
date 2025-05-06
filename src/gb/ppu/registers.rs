@@ -1,14 +1,15 @@
+use crate::gb::oam::OamDma;
 use crate::gb::ppu::misc::Palette;
 use crate::gb::ppu::{ACCESS_OAM_CYCLES, ACCESS_VRAM_CYCLES, HBLANK_CYCLES, VBLANK_LINE_CYCLES};
 
 /// Holds all PPU Registers
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy)]
 pub struct Registers {
     pub lcd_control: LCDControl, // PPU_LCDC
     pub lcd_stat: LCDState,      // PPU_STAT
     pub ly: u8,                  // PPU_LY
     pub lyc: u8,                 // PPU_LYC
-    pub dma: u8,                 // PPU_DMA
+    pub oam_dma: OamDma,         // PPU_DMA
     pub scy: u8,                 // PPU_SCY
     pub scx: u8,                 // PPU_SCX
     pub bg_palette: Palette,     // PPU_BGP
@@ -26,7 +27,7 @@ impl Default for Registers {
             lcd_stat: LCDState::empty(),
             ly: 0,
             lyc: 0,
-            dma: 0,
+            oam_dma: OamDma::default(),
             scy: 0,
             scx: 0,
             bg_palette: Palette::default(),

@@ -1,5 +1,4 @@
 use crate::gb::AddressSpace;
-use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::misc::*;
@@ -40,8 +39,6 @@ impl CPU {
             bus.tick();
             return Ok(());
         }
-
-        self.sanity_check();
 
         // Parse instruction from address, execute it and update program counter
         match Instruction::from_memory(self.pc, bus) {
@@ -113,20 +110,6 @@ impl CPU {
             PUSH(target) => self.handle_push(target, bus),
             POP(target) => self.handle_pop(target, bus),
             XOR(source) => self.handle_xor(source, bus),
-        }
-    }
-
-    /// Sanity check to verify boot ROM executed successfully
-    #[inline]
-    fn sanity_check(&self) {
-        if self.pc == BOOT_END + 1 {
-            assert_eq!(self.r.get_af(), 0x01B0, "AF is invalid, boot ROM failure!");
-            assert_eq!(self.r.get_bc(), 0x0013, "BC is invalid, boot ROM failure!");
-            assert_eq!(self.r.get_de(), 0x00D8, "DE is invalid, boot ROM failure!");
-            assert_eq!(self.r.get_hl(), 0x014D, "HL is invalid, boot ROM failure!");
-            assert_eq!(self.sp, 0xFFFE, "SP is invalid, boot ROM failure!");
-            assert_eq!(self.pc, 0x0100, "PC is invalid, boot ROM failure!");
-            println!("Done with processing boot ROM. Switching to Cartridge ...");
         }
     }
 

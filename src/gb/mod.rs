@@ -1,5 +1,6 @@
 use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
+use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::{CPU, ImeState};
 use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
 use crate::gb::joypad::JoypadInput;
@@ -16,6 +17,7 @@ pub mod cpu;
 pub mod debugger;
 pub mod interrupt;
 pub mod joypad;
+mod oam;
 pub mod ppu;
 mod serial;
 #[cfg(test)]
@@ -122,7 +124,21 @@ impl Emulator {
     fn step(&mut self) -> GBResult<()> {
         self.cpu.step(&mut self.bus)?;
         interrupt::handle(&mut self.cpu, &mut self.bus);
+        self.sanity_check();
         Ok(())
+    }
+
+    /// Sanity check to verify boot ROM executed successfully
+    #[inline]
+    fn sanity_check(&self) {
+        if self.bus.is_boot_rom_active && self.cpu.pc == BOOT_END - 1 {
+            assert_eq!(self.cpu.r.get_af(), 0x01B0, "SANITY: AF is invalid!");
+            assert_eq!(self.cpu.r.get_bc(), 0x0013, "SANITY: BC is invalid!");
+            assert_eq!(self.cpu.r.get_de(), 0x00D8, "SANITY: DE is invalid!");
+            assert_eq!(self.cpu.r.get_hl(), 0x014D, "SANITY: HL is invalid!");
+            assert_eq!(self.cpu.sp, 0xFFFE, "SANITY: SP is invalid!");
+            println!("Done with processing boot ROM. Switching to Cartridge ...");
+        }
     }
 
     /// Handles messages from the frontend.

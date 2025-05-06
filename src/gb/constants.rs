@@ -5,13 +5,13 @@ pub const BOOT_END: u16 = 0x00FF;
 pub const BOOT_SIZE: usize = (BOOT_END - BOOT_BEGIN + 1) as usize;
 
 /// This area of memory always contains the first bank from the cartridge.
-pub const ROM_BANK_0_BEGIN: u16 = 0x0000;
-pub const ROM_BANK_0_END: u16 = 0x3FFF;
+pub const ROM_LOW_BANK_BEGIN: u16 = 0x0000;
+pub const ROM_LOW_BANK_END: u16 = 0x3FFF;
 
 /// This area of memory contains a switchable bank from the cartridge (01..nn).
-pub const ROM_BANK_N_BEGIN: u16 = 0x4000;
-pub const ROM_BANK_N_END: u16 = 0x7FFF;
-pub const ROM_BANK_N_SIZE: usize = (ROM_BANK_N_END - ROM_BANK_N_BEGIN + 1) as usize;
+/// Writing to this area of memory changes the currently selected bank.
+pub const ROM_HIGH_BANK_BEGIN: u16 = 0x4000;
+pub const ROM_HIGH_BANK_END: u16 = 0x7FFF;
 
 /// This area of memory contains data about the graphics that can be displayed to the screen.
 /// The Game Boy uses a tiling system for graphics meaning that a game doesn't control
@@ -24,9 +24,8 @@ pub const VRAM_SIZE: usize = (VRAM_END - VRAM_BEGIN + 1) as usize;
 /// This gave games even more memory to work with.
 /// If the cartridge had this extra RAM the Game Boy
 /// automatically mapped the RAM into this area of memory.
-pub const CRAM_BEGIN: u16 = 0xA000;
-pub const CRAM_END: u16 = 0xBFFF;
-pub const CRAM_SIZE: usize = (CRAM_END - CRAM_BEGIN + 1) as usize;
+pub const CRAM_BANK_BEGIN: u16 = 0xA000;
+pub const CRAM_BANK_END: u16 = 0xBFFF;
 
 /// This is the RAM that the Game Boy allows a game to use.
 /// Our idea of RAM really just being a plain old array where the game could

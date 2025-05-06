@@ -363,7 +363,7 @@ impl PPU {
         } else if !new.contains(LCDControl::LCD_EN) && cur.contains(LCDControl::LCD_EN) {
             // LCD is being turned off, reset the LY register to 0.
             if self.r.lcd_stat.mode() != PPUMode::VBlank {
-                panic!("FATAL: LCD off, but not in VBlank");
+                eprintln!("FIXME: LCD off, but not in VBlank");
             }
             self.r.ly = 0;
         }
@@ -380,71 +380,81 @@ impl PPU {
         new.set(LCDState::PPU_MODE2, cur.contains(LCDState::PPU_MODE2));
         self.r.lcd_stat = new;
     }
+
+    /// Reads from the OAM (Object Attribute Memory) region.
+    fn read_oam(&self, address: u16) -> u8 {
+        match self.r.lcd_stat.mode() {
+            // In Pixel Transfer mode or during OAM Search, the OAM is not accessible.
+            PPUMode::AccessOAM | PPUMode::AccessVRAM => UNDEFINED_READ,
+            PPUMode::HBlank | PPUMode::VBlank => self.oam[(address - OAM_BEGIN) as usize],
+        }
+    }
+
+    /// Writes to the OAM (Object Attribute Memory) region.
+    fn write_oam(&mut self, address: u16, value: u8) {
+        match self.r.lcd_stat.mode() {
+            // OAM is not accessible during Pixel Transfer or OAM Search.
+            PPUMode::AccessOAM | PPUMode::AccessVRAM => {}
+            PPUMode::HBlank | PPUMode::VBlank => self.oam[(address - OAM_BEGIN) as usize] = value,
+        }
+    }
+
+    /// Reads from the VRAM region.
+    fn read_vram(&self, address: u16) -> u8 {
+        match self.r.lcd_stat.mode() {
+            // In Pixel Transfer mode, the VRAM is not accessible.
+            PPUMode::AccessVRAM => UNDEFINED_READ,
+            _ => self.vram[usize::from(address - VRAM_BEGIN)],
+        }
+    }
+
+    /// Writes to the VRAM region.
+    fn write_vram(&mut self, address: u16, value: u8) {
+        if self.r.lcd_stat.mode() != PPUMode::AccessVRAM {
+            // VRAM is not accessible during Pixel Transfer mode.
+            self.vram[usize::from(address - VRAM_BEGIN)] = value;
+        }
+    }
 }
 
 impl AddressSpace for PPU {
     fn write(&mut self, address: u16, value: u8) {
         match address {
-            VRAM_BEGIN..=VRAM_END => {
-                // VRAM is not accessible during Pixel Transfer mode.
-                if self.r.lcd_stat.mode() != PPUMode::AccessVRAM {
-                    self.vram[usize::from(address - VRAM_BEGIN)] = value;
-                }
-            }
-            OAM_BEGIN..=OAM_END => {
-                // OAM is not accessible during Pixel Transfer or OAM Search.
-                match self.r.lcd_stat.mode() {
-                    PPUMode::AccessOAM | PPUMode::AccessVRAM => {}
-                    _ => self.oam[(address - OAM_BEGIN) as usize] = value,
-                }
-            }
+            VRAM_BEGIN..=VRAM_END => self.write_vram(address, value),
+            OAM_BEGIN..=OAM_END => self.write_oam(address, value),
             PPU_LCDC => self.write_control(value),
             PPU_STAT => self.write_stat(value),
             PPU_SCY => self.r.scy = value,
             PPU_SCX => self.r.scx = value,
             PPU_LY => {} // LY is read-only
             PPU_LYC => self.r.lyc = value,
+            PPU_DMA => self.r.oam_dma.request(value),
             PPU_BGP => self.r.bg_palette = Palette::from(value),
             PPU_OBP0 => self.r.obj_palette0 = Palette::from(value),
             PPU_OBP1 => self.r.obj_palette1 = Palette::from(value),
             PPU_WY => self.r.wy = value,
             PPU_WX => self.r.wx = value,
-            _ => panic!("Attempt to write to unmapped PPU register: 0x{:X}", address),
+            _ => panic!("Attempt to write to unmapped PPU register: {address:#06x}"),
         }
     }
 
     fn read(&mut self, address: u16) -> u8 {
         match address {
-            VRAM_BEGIN..=VRAM_END => {
-                match self.r.lcd_stat.mode() {
-                    // In Pixel Transfer mode, the VRAM is not accessible.
-                    PPUMode::AccessVRAM => UNDEFINED_READ,
-                    _ => self.vram[usize::from(address - VRAM_BEGIN)],
-                }
-            }
-            OAM_BEGIN..=OAM_END => {
-                match self.r.lcd_stat.mode() {
-                    // In Pixel Transfer mode or during OAM Search, the OAM is not accessible.
-                    PPUMode::AccessOAM | PPUMode::AccessVRAM => UNDEFINED_READ,
-                    _ => self.oam[(address - OAM_BEGIN) as usize],
-                }
-            }
+            VRAM_BEGIN..=VRAM_END => self.read_vram(address),
+            OAM_BEGIN..=OAM_END => self.read_oam(address),
             PPU_LCDC => self.r.lcd_control.bits(),
             PPU_STAT => self.r.lcd_stat.bits() | 0b1000_0000, // Undocumented bit should be 1
             PPU_SCY => self.r.scy,
             PPU_SCX => self.r.scx,
             PPU_LY => self.r.ly,
             PPU_LYC => self.r.lyc,
-            PPU_DMA => self.r.dma,
+            PPU_DMA => self.r.oam_dma.source,
             PPU_BGP => u8::from(self.r.bg_palette),
             PPU_OBP0 => u8::from(self.r.obj_palette0),
             PPU_OBP1 => u8::from(self.r.obj_palette1),
             PPU_WY => self.r.wy,
             PPU_WX => self.r.wx,
-            _ => panic!(
-                "Attempt to read from unmapped audio register: 0x{:X}",
-                address
-            ),
+            _ => panic!("Attempt to read from unmapped audio register: {address:#06x}"),
         }
     }
 }

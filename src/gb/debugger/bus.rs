@@ -1,8 +1,9 @@
 use crate::gb::bus::Bus;
-use crate::gb::constants::{ROM_BANK_0_BEGIN, ROM_BANK_0_END};
+use crate::gb::constants::*;
 use crate::gb::cpu::ImeState;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::{AddressSpace, HardwareContext};
+use std::ops::RangeInclusive;
 
 #[derive(Clone)]
 pub struct DebugBus {
@@ -14,19 +15,27 @@ impl DebugBus {
     /// TODO: adapt for banking
     pub fn fetch_instructions(&mut self) -> Vec<(u16, Option<Instruction>)> {
         let mut instructions = Vec::with_capacity(1000);
-        let mut pc = ROM_BANK_0_BEGIN;
+        instructions.extend(self.instructions_from_range(ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END));
+        instructions.extend(self.instructions_from_range(CRAM_BANK_BEGIN..=CRAM_BANK_END));
+        instructions.extend(self.instructions_from_range(WRAM_BEGIN..=WRAM_END));
+        instructions.extend(self.instructions_from_range(HRAM_BEGIN..=HRAM_END));
+        instructions
+    }
 
-        while pc < ROM_BANK_0_END {
+    /// Fetches all instructions from the specified range.
+    fn instructions_from_range(
+        &mut self,
+        range: RangeInclusive<u16>,
+    ) -> Vec<(u16, Option<Instruction>)> {
+        let mut instructions = Vec::new();
+        let mut pc = *range.start();
+
+        while pc <= *range.end() {
             let (instruction, next_pc) = Instruction::from_memory(pc, self);
             instructions.push((pc, instruction));
             pc = next_pc;
         }
         instructions
-    }
-
-    #[inline]
-    pub fn inner(&self) -> &Bus {
-        &self.inner
     }
 }
 

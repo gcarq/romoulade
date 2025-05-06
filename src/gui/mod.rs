@@ -5,6 +5,8 @@ use crate::gb::cartridge::Cartridge;
 use crate::gui::emulator::EmulatorFrontend;
 use eframe::egui;
 use egui::{CentralPanel, Color32, Label, RichText, TopBottomPanel, Ui, Widget};
+use std::fs;
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct Romoulade {
@@ -27,8 +29,11 @@ impl Romoulade {
             None => return,
         };
         println!("Loading ROM: {}", path.display());
-        self.cartridge =
-            Some(Cartridge::from_path(&path).expect("Unable to load cartridge from path"));
+        let rom = fs::read(path).expect("Unable to load cartridge from path");
+        self.cartridge = Some(
+            Cartridge::try_from(Arc::from(rom.into_boxed_slice()))
+                .expect("Cartridge is corrupt or unsupported"),
+        );
     }
 
     /// Starts the emulator with the loaded cartridge.
@@ -42,9 +47,8 @@ impl Romoulade {
     /// Shuts down the emulator and cleans up resources.
     #[inline]
     fn shutdown(&mut self) {
-        if let Some(frontend) = &self.frontend {
+        if let Some(frontend) = self.frontend.take() {
             frontend.shutdown();
-            self.frontend = None;
         }
     }
 
