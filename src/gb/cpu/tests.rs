@@ -49,7 +49,7 @@ fn assert_flags(r: FlagsRegister, zero: bool, negative: bool, half_carry: bool, 
 }
 
 #[test]
-fn test_add_no_overflow() {
+fn test_add_a_hli_no_overflow() {
     // ADD A, HLI
     let mut bus = MockBus::new(vec![0x86, 0x42]);
     let mut cpu = CPU::default();
@@ -61,7 +61,7 @@ fn test_add_no_overflow() {
 }
 
 #[test]
-fn test_add_overflow_zero() {
+fn test_add_a_hli_overflow_zero() {
     // ADD A, HLI
     let mut bus = MockBus::new(vec![0x86, 0x02]);
     let mut cpu = CPU::default();
@@ -74,7 +74,7 @@ fn test_add_overflow_zero() {
 }
 
 #[test]
-fn test_add2_no_overflow() {
+fn test_add_hl_de_no_overflow() {
     // ADD HL, DE
     let mut bus = MockBus::new(vec![0x19; 1]);
     let mut cpu = CPU::default();
@@ -87,7 +87,7 @@ fn test_add2_no_overflow() {
 }
 
 #[test]
-fn test_add2_overflow() {
+fn test_add_hl_de_overflow() {
     // ADD HL, DE
     let mut bus = MockBus::new(vec![0x19; 1]);
     let mut cpu = CPU::default();
@@ -100,7 +100,7 @@ fn test_add2_overflow() {
 }
 
 #[test]
-fn test_adc_non_zero() {
+fn test_adc_a_d8_non_zero() {
     // ADC A, D8
     let mut bus = MockBus::new(vec![0xce, 0x01]);
     let mut cpu = CPU::default();
@@ -112,7 +112,7 @@ fn test_adc_non_zero() {
 }
 
 #[test]
-fn test_and_non_zero() {
+fn test_and_a_b_non_zero() {
     // AND A, B
     let mut bus = MockBus::new(vec![0xa0; 1]);
     let mut cpu = CPU::default();
@@ -125,7 +125,7 @@ fn test_and_non_zero() {
 }
 
 #[test]
-fn test_and_zero() {
+fn test_and_a_b_zero() {
     // AND A, B
     let mut bus = MockBus::new(vec![0xa0; 1]);
     let mut cpu = CPU::default();
@@ -138,7 +138,7 @@ fn test_and_zero() {
 }
 
 #[test]
-fn test_bit_zero() {
+fn test_bit_7_h_zero() {
     // BIT 7, H
     let mut bus = MockBus::new(vec![0xcb, 0x7c]);
     let mut cpu = CPU::default();
@@ -149,7 +149,7 @@ fn test_bit_zero() {
 }
 
 #[test]
-fn test_bit_non_zero() {
+fn test_bit_7_h_non_zero() {
     // BIT 7, H
     let mut bus = MockBus::new(vec![0xcb, 0x7c]);
     let mut cpu = CPU::default();
@@ -232,7 +232,7 @@ fn test_di() {
 }
 
 #[test]
-fn test_dec_no_overflow() {
+fn test_dec_b_no_overflow() {
     // DEC B
     let mut bus = MockBus::new(vec![0x05; 1]);
     let mut cpu = CPU::default();
@@ -244,7 +244,7 @@ fn test_dec_no_overflow() {
 }
 
 #[test]
-fn test_dec_overflow() {
+fn test_dec_b_overflow() {
     // DEC B
     let mut bus = MockBus::new(vec![0x05; 1]);
     let mut cpu = CPU::default();
@@ -256,7 +256,7 @@ fn test_dec_overflow() {
 }
 
 #[test]
-fn test_dec_zero() {
+fn test_dec_b_zero() {
     // DEC B
     let mut bus = MockBus::new(vec![0x05; 1]);
     let mut cpu = CPU::default();
@@ -268,7 +268,7 @@ fn test_dec_zero() {
 }
 
 #[test]
-fn test_dec_word() {
+fn test_dec_bc_word() {
     // DEC BC
     let mut bus = MockBus::new(vec![0x0b; 1]);
     let mut cpu = CPU::default();
@@ -304,7 +304,7 @@ fn test_rapid_ei_di() {
 }
 
 #[test]
-fn test_inc_no_overflow() {
+fn test_inc_b_no_overflow() {
     // INC B
     let mut bus = MockBus::new(vec![0x04; 1]);
     let mut cpu = CPU::default();
@@ -316,7 +316,7 @@ fn test_inc_no_overflow() {
 }
 
 #[test]
-fn test_inc_overflow() {
+fn test_inc_b_overflow() {
     // INC B
     let mut bus = MockBus::new(vec![0x04; 1]);
     let mut cpu = CPU::default();
@@ -328,7 +328,7 @@ fn test_inc_overflow() {
 }
 
 #[test]
-fn test_inc_half_carry() {
+fn test_inc_b_half_carry() {
     // INC B
     let mut bus = MockBus::new(vec![0x04; 1]);
     let mut cpu = CPU::default();
@@ -340,7 +340,7 @@ fn test_inc_half_carry() {
 }
 
 #[test]
-fn test_inc_word() {
+fn test_inc_hl() {
     // INC (HL)
     let mut bus = MockBus::new(vec![0x34, 0x03]);
     let mut cpu = CPU::default();
@@ -352,8 +352,8 @@ fn test_inc_word() {
 }
 
 #[test]
-fn test_jr_always_neg_offset() {
-    // JR i8
+fn test_jr_s8_neg_offset() {
+    // JR s8
     let mut bus = MockBus::new(vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x18, 251]);
     let mut cpu = CPU::default();
     for _ in 0..6 {
@@ -365,8 +365,8 @@ fn test_jr_always_neg_offset() {
 }
 
 #[test]
-fn test_jr_always_pos_offset() {
-    // JR i8
+fn test_jr_s8_always_pos_offset() {
+    // JR s8
     let mut bus = MockBus::new(vec![0x18, 0x03]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus).unwrap();
@@ -374,7 +374,7 @@ fn test_jr_always_pos_offset() {
 }
 
 #[test]
-fn test_jp_always() {
+fn test_jp_a16() {
     // JP D16
     let mut bus = MockBus::new(vec![0xc3, 0x01, 0x02]);
     let mut cpu = CPU::default();
@@ -383,7 +383,7 @@ fn test_jp_always() {
 }
 
 #[test]
-fn test_ld_byte_reg() {
+fn test_ld_c_a() {
     // LD C, A
     let mut bus = MockBus::new(vec![0x4f; 1]);
     let mut cpu = CPU::default();
@@ -394,7 +394,17 @@ fn test_ld_byte_reg() {
 }
 
 #[test]
-fn test_ld_byte_io() {
+fn test_ld_a_a16() {
+    // LD A, (a16)
+    let mut bus = MockBus::new(vec![0xFA, 0x05, 0x00, 0x01, 0x02, 0x03]);
+    let mut cpu = CPU::default();
+    cpu.step(&mut bus).unwrap();
+    assert_eq!(cpu.r.a, 0x03);
+    assert_eq!(cpu.pc, 3);
+}
+
+#[test]
+fn test_ld_hl_d8() {
     // LD (HL), D8
     let mut bus = MockBus::new(vec![0x36, 0x42, 0x00]);
     let mut cpu = CPU::default();
@@ -405,7 +415,7 @@ fn test_ld_byte_io() {
 }
 
 #[test]
-fn test_ld_byte_from_indirect_inc() {
+fn test_ld_a_hl_plus() {
     // LD A, (HL+)
     let mut bus = MockBus::new(vec![0x2a, 0x00, 0x11]);
     let mut cpu = CPU::default();
@@ -426,7 +436,7 @@ fn test_nop() {
 }
 
 #[test]
-fn test_or_non_zero() {
+fn test_or_a_c_non_zero() {
     // OR A, C
     let mut bus = MockBus::new(vec![0xb1; 1]);
     let mut cpu = CPU::default();
@@ -438,7 +448,7 @@ fn test_or_non_zero() {
 }
 
 #[test]
-fn test_or_zero() {
+fn test_or_a_c_zero() {
     // OR A, C
     let mut bus = MockBus::new(vec![0xb1; 1]);
     let mut cpu = CPU::default();
@@ -462,8 +472,8 @@ fn test_rlca() {
 }
 
 #[test]
-fn test_rr_non_zero() {
-    // SRL B
+fn test_rr_c_non_zero() {
+    // RR C
     let mut bus = MockBus::new(vec![0xcb, 0x19]);
     let mut cpu = CPU::default();
     cpu.r.c = 0b0110_0011;
@@ -475,8 +485,8 @@ fn test_rr_non_zero() {
 }
 
 #[test]
-fn test_rr_zero() {
-    // SRL B
+fn test_rr_c_zero() {
+    // RR C
     let mut bus = MockBus::new(vec![0xcb, 0x19]);
     let mut cpu = CPU::default();
     cpu.r.c = 0x00;
@@ -500,7 +510,7 @@ fn test_rra() {
 }
 
 #[test]
-fn test_rst() {
+fn test_rst_00h() {
     // RST 00h
 
     // Expected execution
@@ -525,7 +535,7 @@ fn test_rst() {
 }
 
 #[test]
-fn test_sbc_carry() {
+fn test_sbc_a_d8_carry() {
     // SBC A, D8
     let mut bus = MockBus::new(vec![0xde, 0x04]);
     let mut cpu = CPU::default();
@@ -538,7 +548,7 @@ fn test_sbc_carry() {
 }
 
 #[test]
-fn test_sbc_no_carry() {
+fn test_sbc_a_d8_no_carry() {
     // SBC A, D8
     let mut bus = MockBus::new(vec![0xde, 0x04]);
     let mut cpu = CPU::default();
@@ -560,7 +570,7 @@ fn test_scf() {
 }
 
 #[test]
-fn test_set() {
+fn test_set_7_hl() {
     // BIT 7, (HL)
     let mut bus = MockBus::new(vec![0xcb, 0xfe, 0b00000010]);
     let mut cpu = CPU::default();
@@ -571,7 +581,7 @@ fn test_set() {
 }
 
 #[test]
-fn test_srl_non_zero() {
+fn test_srl_b_non_zero() {
     // SRL B
     let mut bus = MockBus::new(vec![0xcb, 0x38]);
     let mut cpu = CPU::default();
@@ -583,7 +593,7 @@ fn test_srl_non_zero() {
 }
 
 #[test]
-fn test_srl_zero() {
+fn test_srl_b_zero() {
     // SRL B
     let mut bus = MockBus::new(vec![0xcb, 0x38]);
     let mut cpu = CPU::default();
@@ -595,7 +605,7 @@ fn test_srl_zero() {
 }
 
 #[test]
-fn test_swap_non_zero() {
+fn test_swap_a_non_zero() {
     // SWAP A
     let mut bus = MockBus::new(vec![0xcb, 0x37]);
     let mut cpu = CPU::default();
@@ -607,7 +617,7 @@ fn test_swap_non_zero() {
 }
 
 #[test]
-fn test_swap_zero() {
+fn test_swap_a_zero() {
     // SWAP A
     let mut bus = MockBus::new(vec![0xcb, 0x37]);
     let mut cpu = CPU::default();
@@ -619,7 +629,7 @@ fn test_swap_zero() {
 }
 
 #[test]
-fn test_push() {
+fn test_push_af() {
     // PUSH AF
     let mut bus = MockBus::new(vec![0xf5, 0x00, 0x00, 0x00]);
     let mut cpu = CPU::default();
@@ -632,7 +642,7 @@ fn test_push() {
 }
 
 #[test]
-fn test_xor_non_zero() {
+fn test_xor_a_c_non_zero() {
     // XOR A, C
     let mut bus = MockBus::new(vec![0xa9; 1]);
     let mut cpu = CPU::default();
@@ -645,7 +655,7 @@ fn test_xor_non_zero() {
 }
 
 #[test]
-fn test_xor_zero() {
+fn test_xor_a_c_zero() {
     // XOR A, C
     let mut bus = MockBus::new(vec![0xa9; 1]);
     let mut cpu = CPU::default();
