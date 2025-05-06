@@ -427,6 +427,18 @@ fn test_ld_a_hl_plus() {
 }
 
 #[test]
+fn test_ld_a16_sp() {
+    // LD (a16), SP
+    let mut bus = MockBus::new(vec![0x08, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    let mut cpu = CPU::default();
+    cpu.sp = 0xdead;
+    cpu.step(&mut bus).unwrap();
+    assert_eq!(bus.read(0x0005), 0xad);
+    assert_eq!(bus.read(0x0006), 0xde);
+    assert_eq!(cpu.pc, 3);
+}
+
+#[test]
 fn test_nop() {
     // NOP
     let mut bus = MockBus::new(vec![0x00; 1]);

@@ -396,7 +396,8 @@ impl CPU {
             Load::IndirectFromSP(target) => {
                 let value = self.sp;
                 let address = target.resolve(self);
-                bus.write(address, (value >> 8) as u8);
+                bus.write(address, value as u8);
+                bus.write(address + 1, (value >> 8) as u8);
             }
             Load::HLIToAInc => {
                 let addr = self.r.get_hl();
