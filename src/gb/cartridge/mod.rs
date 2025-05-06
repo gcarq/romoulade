@@ -150,7 +150,6 @@ impl TryFrom<&[u8]> for CartridgeHeader {
             buf[CARTRIDGE_ROM_SIZE as usize],
             buf[CARTRIDGE_RAM_SIZE as usize],
         )?;
-        println!("DEBUG: {:?}", config);
         let title = CartridgeHeader::parse_title(buf);
         Ok(Self { title, config })
     }
@@ -180,7 +179,7 @@ impl fmt::Display for CartridgeHeader {
 /// Holds all relevant cartridge information data.
 #[derive(Clone)]
 pub struct Cartridge {
-    header: CartridgeHeader,
+    pub header: CartridgeHeader,
     controller: Box<dyn BankController>,
 }
 

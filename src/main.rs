@@ -4,6 +4,7 @@
 extern crate bitflags;
 extern crate clap;
 use crate::gui::Romoulade;
+use crate::gui::emulator::UPSCALE;
 use clap::Parser;
 use eframe::{HardwareAcceleration, egui};
 use std::error::Error;
@@ -35,7 +36,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         ..Default::default()
     };
 
-    let mut app = Romoulade::default();
+    let config = gb::EmulatorConfig {
+        upscale: UPSCALE, // TODO: make this configurable
+        debug: false,
+        fastboot: args.fastboot,
+    };
+
+    let mut app = Romoulade::new(config);
     if let Some(rom) = args.rom {
         app.load_cartridge(&rom).expect("Failed to load cartridge");
     }

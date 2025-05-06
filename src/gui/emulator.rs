@@ -3,7 +3,7 @@ use crate::gb::joypad::ActionInput::{A, B, Select, Start};
 use crate::gb::joypad::DPadInput::{Down, Left, Right, Up};
 use crate::gb::joypad::JoypadInput::{Action, DPad};
 use crate::gb::ppu::buffer::FrameBuffer;
-use crate::gb::{Emulator, EmulatorMessage, FrontendMessage};
+use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
@@ -70,25 +70,20 @@ impl EmulatorFrontend {
     }
 
     /// Starts the emulator with the given cartridge.
-    pub fn start(cartridge: &Cartridge, debug: bool) -> Self {
+    pub fn start(cartridge: &Cartridge, config: EmulatorConfig) -> Self {
         let (emulator_sender, emulator_receiver) = mpsc::channel();
         let (frontend_sender, frontend_receiver) = mpsc::channel();
         let used_cartridge = cartridge.clone();
 
-        let debugger = match debug {
+        let debugger = match config.debug {
             true => Some(DebuggerFrontend::new(frontend_sender.clone())),
             false => None,
         };
 
         let thread = thread::spawn(move || {
-            let mut emulator = Emulator::new(
-                emulator_sender,
-                frontend_receiver,
-                used_cartridge,
-                UPSCALE,
-                debug,
-            )
-            .expect("Unable to create GameBoy instance");
+            let mut emulator =
+                Emulator::new(emulator_sender, frontend_receiver, used_cartridge, config)
+                    .expect("Unable to create GameBoy instance");
             emulator.run();
         });
         Self {

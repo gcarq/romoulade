@@ -61,33 +61,43 @@ pub enum FrontendMessage {
     DetachDebugger,
     Debug(FrontendDebugMessage),
 }
+/// Holds the configuration for the emulator.
+#[derive(Clone, Copy)]
+pub struct EmulatorConfig {
+    pub upscale: usize, // Scale factor for the display
+    pub debug: bool,    // Enable debugger
+    pub fastboot: bool, // Skip boot ROM
+}
 
+/// Holds and manages the state of the whole emulator backend.
 pub struct Emulator {
     cpu: CPU,
     bus: Bus,
     sender: Sender<EmulatorMessage>,
     receiver: Receiver<FrontendMessage>,
-    is_running: bool,
     debugger: Option<Debugger>,
+    is_running: bool,
+    fastboot: bool,
 }
 
 impl Emulator {
+    /// Creates a new `Emulator` instance.
     pub fn new(
         sender: Sender<EmulatorMessage>,
         receiver: Receiver<FrontendMessage>,
         cartridge: Cartridge,
-        upscale: usize,
-        debug: bool,
+        config: EmulatorConfig,
     ) -> GBResult<Self> {
-        let display = Display::new(sender.clone(), upscale)?;
+        let display = Display::new(sender.clone(), config.upscale)?;
         let cpu = CPU::default();
         let mut bus = Bus::with_cartridge(cartridge, display);
-        let debugger = match debug {
+        let debugger = match config.debug {
             true => Some(Debugger::new(&cpu, &mut bus, sender.clone())),
             false => None,
         };
         Ok(Self {
             is_running: true,
+            fastboot: config.fastboot,
             cpu,
             bus,
             debugger,
@@ -97,11 +107,18 @@ impl Emulator {
     }
 
     /// Runs the emulator loop.
-    /// TODO: implement proper error handling
     pub fn run(&mut self) {
         println!("Starting emulator...");
-        println!("Loaded ROM: {}", self.bus.cartridge);
 
+        println!("Loaded ROM: {}", self.bus.cartridge);
+        println!("DEBUG: {:?}", self.bus.cartridge.header.config);
+
+        if self.fastboot {
+            println!("Fastboot enabled. Skipping boot ROM ...");
+            self.fastboot();
+        }
+
+        // TODO: implement proper error handling
         while self.is_running {
             self.handle_message();
             if let Some(debugger) = &mut self.debugger {
@@ -114,12 +131,13 @@ impl Emulator {
         }
     }
 
-    /// Attaches a debugger to the emulator.
+    /// Attaches a `Debugger` to the emulator.
     #[inline]
     fn attach_debugger(&mut self) {
         self.debugger = Some(Debugger::new(&self.cpu, &mut self.bus, self.sender.clone()))
     }
 
+    /// Steps the `CPU` once and handles interrupts if any.
     #[inline]
     fn step(&mut self) -> GBResult<()> {
         self.cpu.step(&mut self.bus)?;
@@ -141,7 +159,18 @@ impl Emulator {
         }
     }
 
-    /// Handles messages from the frontend.
+    /// Fastboot the emulator by setting the CPU registers as if it had booted normally.
+    fn fastboot(&mut self) {
+        self.cpu.r.set_af(0x01B0);
+        self.cpu.r.set_bc(0x0013);
+        self.cpu.r.set_de(0x00D8);
+        self.cpu.r.set_hl(0x014D);
+        self.cpu.sp = 0xFFFE;
+        self.cpu.pc = BOOT_END + 1;
+        self.bus.is_boot_rom_active = false;
+    }
+
+    /// Checks for a new `FrontendMessage` and handles it.
     fn handle_message(&mut self) {
         if let Ok(message) = self.receiver.try_recv() {
             match message {
