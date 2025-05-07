@@ -1,9 +1,9 @@
-use crate::gb::AddressSpace;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::misc::*;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::{GBResult, HardwareContext, utils};
+use crate::gb::AddressSpace;
+use crate::gb::{utils, GBResult, HardwareContext};
 use registers::Registers;
 
 pub mod instruction;
@@ -489,6 +489,8 @@ impl CPU {
 
     /// Handles RL instructions
     /// Rotate n left through Carry flag.
+    /// TODO: combine RL and RLA
+    #[inline]
     fn handle_rl<T: AddressSpace>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0b1000_0000 != 0;
@@ -499,21 +501,23 @@ impl CPU {
     }
 
     /// Handles RLA instruction
-    /// Rotate A left through carry
+    /// Rotates the A register one bit to the left. Previous carry flag becomes the
+    /// least-significant bit, and previous Most Significant Bit becomes Carry.
     #[inline]
     fn handle_rla(&mut self) -> u16 {
-        let new_carry = (self.r.a >> 7) != 0;
+        let carry = self.r.a & 0b1000_0000 != 0;
         self.r.a = (self.r.a << 1) | self.r.f.contains(FlagsRegister::CARRY) as u8;
-        self.r.f.update(false, false, false, new_carry);
+        self.r.f.update(false, false, false, carry);
         self.pc
     }
 
     /// Handles RLC instructions
     /// Rotates register to the left and updates CPU flags
+    /// TODO: combine RLC and RLCA
     fn handle_rlc<T: AddressSpace>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0b1000_0000 != 0;
-        let result = value.rotate_left(1);
+        let result = (value << 1) | carry as u8;
         self.r.f.update(result == 0, false, false, carry);
         target.write(self, bus, result);
         self.pc
@@ -649,6 +653,7 @@ impl CPU {
     }
 
     /// Handles SUB instructions
+    /// TODO: reuse the code from CP
     fn handle_sub<T: AddressSpace>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let a = u16::from(self.r.a);
         let value = u16::from(source.read(self, bus));
