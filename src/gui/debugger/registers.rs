@@ -114,7 +114,7 @@ impl Registers {
                 },
             );
             job.append(
-                &format!(" = {:#04X}", value),
+                &format!(" = {value:#04X}"),
                 0.0,
                 TextFormat {
                     font_id: FontId::monospace(11.0),
@@ -170,7 +170,7 @@ impl Registers {
                 },
             );
             job.append(
-                &format!(" = {:#06X}", value),
+                &format!(" = {value:#06X}"),
                 0.0,
                 TextFormat {
                     font_id: FontId::monospace(11.0),

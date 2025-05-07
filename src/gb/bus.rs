@@ -147,10 +147,7 @@ impl Bus {
             PCM_AMPLITUDES12 => UNDEFINED_READ, // only used in GBC mode
             PCM_AMPLITUDES34 => UNDEFINED_READ, // only used in GBC mode
             0xFF78..=0xFF7F => UNDEFINED_READ, // undocumented
-            _ => panic!(
-                "Attempt to read from unmapped I/O register: 0x{:X}",
-                address
-            ),
+            _ => panic!("Attempt to read from unmapped I/O register: {address:#06X}"),
         }
     }
 

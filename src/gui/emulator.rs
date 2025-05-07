@@ -162,7 +162,7 @@ impl EmulatorFrontend {
                 EmulatorMessage::Frame(frame) => self.set_frame_texture(frame, ctx),
                 EmulatorMessage::Debug(message) => {
                     if let Some(debugger) = &mut self.debugger {
-                        debugger.handle_message(message);
+                        debugger.handle_message(*message);
                     }
                 }
             }

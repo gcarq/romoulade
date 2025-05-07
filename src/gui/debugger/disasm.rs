@@ -43,11 +43,11 @@ impl Disassembler {
                     .map(|i| i.to_string())
                     .unwrap_or_else(|| "???".to_string());
                 let text = if addr == state.cpu.pc {
-                    RichText::from(format!("-> {:#06X}\t\t{}", addr, instruction))
+                    RichText::from(format!("-> {addr:#06X}\t\t{instruction}"))
                         .monospace()
                         .color(Color32::LIGHT_GREEN)
                 } else {
-                    RichText::from(format!("   {:#06X}\t\t{}", addr, instruction))
+                    RichText::from(format!("   {addr:#06X}\t\t{instruction}"))
                         .monospace()
                         .color(Color32::WHITE)
                 };

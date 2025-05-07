@@ -1,7 +1,7 @@
 mod instruction;
 
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::cpu::{ImeState, CPU};
+use crate::gb::cpu::{CPU, ImeState};
 use crate::gb::{AddressSpace, HardwareContext};
 
 /// Represents a mock for MemoryBus
@@ -44,28 +44,35 @@ impl HardwareContext for MockBus {
 }
 
 fn assert_flags(r: FlagsRegister, zero: bool, negative: bool, half_carry: bool, carry: bool) {
-    assert_eq!(r.contains(FlagsRegister::ZERO), zero,
-               "Expected zero flag to be {}, but it was {}",
-               zero,
-               r.contains(FlagsRegister::ZERO)
+    assert_eq!(
+        r.contains(FlagsRegister::ZERO),
+        zero,
+        "Expected zero flag to be {}, but it was {}",
+        zero,
+        r.contains(FlagsRegister::ZERO)
     );
-    assert_eq!(r.contains(FlagsRegister::SUBTRACTION), negative,
-               "Expected negative flag to be {}, but it was {}",
-               negative,
-               r.contains(FlagsRegister::SUBTRACTION)
+    assert_eq!(
+        r.contains(FlagsRegister::SUBTRACTION),
+        negative,
+        "Expected negative flag to be {}, but it was {}",
+        negative,
+        r.contains(FlagsRegister::SUBTRACTION)
     );
-    assert_eq!(r.contains(FlagsRegister::HALF_CARRY), half_carry,
-               "Expected half carry flag to be {}, but it was {}",
-               half_carry,
-               r.contains(FlagsRegister::HALF_CARRY)
+    assert_eq!(
+        r.contains(FlagsRegister::HALF_CARRY),
+        half_carry,
+        "Expected half carry flag to be {}, but it was {}",
+        half_carry,
+        r.contains(FlagsRegister::HALF_CARRY)
     );
-    assert_eq!(r.contains(FlagsRegister::CARRY), carry,
-               "Expected carry flag to be {}, but it was {}",
-               carry,
-               r.contains(FlagsRegister::CARRY)
+    assert_eq!(
+        r.contains(FlagsRegister::CARRY),
+        carry,
+        "Expected carry flag to be {}, but it was {}",
+        carry,
+        r.contains(FlagsRegister::CARRY)
     );
 }
-
 
 #[test]
 fn test_af_register() {

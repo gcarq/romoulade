@@ -116,7 +116,7 @@ impl Debugger {
     #[inline]
     fn send_message(&self, message: DebugMessage) {
         self.sender
-            .send(EmulatorMessage::Debug(message))
+            .send(EmulatorMessage::Debug(Box::new(message)))
             .expect("Unable to send debug message");
     }
 }

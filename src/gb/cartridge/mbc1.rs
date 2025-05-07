@@ -289,10 +289,7 @@ mod tests {
         // Initialize each bank with a unique value
         let mut ctrl = MBC1::new(
             config,
-            (0u8..64)
-                .map(|i| vec![i; ROM_BANK_SIZE])
-                .flatten()
-                .collect(),
+            (0u8..64).flat_map(|i| vec![i; ROM_BANK_SIZE]).collect(),
         );
 
         assert_eq!(ctrl.read(ROM_LOW_BANK_BEGIN), 0);
@@ -336,10 +333,7 @@ mod tests {
         // Initialize each bank with a unique value
         let mut ctrl = MBC1::new(
             config,
-            (0u8..16)
-                .map(|i| vec![i; ROM_BANK_SIZE])
-                .flatten()
-                .collect(),
+            (0u8..16).flat_map(|i| vec![i; ROM_BANK_SIZE]).collect(),
         );
         ctrl.write(ROM_BANK_NUMBER_BEGIN, 0b1111_1001);
         assert_eq!(
@@ -360,10 +354,7 @@ mod tests {
         // Initialize each bank with a unique value
         let mut ctrl = MBC1::new(
             config,
-            (0u8..64)
-                .map(|i| vec![i; ROM_BANK_SIZE])
-                .flatten()
-                .collect(),
+            (0u8..64).flat_map(|i| vec![i; ROM_BANK_SIZE]).collect(),
         );
 
         // Switch to advanced mode
@@ -395,8 +386,7 @@ mod tests {
             assert_eq!(
                 ctrl.read(ROM_HIGH_BANK_BEGIN),
                 i,
-                "ROM bank {} should be selected",
-                i
+                "ROM bank {i} should be selected"
             );
         }
     }
@@ -408,10 +398,7 @@ mod tests {
         // Initialize each bank with a unique value
         let mut ctrl = MBC1::new(
             config,
-            (0u8..64)
-                .map(|i| vec![i; ROM_BANK_SIZE])
-                .flatten()
-                .collect(),
+            (0u8..64).flat_map(|i| vec![i; ROM_BANK_SIZE]).collect(),
         );
 
         // Switch to advanced mode and enable RAM

@@ -1,9 +1,9 @@
+use crate::gb::AddressSpace;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::misc::*;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::AddressSpace;
-use crate::gb::{utils, GBResult, HardwareContext};
+use crate::gb::{GBResult, HardwareContext, utils};
 use registers::Registers;
 
 pub mod instruction;

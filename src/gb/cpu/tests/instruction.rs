@@ -1,6 +1,6 @@
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::cpu::tests::{assert_flags, MockBus};
-use crate::gb::cpu::{ImeState, CPU};
+use crate::gb::cpu::tests::{MockBus, assert_flags};
+use crate::gb::cpu::{CPU, ImeState};
 use crate::gb::{AddressSpace, HardwareContext};
 
 #[test]

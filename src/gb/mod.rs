@@ -50,7 +50,7 @@ pub trait AddressSpace {
 /// This enum defines the possible messages that can be sent from the emulator to the frontend.
 pub enum EmulatorMessage {
     Frame(FrameBuffer),
-    Debug(DebugMessage),
+    Debug(Box<DebugMessage>),
 }
 
 /// This enum defines the possible messages that can be sent from the frontend to the emulator.

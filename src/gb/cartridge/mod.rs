@@ -69,7 +69,7 @@ impl TryFrom<u8> for ControllerType {
             0x01 => ControllerType::MBC1,
             0x02 | 0x03 => ControllerType::MBC1WithRAM,
             0x08 | 0x09 => ControllerType::NoMBCWithRAM,
-            _ => return Err(format!("Cartridge type {:#04X} not implemented", value).into()),
+            _ => return Err(format!("Cartridge type {value:#04X} not implemented").into()),
         };
         Ok(mode)
     }
@@ -231,8 +231,7 @@ fn verify_checksum(buf: &[u8]) -> GBResult<()> {
     }
 
     let msg = format!(
-        "Global checksum mismatch! Expected: {:#04X} Got: {:#04X}",
-        checksum, calculated_checksum
+        "Global checksum mismatch! Expected: {checksum:#04X} Got: {calculated_checksum:#04X}"
     );
     Err(msg.into())
 }
