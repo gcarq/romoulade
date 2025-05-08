@@ -63,7 +63,7 @@ impl fmt::Display for Register {
 }
 
 /// Defines an operation on word registers of the CPU.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum WordRegister {
     AF,
     BC,
@@ -120,7 +120,10 @@ pub enum ByteTarget {
 impl ByteTarget {
     /// Reads the referring value from the CPU or memory
     #[inline]
-    pub fn read<T: AddressSpace>(&self, cpu: &CPU, bus: &mut T) -> u8 {
+    pub fn read<T>(&self, cpu: &CPU, bus: &mut T) -> u8
+    where
+        T: AddressSpace,
+    {
         match self {
             ByteTarget::R(reg) => reg.read(cpu),
             ByteTarget::I(indirect) => bus.read(indirect.resolve(cpu)),
@@ -129,7 +132,10 @@ impl ByteTarget {
 
     /// Writes to the referring register or memory location
     #[inline]
-    pub fn write<T: AddressSpace>(&self, cpu: &mut CPU, bus: &mut T, value: u8) {
+    pub fn write<T>(&self, cpu: &mut CPU, bus: &mut T, value: u8)
+    where
+        T: AddressSpace,
+    {
         match self {
             ByteTarget::R(reg) => reg.write(cpu, value),
             ByteTarget::I(indirect) => bus.write(indirect.resolve(cpu), value),
@@ -191,7 +197,10 @@ pub enum ByteSource {
 
 impl ByteSource {
     /// Read byte from the CPU or memory.
-    pub fn read<T: AddressSpace>(&self, cpu: &CPU, bus: &mut T) -> u8 {
+    pub fn read<T>(&self, cpu: &CPU, bus: &mut T) -> u8
+    where
+        T: AddressSpace,
+    {
         match self {
             ByteSource::R(reg) => reg.read(cpu),
             ByteSource::D8(value) => *value,
@@ -212,7 +221,7 @@ impl fmt::Display for ByteSource {
 }
 
 /// Defines the source of a word value
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum WordSource {
     R(WordRegister),
     D16(u16), // value comes from the next 16 bits
