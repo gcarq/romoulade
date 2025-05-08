@@ -8,10 +8,11 @@ use crate::gui::debugger::DebuggerFrontend;
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
 use egui::{Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
+use spin_sleep::sleep;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::thread::{JoinHandle, sleep};
+use std::thread::JoinHandle;
 
 pub const SCREEN_WIDTH: usize = 160;
 pub const SCREEN_HEIGHT: usize = 144;
