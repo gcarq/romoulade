@@ -1,4 +1,4 @@
-mod instruction;
+mod cpu;
 mod ops;
 
 use crate::gb::cpu::registers::FlagsRegister;

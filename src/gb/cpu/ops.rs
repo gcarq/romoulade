@@ -333,7 +333,7 @@ impl fmt::Display for JumpCondition {
 }
 
 /// Defines a target address we can jump to
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum JumpTarget {
     D16(u16), // value comes from the next 16 bits
     HL,

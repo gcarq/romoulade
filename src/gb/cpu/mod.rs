@@ -415,7 +415,9 @@ impl CPU {
         match test.resolve(self) {
             true => {
                 let addr = target.read(self);
-                bus.tick();
+                if target != JumpTarget::HL {
+                    bus.tick();
+                }
                 addr
             }
             false => self.pc,
@@ -459,7 +461,6 @@ impl CPU {
                 let address = target.resolve(self);
                 bus.write(address, value as u8);
                 bus.write(address + 1, (value >> 8) as u8);
-                bus.tick();
             }
             Load::HLIToAInc => {
                 let addr = self.r.get_hl();
@@ -480,6 +481,7 @@ impl CPU {
                 let half_carry = (sp ^ nn ^ result) & 0b0001_0000 != 0;
                 self.r.f.update(false, false, half_carry, carry);
                 self.r.set_hl(result as u16);
+                bus.tick();
             }
         }
         self.pc
