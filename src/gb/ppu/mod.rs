@@ -43,6 +43,7 @@ impl Clone for PPU {
 }
 
 impl Default for PPU {
+    #[inline]
     fn default() -> Self {
         Self {
             r: Registers::default(),
@@ -56,14 +57,11 @@ impl Default for PPU {
 }
 
 impl PPU {
-    pub fn with_display(display: Display) -> Self {
+    #[inline]
+    pub fn new(display: Option<Display>) -> Self {
         Self {
-            r: Registers::default(),
-            vram: [0u8; VRAM_SIZE],
-            oam: [0u8; OAM_SIZE],
-            cycles: ACCESS_OAM_CYCLES,
-            display: Some(display),
-            window_line_counter: 0,
+            display,
+            ..Self::default()
         }
     }
 

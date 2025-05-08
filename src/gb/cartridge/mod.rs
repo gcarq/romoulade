@@ -19,7 +19,7 @@ const CARTRIDGE_TITLE_END: u16 = 0x0142;
 /// Typically, use a value of 80h for games which support both CGB and monochrome Game Boys,
 /// and C0h for games which work on CGBs only. Otherwise,
 /// the CGB will operate in monochrome "Non CGB" compatibility mode.
-const CARTRIDGE_CGB_FLAG: u16 = 0x0143;
+const _CARTRIDGE_CGB_FLAG: u16 = 0x0143;
 
 /// This address contains the cartridge type and what kind of hardware is present
 /// 0x00     => ROM Only
@@ -39,7 +39,7 @@ const CARTRIDGE_ROM_SIZE: u16 = 0x0148;
 const CARTRIDGE_RAM_SIZE: u16 = 0x0149;
 
 /// This byte contains an 8-bit checksum computed from the cartridge header bytes 0x0134 – 0x014C.
-const CARTRIDGE_HEADER_CHECKSUM: u16 = 0x014D;
+const _CARTRIDGE_HEADER_CHECKSUM: u16 = 0x014D;
 
 /// These bytes contain a 16-bit (big-endian) checksum simply computed as the sum of all
 /// the bytes of the cartridge ROM (except these two checksum bytes).
@@ -231,7 +231,7 @@ fn verify_checksum(buf: &[u8]) -> GBResult<()> {
     }
 
     let msg = format!(
-        "Global checksum mismatch! Expected: {checksum:#04X} Got: {calculated_checksum:#04X}"
+        "Global checksum mismatch! Expected: {calculated_checksum:#06X} Got: {checksum:#06X}"
     );
     Err(msg.into())
 }

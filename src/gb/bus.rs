@@ -30,14 +30,14 @@ pub struct Bus {
 }
 
 impl Bus {
-    pub fn with_cartridge(cartridge: Cartridge, display: Display) -> Self {
+    pub fn with_cartridge(cartridge: Cartridge, display: Option<Display>) -> Self {
         Self {
             cartridge,
             is_boot_rom_active: true,
             apu: AudioProcessor::default(),
             serial_transfer: SerialTransfer::default(),
             ime: ImeState::Enabled,
-            ppu: PPU::with_display(display),
+            ppu: PPU::new(display),
             joypad: Joypad::default(),
             pending_joypad_event: None,
             interrupt_enable: InterruptRegister::empty(),

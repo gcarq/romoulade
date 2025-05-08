@@ -1,5 +1,6 @@
 use crate::gb::AddressSpace;
 use crate::gb::cpu::CPU;
+use crate::gb::cpu::instruction::ReallySigned;
 use crate::gb::cpu::registers::FlagsRegister;
 use std::fmt;
 use std::fmt::Formatter;
@@ -61,9 +62,9 @@ impl fmt::Display for Register {
     }
 }
 
-/// Defines an operation on paired registers of the CPU.
+/// Defines an operation on word registers of the CPU.
 #[derive(Clone, Copy)]
-pub enum PairedRegister {
+pub enum WordRegister {
     AF,
     BC,
     DE,
@@ -71,16 +72,16 @@ pub enum PairedRegister {
     SP,
 }
 
-impl PairedRegister {
+impl WordRegister {
     /// Read from register.
     #[inline]
     pub fn read(&self, cpu: &CPU) -> u16 {
         match self {
-            PairedRegister::AF => cpu.r.get_af(),
-            PairedRegister::BC => cpu.r.get_bc(),
-            PairedRegister::DE => cpu.r.get_de(),
-            PairedRegister::HL => cpu.r.get_hl(),
-            PairedRegister::SP => cpu.sp,
+            WordRegister::AF => cpu.r.get_af(),
+            WordRegister::BC => cpu.r.get_bc(),
+            WordRegister::DE => cpu.r.get_de(),
+            WordRegister::HL => cpu.r.get_hl(),
+            WordRegister::SP => cpu.sp,
         }
     }
 
@@ -88,23 +89,23 @@ impl PairedRegister {
     #[inline]
     pub fn write(&self, cpu: &mut CPU, value: u16) {
         match self {
-            PairedRegister::AF => cpu.r.set_af(value),
-            PairedRegister::BC => cpu.r.set_bc(value),
-            PairedRegister::DE => cpu.r.set_de(value),
-            PairedRegister::HL => cpu.r.set_hl(value),
-            PairedRegister::SP => cpu.sp = value,
+            WordRegister::AF => cpu.r.set_af(value),
+            WordRegister::BC => cpu.r.set_bc(value),
+            WordRegister::DE => cpu.r.set_de(value),
+            WordRegister::HL => cpu.r.set_hl(value),
+            WordRegister::SP => cpu.sp = value,
         }
     }
 }
 
-impl fmt::Display for PairedRegister {
+impl fmt::Display for WordRegister {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let ident = match self {
-            PairedRegister::AF => "AF",
-            PairedRegister::BC => "BC",
-            PairedRegister::DE => "DE",
-            PairedRegister::HL => "HL",
-            PairedRegister::SP => "SP",
+            WordRegister::AF => "AF",
+            WordRegister::BC => "BC",
+            WordRegister::DE => "DE",
+            WordRegister::HL => "HL",
+            WordRegister::SP => "SP",
         };
         f.write_str(ident)
     }
@@ -149,10 +150,10 @@ impl fmt::Display for ByteTarget {
 /// Defines a source which yields an address that can be used to read or write a byte value
 #[derive(Copy, Clone)]
 pub enum ByteRef {
-    R(PairedRegister), // value refers to memory at address from one of the paired registers
-    D16(u16),          // value refers to memory at address from the next 16 bits
-    C,                 // value refers to memory at address from C register | 0xFF00
-    D8(u8),            // value refers to memory at the address from the next 8 bits | 0xFF00
+    R(WordRegister), // value refers to memory at address from one of the paired registers
+    D16(u16),        // value refers to memory at address from the next 16 bits
+    C,               // value refers to memory at address from C register | 0xFF00
+    D8(u8),          // value refers to memory at the address from the next 8 bits | 0xFF00
 }
 
 impl ByteRef {
@@ -173,7 +174,7 @@ impl fmt::Display for ByteRef {
         let ident = match self {
             ByteRef::R(reg) => format!("({reg})"),
             ByteRef::D16(address) => format!("({address:#06x})"),
-            ByteRef::C => "C".into(),
+            ByteRef::C => "(C)".into(),
             ByteRef::D8(offset) => format!("({:#06x})", u16::from(*offset) | 0xFF00),
         };
         f.write_str(&ident)
@@ -213,7 +214,7 @@ impl fmt::Display for ByteSource {
 /// Defines the source of a word value
 #[derive(Copy, Clone)]
 pub enum WordSource {
-    R(PairedRegister),
+    R(WordRegister),
     D16(u16), // value comes from the next 16 bits
 }
 
@@ -242,7 +243,7 @@ impl fmt::Display for WordSource {
 #[derive(Copy, Clone)]
 pub enum Load {
     Byte(ByteTarget, ByteSource),
-    Word(PairedRegister, WordSource),
+    Word(WordRegister, WordSource),
     // Store the contents of `ByteSource` in the memory location specified by `ByteRef`.
     IndirectFrom(ByteRef, ByteSource),
     // Store the contents of register A into the memory location specified by register pair HL,
@@ -276,7 +277,10 @@ impl fmt::Display for Load {
             Load::HLIToAInc => "A, (HL+)".into(),
             Load::HLIToADec => "A, (HL-)".into(),
             Load::IndirectFromSP(target) => format!("{target}, SP"),
-            Load::HLFromSPi8(value) => format!("HL, SP + {value:#04x}"),
+            Load::HLFromSPi8(value) => {
+                let value = ReallySigned(*value);
+                format!("HL, SP{value:+#04x}")
+            }
         };
         f.write_str(&ident)
     }

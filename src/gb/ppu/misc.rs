@@ -42,7 +42,7 @@ impl From<Palette> for u8 {
 }
 
 /// Represents an non-colorized Pixel.
-#[derive(Default, Copy, Clone, PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub enum Pixel {
     #[default]
     Zero,
@@ -66,7 +66,7 @@ impl From<Pixel> for u8 {
 impl From<u8> for Pixel {
     #[inline]
     fn from(value: u8) -> Self {
-        match value {
+        match value & 0b11 {
             0b00 => Pixel::Zero,
             0b01 => Pixel::One,
             0b10 => Pixel::Two,
@@ -77,7 +77,7 @@ impl From<u8> for Pixel {
 }
 
 /// Defines a colorized Pixel created from a non-colorized Pixel with a Palette.
-#[derive(Default, Copy, Clone, PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub enum ColoredPixel {
     #[default]
     White,
@@ -101,7 +101,7 @@ impl From<ColoredPixel> for u8 {
 impl From<u8> for ColoredPixel {
     #[inline]
     fn from(value: u8) -> Self {
-        match value {
+        match value & 0b11 {
             0b00 => ColoredPixel::White,
             0b01 => ColoredPixel::LightGrey,
             0b10 => ColoredPixel::DarkGrey,

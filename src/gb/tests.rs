@@ -1,7 +1,45 @@
+use crate::gb::bus::Bus;
+use crate::gb::cartridge::Cartridge;
+use crate::gb::constants::BOOT_END;
+use crate::gb::cpu::CPU;
+use crate::gb::interrupt;
 use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{ActionInput, DPadInput, Joypad, JoypadInput};
 use crate::gb::timer::{Timer, TimerControl};
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
+use std::sync::Arc;
+
+#[test]
+fn test_boot_rom() {
+    let header = vec![
+        0x00, 0xc3, 0x13, 0x02, 0xce, 0xed, 0x66, 0x66, 0xcc, 0x0d, 0x00, 0x0b, 0x03, 0x73, 0x00,
+        0x83, 0x00, 0x0c, 0x00, 0x0d, 0x00, 0x08, 0x11, 0x1f, 0x88, 0x89, 0x00, 0x0e, 0xdc, 0xcc,
+        0x6e, 0xe6, 0xdd, 0xdd, 0xd9, 0x99, 0xbb, 0xbb, 0x67, 0x63, 0x6e, 0x0e, 0xec, 0xcc, 0xdd,
+        0xdc, 0x99, 0x9f, 0xbb, 0xb9, 0x33, 0x3e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x66, 0x4d, 0xeb,
+    ];
+    let mut rom = vec![0x00; 0x100];
+    rom.extend(header);
+
+    let cartridge = Cartridge::try_from(Arc::from(rom.into_boxed_slice())).unwrap();
+
+    let mut cpu = CPU::default();
+    let mut bus = Bus::with_cartridge(cartridge, None);
+
+    while cpu.pc < BOOT_END + 1 {
+        cpu.step(&mut bus);
+        interrupt::handle(&mut cpu, &mut bus);
+    }
+
+    assert!(!bus.is_boot_rom_active, "Boot ROM is still active");
+    assert_eq!(cpu.r.get_af(), 0x01B0, "AF is invalid");
+    assert_eq!(cpu.r.get_bc(), 0x0013, "BC is invalid");
+    assert_eq!(cpu.r.get_de(), 0x00D8, "DE is invalid");
+    assert_eq!(cpu.r.get_hl(), 0x014D, "HL is invalid");
+    assert_eq!(cpu.sp, 0xFFFE, "SP is invalid");
+    assert_eq!(cpu.pc, 0x0100, "PC is invalid");
+}
 
 #[test]
 fn test_joypad_dpad_pressed() {

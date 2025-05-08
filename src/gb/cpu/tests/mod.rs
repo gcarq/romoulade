@@ -1,4 +1,5 @@
 mod instruction;
+mod ops;
 
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::cpu::{CPU, ImeState};

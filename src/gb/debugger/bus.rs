@@ -13,7 +13,7 @@ pub struct DebugBus {
 impl DebugBus {
     /// Prefetch all instructions from ROM bank 0.
     /// TODO: adapt for banking
-    pub fn fetch_instructions(&mut self) -> Vec<(u16, Option<Instruction>)> {
+    pub fn fetch_instructions(&mut self) -> Vec<(u16, Instruction)> {
         let mut instructions = Vec::with_capacity(1000);
         instructions.extend(self.instructions_from_range(ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END));
         instructions.extend(self.instructions_from_range(CRAM_BANK_BEGIN..=CRAM_BANK_END));
@@ -23,10 +23,7 @@ impl DebugBus {
     }
 
     /// Fetches all instructions from the specified range.
-    fn instructions_from_range(
-        &mut self,
-        range: RangeInclusive<u16>,
-    ) -> Vec<(u16, Option<Instruction>)> {
+    fn instructions_from_range(&mut self, range: RangeInclusive<u16>) -> Vec<(u16, Instruction)> {
         let mut instructions = Vec::new();
         let mut pc = *range.start();
 

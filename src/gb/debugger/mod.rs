@@ -4,7 +4,7 @@ use crate::gb::bus::Bus;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::bus::DebugBus;
-use crate::gb::{EmulatorMessage, GBResult, interrupt};
+use crate::gb::{EmulatorMessage, interrupt};
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 
@@ -57,17 +57,17 @@ impl Debugger {
 
     /// Checks the current debugger state and steps the CPU if necessary.
     /// Only does a single step per call.
-    pub fn maybe_step(&mut self, cpu: &mut CPU, bus: &mut Bus) -> GBResult<()> {
+    pub fn maybe_step(&mut self, cpu: &mut CPU, bus: &mut Bus) {
         match &self.message {
             // The frontend requested a single step
             Some(FrontendDebugMessage::Step) => {
-                self.step(cpu, bus)?;
+                self.step(cpu, bus);
                 self.send_message(DebugMessage::new(cpu, bus));
                 self.message = None;
             }
             // The frontend requested normal execution, the cpu should step until breakpoint is hit
             Some(FrontendDebugMessage::Continue) => {
-                self.step(cpu, bus)?;
+                self.step(cpu, bus);
                 if self.breakpoints.contains(&cpu.pc) {
                     self.send_message(DebugMessage::new(cpu, bus));
                     self.message = None;
@@ -82,11 +82,11 @@ impl Debugger {
             // the cpu should step until the end of the boot ROM
             Some(FrontendDebugMessage::SkipBootRom) => {
                 if bus.is_boot_rom_active && cpu.pc == BOOT_END - 1 {
-                    self.step(cpu, bus)?;
+                    self.step(cpu, bus);
                     self.send_message(DebugMessage::new(cpu, bus));
                     self.message = None;
                 } else {
-                    self.step(cpu, bus)?;
+                    self.step(cpu, bus);
                 }
             }
             // The frontend sent a new set of breakpoints
@@ -95,7 +95,6 @@ impl Debugger {
             }
             None => {}
         }
-        Ok(())
     }
 
     /// Handles a message from the frontend.
@@ -106,10 +105,9 @@ impl Debugger {
 
     /// Steps the CPU and handles interrupts.
     #[inline]
-    fn step(&mut self, cpu: &mut CPU, bus: &mut Bus) -> GBResult<()> {
-        cpu.step(bus)?;
+    fn step(&mut self, cpu: &mut CPU, bus: &mut Bus) {
+        cpu.step(bus);
         interrupt::handle(cpu, bus);
-        Ok(())
     }
 
     /// Sends a message to the frontend.

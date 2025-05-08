@@ -39,9 +39,6 @@ impl Disassembler {
             body.rows(text_height, instructions.len(), |mut row| {
                 let index = row.index();
                 let (addr, instruction) = instructions[index];
-                let instruction = instruction
-                    .map(|i| i.to_string())
-                    .unwrap_or_else(|| "???".to_string());
                 let text = if addr == state.cpu.pc {
                     RichText::from(format!("-> {addr:#06X}\t\t{instruction}"))
                         .monospace()

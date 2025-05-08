@@ -13,13 +13,29 @@ fn test_calculate_global_checksum() {
 }
 
 #[test]
-fn test_verify_checksum() {
+fn test_verify_checksum_ok() {
     let mut buf = (0..=CARTRIDGE_GLOBAL_CHECKSUM2)
         .map(|i| i as u8)
         .collect::<Vec<u8>>();
     buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize] = 0x8B;
     buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x3B;
     assert!(verify_checksum(&buf).is_ok());
+}
+
+#[test]
+fn test_verify_checksum_buffer_too_small() {
+    let buf = (0..=10).map(|i| i as u8).collect::<Vec<u8>>();
+    assert!(verify_checksum(&buf).is_err());
+}
+
+#[test]
+fn test_verify_checksum_buffer_invalid_checksum() {
+    let mut buf = (0..=CARTRIDGE_GLOBAL_CHECKSUM2)
+        .map(|i| i as u8)
+        .collect::<Vec<u8>>();
+    buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize] = 0x00;
+    buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x00;
+    assert!(verify_checksum(&buf).is_err());
 }
 
 #[test]

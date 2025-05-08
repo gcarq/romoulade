@@ -1,17 +1,16 @@
 use crate::gb::cpu::instruction::Instruction::*;
-use crate::gb::cpu::misc::*;
+use crate::gb::cpu::ops::*;
 
 use crate::gb::AddressSpace;
-use crate::gb::cpu::misc::JumpCondition::{Always, Carry, NotCarry, NotZero, Zero};
-use crate::gb::cpu::misc::Load::{
+use crate::gb::cpu::ops::JumpCondition::{Always, Carry, NotCarry, NotZero, Zero};
+use crate::gb::cpu::ops::Load::{
     Byte, HLFromSPi8, HLIFromADec, HLIFromAInc, HLIToADec, HLIToAInc, IndirectFrom, IndirectFromSP,
     Word,
 };
-use crate::gb::cpu::misc::PairedRegister::{AF, BC, DE, HL, SP};
-use crate::gb::cpu::misc::Register::{A, B, C, D, E, H, L};
-use crate::gb::cpu::misc::ResetCode::{RST00, RST08, RST10, RST18, RST20, RST28, RST30, RST38};
+use crate::gb::cpu::ops::Register::{A, B, C, D, E, H, L};
+use crate::gb::cpu::ops::ResetCode::{RST00, RST08, RST10, RST18, RST20, RST28, RST30, RST38};
+use crate::gb::cpu::ops::WordRegister::{AF, BC, DE, HL, SP};
 use std::fmt;
-use std::fmt::{Formatter, LowerHex};
 
 const OPCODE_PREFIX_16BIT: u8 = 0xCB;
 
@@ -24,7 +23,7 @@ pub enum Instruction {
     AND(ByteSource),               // Logically AND n with A, result in A
     BIT(u8, ByteSource),           // Test bit b from n and save the complement in the Z flag
     INC(ByteTarget),               // Increment single byte register n
-    INC2(PairedRegister),          // Increment word register n
+    INC2(WordRegister),            // Increment word register n
     CALL(JumpCondition, u16), // Push address of next instruction onto stack and then  jump to address nn
     CCF,                      // Complement carry flag
     CP(ByteSource),           // Compare A with source
@@ -32,7 +31,7 @@ pub enum Instruction {
     DAA,                      // This instruction is useful when you’re using BCD value
     DI,                       // Disables interrupt handling by setting ime = false
     DEC(ByteTarget),          // Decrement single byte register n
-    DEC2(PairedRegister),     // Decrement word register n
+    DEC2(WordRegister),       // Decrement word register n
     EI,                       // Enables interrupt handling by setting ime = true
     HALT,                     // Halts and wait for interrupt
     JR(JumpCondition, i8),    // Relative jump to given address
@@ -40,8 +39,8 @@ pub enum Instruction {
     LD(Load),                 // Load any value into a register or memory location
     NOP,                      // No operation
     OR(ByteSource),           // Logical OR n with register A, result in A.
-    PUSH(PairedRegister),     // Push to the stack memory, data from the 16-bit register
-    POP(PairedRegister),      // Pops to the 16-bit register
+    PUSH(WordRegister),       // Push to the stack memory, data from the 16-bit register
+    POP(WordRegister),        // Pops to the 16-bit register
     RES(u8, ByteTarget),      // Reset bit b in register r
     RET(JumpCondition),       // Pop two bytes from stack & jump to that address
     RETI,                     // Unconditional return which also enables interrupts
@@ -64,22 +63,18 @@ pub enum Instruction {
     STOP,                     // Halt CPU & LCD display until button pressed
     SWAP(ByteTarget),         // Swap upper & lower nibbles of n
     XOR(ByteSource),          // Logical exclusive OR n with register A, result in A
+    Illegal(u8),              // Illegal instruction
 }
 
 impl Instruction {
     /// Creates a new Instruction from the given address in the `AddressSpace`, it reads as
     /// many bytes as needed to create and `Instruction`.
-    /// It returns the parsed `Instruction` or `None` and the incremented address that can be used
+    /// It returns the parsed `Instruction` and the incremented address that can be used
     /// to read the next instruction.
-    pub fn from_memory<T: AddressSpace>(address: u16, bus: &mut T) -> (Option<Instruction>, u16) {
-        // Read next opcode from memory and check whether its prefixed
-        let opcode = bus.read(address);
-        if opcode == OPCODE_PREFIX_16BIT {
-            // Read opcode from next address
-            let instruction = Self::prefixed(bus.read(address + 1));
-            (Some(instruction), address + 2)
-        } else {
-            Self::not_prefixed(opcode, address + 1, bus)
+    pub fn from_memory<T: AddressSpace>(address: u16, bus: &mut T) -> (Instruction, u16) {
+        match bus.read(address) {
+            OPCODE_PREFIX_16BIT => (Self::prefixed(bus.read(address + 1)), address + 2),
+            opcode => Self::not_prefixed(opcode, address + 1, bus),
         }
     }
 
@@ -358,11 +353,7 @@ impl Instruction {
     /// Creates a new `Instruction` from the given opcode,
     /// the passed address is the next address after the opcode.
     /// Returns the parsed `Instruction` and the next address.
-    fn not_prefixed<T: AddressSpace>(
-        opcode: u8,
-        address: u16,
-        bus: &mut T,
-    ) -> (Option<Instruction>, u16) {
+    fn not_prefixed<T: AddressSpace>(opcode: u8, address: u16, bus: &mut T) -> (Instruction, u16) {
         let mut address = address;
         let instruction = match opcode {
             0x00 => NOP,
@@ -600,7 +591,7 @@ impl Instruction {
             0xd0 => RET(NotCarry),
             0xd1 => POP(DE),
             0xd2 => JP(NotCarry, JumpTarget::D16(read_word(&mut address, bus))),
-            0xd3 => return (None, address),
+            0xd3 => Illegal(0xd3),
             0xd4 => CALL(NotCarry, read_word(&mut address, bus)),
             0xd5 => PUSH(DE),
             0xd6 => SUB(ByteSource::D8(read_byte(&mut address, bus))),
@@ -608,9 +599,9 @@ impl Instruction {
             0xd8 => RET(Carry),
             0xd9 => RETI,
             0xda => JP(Carry, JumpTarget::D16(read_word(&mut address, bus))),
-            0xdb => return (None, address),
+            0xdb => Illegal(0xdb),
             0xdc => CALL(Carry, read_word(&mut address, bus)),
-            0xdd => return (None, address),
+            0xdd => Illegal(0xdd),
             0xde => SBC(ByteSource::D8(read_byte(&mut address, bus))),
             0xdf => RST(RST18),
             0xe0 => LD(IndirectFrom(
@@ -619,8 +610,8 @@ impl Instruction {
             )),
             0xe1 => POP(HL),
             0xe2 => LD(IndirectFrom(ByteRef::C, ByteSource::R(A))),
-            0xe3 => return (None, address),
-            0xe4 => return (None, address),
+            0xe3 => Illegal(0xe3),
+            0xe4 => Illegal(0xe4),
             0xe5 => PUSH(HL),
             0xe6 => AND(ByteSource::D8(read_byte(&mut address, bus))),
             0xe7 => RST(RST20),
@@ -630,9 +621,9 @@ impl Instruction {
                 ByteRef::D16(read_word(&mut address, bus)),
                 ByteSource::R(A),
             )),
-            0xeb => return (None, address),
-            0xec => return (None, address),
-            0xed => return (None, address),
+            0xeb => Illegal(0xeb),
+            0xec => Illegal(0xec),
+            0xed => Illegal(0xed),
             0xee => XOR(ByteSource::D8(read_byte(&mut address, bus))),
             0xef => RST(RST28),
             0xf0 => LD(Byte(
@@ -642,7 +633,7 @@ impl Instruction {
             0xf1 => POP(AF),
             0xf2 => LD(Byte(ByteTarget::R(A), ByteSource::I(ByteRef::C))),
             0xf3 => DI,
-            0xf4 => return (None, address),
+            0xf4 => Illegal(0xf4),
             0xf5 => PUSH(AF),
             0xf6 => OR(ByteSource::D8(read_byte(&mut address, bus))),
             0xf7 => RST(RST30),
@@ -653,12 +644,12 @@ impl Instruction {
                 ByteSource::I(ByteRef::D16(read_word(&mut address, bus))),
             )),
             0xfb => EI,
-            0xfc => return (None, address),
-            0xfd => return (None, address),
+            0xfc => Illegal(0xfc),
+            0xfd => Illegal(0xfd),
             0xfe => CP(ByteSource::D8(read_byte(&mut address, bus))),
             0xff => RST(RST38),
         };
-        (Some(instruction), address)
+        (instruction, address)
     }
 }
 
@@ -718,6 +709,7 @@ impl fmt::Display for Instruction {
             SRA(source) => format!("SRA {source}"),
             SRL(source) => format!("SRL {source}"),
             SWAP(source) => format!("SWAP {source}"),
+            Illegal(_) => "??".into(),
         };
         f.write_str(&ident)
     }
@@ -742,12 +734,12 @@ fn read_word<T: AddressSpace>(address: &mut u16, bus: &mut T) -> u16 {
 }
 
 /// A wrapper around `i8` to implement `LowerHex` to print it as a signed hex value.
-struct ReallySigned(i8);
+pub struct ReallySigned(pub i8);
 
-impl LowerHex for ReallySigned {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl fmt::LowerHex for ReallySigned {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let prefix = if f.alternate() { "0x" } else { "" };
-        let bare_hex = format!("{:x}", self.0.unsigned_abs());
+        let bare_hex = format!("{:02x}", self.0.unsigned_abs());
         f.pad_integral(self.0 >= 0, prefix, &bare_hex)
     }
 }

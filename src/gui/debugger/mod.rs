@@ -18,7 +18,7 @@ use std::sync::mpsc::Sender;
 struct EmulatorState {
     pub cpu: CPU,
     pub bus: DebugBus,
-    pub instructions: Vec<(u16, Option<Instruction>)>,
+    pub instructions: Vec<(u16, Instruction)>,
 }
 
 impl EmulatorState {

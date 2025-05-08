@@ -1,13 +1,13 @@
 use crate::gb::AddressSpace;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::cpu::instruction::Instruction::*;
-use crate::gb::cpu::misc::*;
+use crate::gb::cpu::ops::*;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::{GBResult, HardwareContext, utils};
+use crate::gb::{HardwareContext, utils};
 use registers::Registers;
 
 pub mod instruction;
-mod misc;
+mod ops;
 pub mod registers;
 #[cfg(test)]
 mod tests;
@@ -34,25 +34,15 @@ pub struct CPU {
 impl CPU {
     /// Makes one CPU step, this consumes one or more bytes depending on the
     /// next instruction and current CPU state (halted, stopped, etc.).
-    pub fn step<T: AddressSpace + HardwareContext>(&mut self, bus: &mut T) -> GBResult<()> {
+    pub fn step<T: AddressSpace + HardwareContext>(&mut self, bus: &mut T) {
         if self.is_halted {
             bus.tick();
-            return Ok(());
+            return;
         }
-
         // Parse instruction from address, execute it and update program counter
-        match Instruction::from_memory(self.pc, bus) {
-            (Some(instruction), address) => {
-                self.pc = address;
-                self.pc = self.execute(instruction, bus);
-            }
-            (None, _address) => {
-                todo!("unrecognized opcode");
-                //let description = format!("0x{}{:02x}", if prefixed { "cb" } else { "" }, opcode);
-                //return Err(format!("Unrecognized opcode: {}.", description).into());
-            }
-        };
-        Ok(())
+        let (instruction, address) = Instruction::from_memory(self.pc, bus);
+        self.pc = address;
+        self.pc = self.execute(instruction, bus);
     }
 
     /// Executes the given instruction, advances the internal clock
@@ -110,6 +100,10 @@ impl CPU {
             PUSH(target) => self.handle_push(target, bus),
             POP(target) => self.handle_pop(target, bus),
             XOR(source) => self.handle_xor(source, bus),
+            Illegal(opcode) => {
+                eprintln!("WARNING: Illegal opcode: {opcode:#04x}");
+                self.pc
+            }
         }
     }
 
@@ -305,7 +299,7 @@ impl CPU {
     }
 
     /// Handles DEC instructions for words
-    fn handle_dec_word(&mut self, target: PairedRegister) -> u16 {
+    fn handle_dec_word(&mut self, target: WordRegister) -> u16 {
         let value = target.read(self);
         let result = value.wrapping_sub(1);
         target.write(self, result);
@@ -333,7 +327,7 @@ impl CPU {
     }
 
     /// Handles INC instructions for words
-    fn handle_inc_word(&mut self, target: PairedRegister) -> u16 {
+    fn handle_inc_word(&mut self, target: WordRegister) -> u16 {
         let value = target.read(self);
         let result = value.wrapping_add(1);
         target.write(self, result);
@@ -440,7 +434,7 @@ impl CPU {
 
     /// Handles POP instruction
     #[inline]
-    fn handle_pop<T: AddressSpace>(&mut self, target: PairedRegister, bus: &mut T) -> u16 {
+    fn handle_pop<T: AddressSpace>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
         let word = self.pop(bus);
         target.write(self, word);
         self.pc
@@ -450,7 +444,7 @@ impl CPU {
     #[inline]
     fn handle_push<T: AddressSpace + HardwareContext>(
         &mut self,
-        target: PairedRegister,
+        target: WordRegister,
         bus: &mut T,
     ) -> u16 {
         let word = target.read(self);
@@ -552,19 +546,20 @@ impl CPU {
     }
 
     /// Handles RRC instructions
+    /// TODO: combine with RRCA
     fn handle_rrc<T: AddressSpace>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
-        let carry = value & 0x01 != 0;
-        let result = value.rotate_right(1);
-        self.r.f.update(result == 0, false, false, carry);
+        let carry = value & 0b0000_0001;
+        let result = (value >> 1) | (carry << 7);
+        self.r.f.update(result == 0, false, false, carry != 0);
         target.write(self, bus, result);
         self.pc
     }
 
-    /// Handles RCAA instruction
+    /// Handles RRCA instruction
     #[inline]
     fn handle_rrca(&mut self) -> u16 {
-        let carry = self.r.a & 0x01;
+        let carry = self.r.a & 0b0000_0001;
         self.r.a = (self.r.a >> 1) | (carry << 7);
         self.r.f.update(false, false, false, carry != 0);
         self.pc
@@ -647,9 +642,8 @@ impl CPU {
 
     /// Handles STOP instruction
     fn handle_stop(&mut self) -> u16 {
-        todo!("STOP is not implemented");
-        //self.advance_clock(M(1));
-        //self.pc
+        eprintln!("WARNING: STOP instruction not implemented");
+        self.pc
     }
 
     /// Handles SUB instructions
