@@ -1,10 +1,10 @@
 pub mod bus;
 
+use crate::gb::EmulatorMessage;
 use crate::gb::bus::Bus;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::bus::DebugBus;
-use crate::gb::{EmulatorMessage, interrupt};
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 
@@ -107,7 +107,6 @@ impl Debugger {
     #[inline]
     fn step(&mut self, cpu: &mut CPU, bus: &mut Bus) {
         cpu.step(bus);
-        interrupt::handle(cpu, bus);
     }
 
     /// Sends a message to the frontend.

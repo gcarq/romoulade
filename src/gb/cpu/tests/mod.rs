@@ -1,52 +1,8 @@
 mod cpu;
 mod ops;
 
+use crate::gb::cpu::CPU;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::cpu::{CPU, ImeState};
-use crate::gb::{AddressSpace, HardwareContext};
-
-/// Represents a mock for MemoryBus
-struct MockBus {
-    ime: ImeState,
-    data: Vec<u8>,
-    pub cycles: u32,
-}
-
-impl MockBus {
-    pub fn new(data: Vec<u8>) -> Self {
-        Self {
-            ime: ImeState::Enabled,
-            data,
-            cycles: 0,
-        }
-    }
-}
-
-impl AddressSpace for MockBus {
-    fn write(&mut self, address: u16, value: u8) {
-        self.cycles += 1;
-        self.data[address as usize] = value;
-    }
-
-    fn read(&mut self, address: u16) -> u8 {
-        self.cycles += 1;
-        self.data[address as usize]
-    }
-}
-
-impl HardwareContext for MockBus {
-    fn set_ime(&mut self, ime: ImeState) {
-        self.ime = ime;
-    }
-
-    fn ime(&self) -> ImeState {
-        self.ime
-    }
-
-    fn tick(&mut self) {
-        self.cycles += 1;
-    }
-}
 
 fn assert_flags(r: FlagsRegister, zero: bool, negative: bool, half_carry: bool, carry: bool) {
     assert_eq!(

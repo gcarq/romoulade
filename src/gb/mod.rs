@@ -1,7 +1,7 @@
-use crate::gb::bus::Bus;
+use crate::gb::bus::{Bus, InterruptRegister};
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::BOOT_END;
-use crate::gb::cpu::{CPU, ImeState};
+use crate::gb::cpu::CPU;
 use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
 use crate::gb::joypad::JoypadInput;
 use crate::gb::ppu::buffer::FrameBuffer;
@@ -15,13 +15,12 @@ pub mod cartridge;
 pub mod constants;
 pub mod cpu;
 pub mod debugger;
-pub mod interrupt;
 pub mod joypad;
 mod oam;
 pub mod ppu;
 mod serial;
 #[cfg(test)]
-mod tests;
+pub mod tests;
 pub mod timer;
 mod utils;
 
@@ -35,8 +34,12 @@ pub type GBError = Box<dyn error::Error>;
 
 /// This trait defines a common interface to interact with the hardware context.
 pub trait HardwareContext {
-    fn set_ime(&mut self, ime: ImeState);
-    fn ime(&self) -> ImeState;
+    fn set_ie(&mut self, r: InterruptRegister);
+    fn get_ie(&self) -> InterruptRegister;
+    fn set_if(&mut self, r: InterruptRegister);
+    fn get_if(&self) -> InterruptRegister;
+    /// Indicates whether an interrupt is pending.
+    fn has_irq(&self) -> bool;
     fn tick(&mut self);
 }
 
@@ -138,7 +141,6 @@ impl Emulator {
     #[inline]
     fn step(&mut self) {
         self.cpu.step(&mut self.bus);
-        interrupt::handle(&mut self.cpu, &mut self.bus);
     }
 
     /// Fastboot the emulator by setting the CPU registers as if it had booted normally.

@@ -1,14 +1,24 @@
 use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
-use crate::gb::cpu::ImeState;
-use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{Joypad, JoypadInput};
 use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
 use crate::gb::{AddressSpace, HardwareContext};
+
+bitflags! {
+    /// Represents interrupt registers IE at 0xFFFF and IF at 0xFF0F
+    #[derive(Copy, Clone, PartialEq)]
+    pub struct InterruptRegister: u8 {
+        const VBLANK = 0b00000001; // V-Blank Interrupt
+        const STAT   = 0b00000010; // LCD STAT Interrupt
+        const TIMER  = 0b00000100; // Timer Overflow Interrupt
+        const SERIAL = 0b00001000; // Serial Transfer Completion Interrupt
+        const JOYPAD = 0b00010000; // Joypad Input Interrupt
+    }
+}
 
 /// Defines a global Bus, all processing units should access memory through it.
 #[derive(Clone)]
@@ -17,7 +27,6 @@ pub struct Bus {
     apu: AudioProcessor,
     serial_transfer: SerialTransfer,
     pub cartridge: Cartridge,
-    ime: ImeState, // Interrupt Master Enable
     timer: Timer,
     ppu: PPU,
     joypad: Joypad,
@@ -36,7 +45,6 @@ impl Bus {
             is_boot_rom_active: true,
             apu: AudioProcessor::default(),
             serial_transfer: SerialTransfer::default(),
-            ime: ImeState::Enabled,
             ppu: PPU::new(display),
             joypad: Joypad::default(),
             pending_joypad_event: None,
@@ -47,14 +55,6 @@ impl Bus {
             eram: [0u8; ERAM_SIZE],
             hram: [0u8; HRAM_SIZE],
         }
-    }
-
-    /// Indicates whether an interrupt is pending
-    #[inline]
-    pub fn has_pending_interrupt(&self) -> bool {
-        let enabled = self.interrupt_enable.bits() & 0b0001_1111;
-        let flag = self.interrupt_flag.bits() & 0b0001_1111;
-        enabled & flag != 0
     }
 
     #[inline]
@@ -170,9 +170,6 @@ impl Bus {
     /// This function is used to step all components.
     #[inline]
     fn cycle(&mut self) {
-        if self.ime == ImeState::Pending {
-            self.ime = ImeState::Enabled;
-        }
         self.oam_transfer();
         self.ppu.step(&mut self.interrupt_flag);
         self.timer.step(&mut self.interrupt_flag);
@@ -232,17 +229,34 @@ impl AddressSpace for Bus {
 }
 
 impl HardwareContext for Bus {
-    #[inline]
-    fn set_ime(&mut self, ime: ImeState) {
-        self.ime = ime;
+    #[inline(always)]
+    fn set_ie(&mut self, r: InterruptRegister) {
+        self.interrupt_enable = r;
     }
 
-    #[inline]
-    fn ime(&self) -> ImeState {
-        self.ime
+    #[inline(always)]
+    fn get_ie(&self) -> InterruptRegister {
+        self.interrupt_enable
     }
 
-    #[inline]
+    #[inline(always)]
+    fn set_if(&mut self, r: InterruptRegister) {
+        self.interrupt_flag = r;
+    }
+
+    #[inline(always)]
+    fn get_if(&self) -> InterruptRegister {
+        self.interrupt_flag
+    }
+
+    #[inline(always)]
+    fn has_irq(&self) -> bool {
+        let enabled = self.interrupt_enable.bits() & 0b0001_1111;
+        let flag = self.interrupt_flag.bits() & 0b0001_1111;
+        enabled & flag != 0
+    }
+
+    #[inline(always)]
     fn tick(&mut self) {
         self.cycle();
     }

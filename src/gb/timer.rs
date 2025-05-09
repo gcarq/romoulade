@@ -1,6 +1,6 @@
 use crate::gb::AddressSpace;
+use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
-use crate::gb::interrupt::InterruptRegister;
 
 bitflags! {
     /// Represents the control register TAC at 0xFF07
@@ -35,11 +35,13 @@ impl TimerControl {
 /// See https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
 #[derive(Clone)]
 pub struct Timer {
-    pub divider: u16, // DIV, this is an 16-bit register, but only the upper 8 bits are mapped to memory
-    pub counter: u8,  // TIMA
-    pub modulo: u8,   // TMA
+    // DIV. The upper bits of the divider are mapped to memory but the two extra bits
+    // at the top are not visible. Hence, we need to right shift the divider by 6 bits.
+    pub divider: u16,
+    pub counter: u8,           // TIMA
+    pub modulo: u8,            // TMA
     pub control: TimerControl, // TAC
-    counter_overflow: bool, // Indicates whether the counter overflowed during the last cycle
+    counter_overflow: bool,    // Indicates whether the counter overflowed during the last cycle
 }
 
 impl Default for Timer {
@@ -138,8 +140,6 @@ impl AddressSpace for Timer {
 
     fn read(&mut self, address: u16) -> u8 {
         match address {
-            // The upper bits of the divider are mapped to memory but the two extra bits
-            // at the top are not visible. Hence, we need to right shift the divider by 6 bits.
             TIMER_DIVIDER => (self.divider >> 6) as u8,
             TIMER_COUNTER => self.counter,
             TIMER_MODULO => self.modulo,

@@ -1,4 +1,3 @@
-use crate::gb::HardwareContext;
 use crate::gb::cpu::ImeState;
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gui::debugger::EmulatorState;
@@ -20,7 +19,7 @@ impl Registers {
         self.update_sp_pc(state, ui);
         ui.separator();
         ui.horizontal(|ui| {
-            self.draw_flag(ui, "IME", state.bus.ime() == ImeState::Enabled);
+            self.draw_flag(ui, "IME", state.cpu.ime == ImeState::Enabled);
             ui.separator();
             self.draw_flag(ui, "HALT", state.cpu.is_halted);
         });

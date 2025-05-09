@@ -1,6 +1,5 @@
-use crate::gb::bus::Bus;
+use crate::gb::bus::{Bus, InterruptRegister};
 use crate::gb::constants::*;
-use crate::gb::cpu::ImeState;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::{AddressSpace, HardwareContext};
 use std::ops::RangeInclusive;
@@ -44,17 +43,32 @@ impl From<Bus> for DebugBus {
 }
 
 impl HardwareContext for DebugBus {
-    #[inline]
-    fn set_ime(&mut self, ime: ImeState) {
-        self.inner.set_ime(ime);
+    #[inline(always)]
+    fn set_ie(&mut self, r: InterruptRegister) {
+        self.inner.set_ie(r);
     }
 
-    #[inline]
-    fn ime(&self) -> ImeState {
-        self.inner.ime()
+    #[inline(always)]
+    fn get_ie(&self) -> InterruptRegister {
+        self.inner.get_ie()
     }
 
-    #[inline]
+    #[inline(always)]
+    fn set_if(&mut self, r: InterruptRegister) {
+        self.inner.set_if(r);
+    }
+
+    #[inline(always)]
+    fn get_if(&self) -> InterruptRegister {
+        self.inner.get_if()
+    }
+
+    #[inline(always)]
+    fn has_irq(&self) -> bool {
+        self.inner.has_irq()
+    }
+
+    #[inline(always)]
     fn tick(&mut self) {
         self.inner.tick();
     }

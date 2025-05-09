@@ -1,6 +1,6 @@
-use crate::gb::HardwareContext;
-use crate::gb::bus::Bus;
+use crate::gb::bus::InterruptRegister;
 use crate::gb::cpu::{CPU, ImeState};
+use crate::gb::{AddressSpace, HardwareContext};
 
 const VBLANK_IRQ_ADDRESS: u16 = 0x40;
 const LCD_IRQ_ADDRESS: u16 = 0x48;
@@ -8,35 +8,30 @@ const TIMER_IRQ_ADDRESS: u16 = 0x50;
 const SERIAL_IRQ_ADDRESS: u16 = 0x58;
 const JOYPAD_IRQ_ADDRESS: u16 = 0x60;
 
-bitflags! {
-    /// Represents interrupt registers IE at 0xFFFF and IF at 0xFF0F
-    #[derive(Copy, Clone, PartialEq)]
-    pub struct InterruptRegister: u8 {
-        const VBLANK = 0b00000001; // V-Blank Interrupt
-        const STAT   = 0b00000010; // LCD STAT Interrupt
-        const TIMER  = 0b00000100; // Timer Overflow Interrupt
-        const SERIAL = 0b00001000; // Serial Transfer Completion Interrupt
-        const JOYPAD = 0b00010000; // Joypad Input Interrupt
-    }
-}
-
-/// Handles pending interrupt requests
-/// TODO: implement HALT instruction bug (Section 4.10): https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
-pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
-    if !bus.has_pending_interrupt() {
+/// Handles pending interrupt requests.
+/// Returns true if an interrupt was handled.
+/// TODO: implement HALT instruction bug (Section 4.10):
+///  https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
+pub fn handle<T>(cpu: &mut CPU, bus: &mut T)
+where
+    T: AddressSpace + HardwareContext,
+{
+    if !bus.has_irq() {
         return;
     }
 
     // CPU should be always woken up from HALT if there is a pending interrupt
     cpu.is_halted = false;
 
-    if bus.ime() != ImeState::Enabled {
+    if cpu.ime != ImeState::Enabled {
         return;
     }
 
+    let mut int_flags = bus.get_if();
     for irq in InterruptRegister::all().iter() {
-        if bus.interrupt_enable.contains(irq) && bus.interrupt_flag.contains(irq) {
-            bus.interrupt_flag.remove(irq);
+        if bus.get_ie().contains(irq) && int_flags.contains(irq) {
+            int_flags.remove(irq);
+            bus.set_if(int_flags);
             let address = match irq {
                 InterruptRegister::VBLANK => VBLANK_IRQ_ADDRESS,
                 InterruptRegister::STAT => LCD_IRQ_ADDRESS,
@@ -52,8 +47,11 @@ pub fn handle(cpu: &mut CPU, bus: &mut Bus) {
 
 /// Handles interrupt request
 #[inline]
-fn interrupt(cpu: &mut CPU, bus: &mut Bus, address: u16) {
-    bus.set_ime(ImeState::Disabled);
+fn interrupt<T>(cpu: &mut CPU, bus: &mut T, address: u16)
+where
+    T: AddressSpace + HardwareContext,
+{
+    cpu.ime = ImeState::Disabled;
     bus.tick();
     bus.tick();
     // Save current execution address by pushing it onto the stack

@@ -5,8 +5,8 @@ mod registers;
 #[cfg(test)]
 mod tests;
 
+use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::*;
-use crate::gb::interrupt::InterruptRegister;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDState, PPUMode, Registers};
 use crate::gb::utils::bit_at;

@@ -8,6 +8,7 @@ use crate::gb::{HardwareContext, utils};
 use registers::Registers;
 
 pub mod instruction;
+mod interrupt;
 mod ops;
 pub mod registers;
 #[cfg(test)]
@@ -15,10 +16,11 @@ mod tests;
 
 /// IME (Interrupt Master Enable) state. The EI instruction enables the interrupt
 /// after one machine cycle has passed which puts it on state `ImeState::Pending`.
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub enum ImeState {
     Disabled,
     Pending,
+    #[default]
     Enabled,
 }
 
@@ -26,9 +28,10 @@ pub enum ImeState {
 /// the CPU is LR35902 which is a subset of i8080 & Z80.
 #[derive(Default, Clone)]
 pub struct CPU {
-    pub r: Registers, // CPU registers
-    pub pc: u16,      // Program counter
-    pub sp: u16,      // Stack Pointer
+    pub r: Registers,  // CPU registers
+    pub ime: ImeState, // Interrupt Master Enable
+    pub pc: u16,       // Program counter
+    pub sp: u16,       // Stack Pointer
     pub is_halted: bool,
 }
 
@@ -39,10 +42,17 @@ impl CPU {
     where
         T: AddressSpace + HardwareContext,
     {
+        if self.ime == ImeState::Pending {
+            self.ime = ImeState::Enabled;
+        } else {
+            interrupt::handle(self, bus);
+        }
+
         if self.is_halted {
             bus.tick();
             return;
         }
+
         // Parse instruction from address, execute it and update program counter
         let (instruction, address) = Instruction::from_memory(self.pc, bus);
         self.pc = address;
@@ -67,10 +77,10 @@ impl CPU {
             CP(source) => self.handle_cp(source, bus),
             CPL => self.handle_cpl(),
             DAA => self.handle_daa(),
-            DI => self.handle_interrupt(ImeState::Disabled, bus),
+            DI => self.handle_interrupt(ImeState::Disabled),
             DEC(target) => self.handle_dec_byte(target, bus),
             DEC2(target) => self.handle_dec_word(target, bus),
-            EI => self.handle_interrupt(ImeState::Pending, bus),
+            EI => self.handle_interrupt(ImeState::Pending),
             HALT => self.handle_halt(bus),
             INC(target) => self.handle_inc_byte(target, bus),
             INC2(target) => self.handle_inc_word(target, bus),
@@ -385,11 +395,8 @@ impl CPU {
 
     /// Handles EI and DI instructions
     #[inline]
-    fn handle_interrupt<T>(&mut self, state: ImeState, bus: &mut T) -> u16
-    where
-        T: AddressSpace + HardwareContext,
-    {
-        bus.set_ime(state);
+    fn handle_interrupt(&mut self, state: ImeState) -> u16 {
+        self.ime = state;
         self.pc
     }
 
@@ -563,7 +570,7 @@ impl CPU {
     where
         T: AddressSpace + HardwareContext,
     {
-        bus.set_ime(ImeState::Enabled);
+        self.ime = ImeState::Enabled;
         let addr = self.pop(bus);
         bus.tick();
         addr

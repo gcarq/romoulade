@@ -1,7 +1,8 @@
+use crate::gb::AddressSpace;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::cpu::tests::{MockBus, assert_flags};
+use crate::gb::cpu::tests::assert_flags;
 use crate::gb::cpu::{CPU, ImeState};
-use crate::gb::{AddressSpace, HardwareContext};
+use crate::gb::tests::MockBus;
 
 #[test]
 fn test_illegal_opcodes() {
@@ -75,8 +76,10 @@ fn test_add_hl_de_overflow() {
 fn test_add_sp_s8_overflow_inc() {
     // ADD SP, s8
     let mut bus = MockBus::new(vec![0xe8, 0x01]);
-    let mut cpu = CPU::default();
-    cpu.sp = 0xffff;
+    let mut cpu = CPU {
+        sp: 0xffff,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
     assert_eq!(cpu.pc, 2);
     assert_eq!(cpu.sp, 0x0000);
@@ -90,7 +93,6 @@ fn test_add_sp_s8_overflow_dec() {
     let value = -1i8;
     let mut bus = MockBus::new(vec![0xe8, value as u8]);
     let mut cpu = CPU::default();
-    cpu.sp = 0x0000;
     cpu.step(&mut bus);
     assert_eq!(cpu.pc, 2);
     assert_eq!(cpu.sp, 0xffff);
@@ -181,8 +183,10 @@ fn test_bit_7_h_non_zero() {
 fn test_call_a16() {
     // CALL a16
     let mut bus = MockBus::new(vec![0xcd, 0x11, 0x22, 0x33, 0x44]);
-    let mut cpu = CPU::default();
-    cpu.sp = 0x03;
+    let mut cpu = CPU {
+        sp: 0x0003,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
     assert_eq!(bus.read(0x02), 0x00);
     assert_eq!(bus.read(0x01), 0x03);
@@ -359,10 +363,12 @@ fn test_daa_zero() {
 fn test_di() {
     // DI
     let mut bus = MockBus::new(vec![0xf3; 1]);
-    let mut cpu = CPU::default();
-    bus.set_ime(ImeState::Enabled);
+    let mut cpu = CPU {
+        ime: ImeState::Enabled,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
-    assert_eq!(bus.ime(), ImeState::Disabled);
+    assert_eq!(cpu.ime, ImeState::Disabled);
     assert_eq!(cpu.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
@@ -422,10 +428,12 @@ fn test_dec_bc_word() {
 fn test_ei() {
     // EI
     let mut bus = MockBus::new(vec![0xfb, 0x00]);
-    let mut cpu = CPU::default();
-    bus.set_ime(ImeState::Disabled);
+    let mut cpu = CPU {
+        ime: ImeState::Disabled,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
-    assert_eq!(bus.ime(), ImeState::Pending);
+    assert_eq!(cpu.ime, ImeState::Pending);
     assert_eq!(cpu.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
@@ -434,13 +442,15 @@ fn test_ei() {
 fn test_ei_di_rapid() {
     // Rapid EI/DI should not result in any interrupts
     let mut bus = MockBus::new(vec![0xfb, 0xf3]);
-    let mut cpu = CPU::default();
-    bus.set_ime(ImeState::Disabled);
+    let mut cpu = CPU {
+        ime: ImeState::Disabled,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
-    assert_eq!(bus.ime(), ImeState::Pending);
+    assert_eq!(cpu.ime, ImeState::Pending);
     assert_eq!(cpu.pc, 1);
     cpu.step(&mut bus);
-    assert_eq!(bus.ime(), ImeState::Disabled);
+    assert_eq!(cpu.ime, ImeState::Disabled);
     assert_eq!(cpu.pc, 2);
     assert_eq!(bus.cycles, 2);
 }
@@ -695,8 +705,10 @@ fn test_ld_a_hl_minus() {
 fn test_ld_a16_sp() {
     // LD (a16), SP
     let mut bus = MockBus::new(vec![0x08, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00]);
-    let mut cpu = CPU::default();
-    cpu.sp = 0xdead;
+    let mut cpu = CPU {
+        sp: 0xdead,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
     assert_eq!(bus.read(0x0005), 0xad);
     assert_eq!(bus.read(0x0006), 0xde);
@@ -708,8 +720,10 @@ fn test_ld_a16_sp() {
 fn test_ld_hl_sp_s8_pos() {
     // LD HL, SP+s8
     let mut bus = MockBus::new(vec![0xf8, 0x01]);
-    let mut cpu = CPU::default();
-    cpu.sp = 0x0001;
+    let mut cpu = CPU {
+        sp: 0x0001,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
     assert_eq!(cpu.sp, 0x0001);
     assert_eq!(cpu.r.get_hl(), 0x0002);
@@ -722,8 +736,10 @@ fn test_ld_hl_sp_s8_neg() {
     // LD HL, SP+s8
     let value = -1i8;
     let mut bus = MockBus::new(vec![0xf8, value as u8]);
-    let mut cpu = CPU::default();
-    cpu.sp = 0x0009;
+    let mut cpu = CPU {
+        sp: 0x0009,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
     assert_eq!(cpu.sp, 0x0009);
     assert_eq!(cpu.r.get_hl(), 0x0008);
@@ -822,11 +838,13 @@ fn test_rlca() {
 fn test_reti() {
     // RETI
     let mut bus = MockBus::new(vec![0xd9, 0x34, 0x12]);
-    let mut cpu = CPU::default();
-    bus.set_ime(ImeState::Disabled);
-    cpu.sp = 0x0001;
+    let mut cpu = CPU {
+        ime: ImeState::Disabled,
+        sp: 0x0001,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
-    assert_eq!(bus.ime(), ImeState::Enabled);
+    assert_eq!(cpu.ime, ImeState::Enabled);
     assert_eq!(cpu.pc, 0x1234);
     assert_eq!(bus.cycles, 4);
 }
@@ -1215,8 +1233,10 @@ fn test_swap_a_zero() {
 fn test_pop_hl() {
     // POP HL
     let mut bus = MockBus::new(vec![0xe1, 0x11, 0x22]);
-    let mut cpu = CPU::default();
-    cpu.sp = 0x0001;
+    let mut cpu = CPU {
+        sp: 0x0001,
+        ..Default::default()
+    };
     cpu.step(&mut bus);
     assert_eq!(cpu.r.get_hl(), 0x2211);
     assert_eq!(cpu.sp, 0x0003);
