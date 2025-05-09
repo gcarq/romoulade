@@ -138,7 +138,9 @@ impl AddressSpace for Timer {
 
     fn read(&mut self, address: u16) -> u8 {
         match address {
-            TIMER_DIVIDER => (self.divider >> 6) as u8, // Only the upper 8 bits are mapped to memory
+            // The upper bits of the divider are mapped to memory but the two extra bits
+            // at the top are not visible. Hence, we need to right shift the divider by 6 bits.
+            TIMER_DIVIDER => (self.divider >> 6) as u8,
             TIMER_COUNTER => self.counter,
             TIMER_MODULO => self.modulo,
             TIMER_CTRL => self.control.bits() | 0b1111_1000, // Undocumented bits should be 1,

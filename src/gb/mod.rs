@@ -29,7 +29,6 @@ pub const DISPLAY_REFRESH_RATE: u32 = 60; // TODO: exact refresh rate is 59.7
 
 pub const SCREEN_WIDTH: u8 = 160;
 pub const SCREEN_HEIGHT: u8 = 144;
-pub const VERTICAL_BLANK_SCAN_LINE_MAX: u8 = 153;
 
 pub type GBResult<T> = Result<T, GBError>;
 pub type GBError = Box<dyn error::Error>;

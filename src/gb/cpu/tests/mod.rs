@@ -9,6 +9,7 @@ use crate::gb::{AddressSpace, HardwareContext};
 struct MockBus {
     ime: ImeState,
     data: Vec<u8>,
+    pub cycles: u32,
 }
 
 impl MockBus {
@@ -16,16 +17,19 @@ impl MockBus {
         Self {
             ime: ImeState::Enabled,
             data,
+            cycles: 0,
         }
     }
 }
 
 impl AddressSpace for MockBus {
     fn write(&mut self, address: u16, value: u8) {
+        self.cycles += 1;
         self.data[address as usize] = value;
     }
 
     fn read(&mut self, address: u16) -> u8 {
+        self.cycles += 1;
         self.data[address as usize]
     }
 }
@@ -40,7 +44,7 @@ impl HardwareContext for MockBus {
     }
 
     fn tick(&mut self) {
-        // No-op
+        self.cycles += 1;
     }
 }
 

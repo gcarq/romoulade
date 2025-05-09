@@ -1,12 +1,12 @@
 use crate::gb::bus::Bus;
 use crate::gb::cartridge::Cartridge;
-use crate::gb::constants::BOOT_END;
+use crate::gb::constants::*;
 use crate::gb::cpu::CPU;
-use crate::gb::interrupt;
 use crate::gb::interrupt::InterruptRegister;
 use crate::gb::joypad::{ActionInput, DPadInput, Joypad, JoypadInput};
 use crate::gb::timer::{Timer, TimerControl};
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
+use crate::gb::{AddressSpace, interrupt};
 use std::sync::Arc;
 
 #[test]
@@ -197,7 +197,7 @@ fn test_half_carry_u8_false() {
 }
 
 #[test]
-fn test_timer_counter() {
+fn test_timer_counter_no_overflow() {
     let mut int_reg = InterruptRegister::empty();
     let mut timer = Timer::default();
     timer.control = TimerControl::from_bits_truncate(0b0000_0101);
@@ -226,6 +226,24 @@ fn test_timer_counter_overflow() {
     timer.step(&mut int_reg);
     assert_eq!(timer.counter, 0b0000_0000);
     assert!(int_reg.contains(InterruptRegister::TIMER));
+}
+
+#[test]
+fn test_timer_read() {
+    let mut timer = Timer::default();
+    timer.divider = 0b1111_1111;
+    timer.counter = 0b1010_1010;
+    timer.modulo = 0b1011_1011;
+    timer.control = TimerControl::from_bits_truncate(0b0000_0100);
+
+    assert_eq!(timer.read(TIMER_DIVIDER), 0b0000_0011);
+    assert_eq!(timer.read(TIMER_COUNTER), 0b1010_1010);
+    assert_eq!(timer.read(TIMER_MODULO), 0b1011_1011);
+    assert_eq!(
+        timer.read(TIMER_CTRL),
+        0b11111100,
+        "Undocumented bits should be 1"
+    );
 }
 
 #[test]

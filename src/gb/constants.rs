@@ -99,19 +99,6 @@ pub const TIMER_MODULO: u16 = 0xFF06;
 /// bit 2 specifies whether the timer is enabled (1) or disabled (0).
 pub const TIMER_CTRL: u16 = 0xFF07;
 
-pub const PPU_LCDC: u16 = 0xFF40;
-pub const PPU_STAT: u16 = 0xFF41;
-pub const PPU_SCY: u16 = 0xFF42;
-pub const PPU_SCX: u16 = 0xFF43;
-pub const PPU_LY: u16 = 0xFF44;
-pub const PPU_LYC: u16 = 0xFF45;
-pub const PPU_DMA: u16 = 0xFF46;
-pub const PPU_BGP: u16 = 0xFF47;
-pub const PPU_OBP0: u16 = 0xFF48;
-pub const PPU_OBP1: u16 = 0xFF49;
-pub const PPU_WY: u16 = 0xFF4A;
-pub const PPU_WX: u16 = 0xFF4B;
-
 /// This register is used to prepare the Game Boy to switch
 /// between CGB Double Speed Mode and Normal Speed Mode.
 /// The actual speed switch is performed by executing a STOP command after Bit 0 has been set.

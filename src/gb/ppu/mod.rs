@@ -10,14 +10,61 @@ use crate::gb::interrupt::InterruptRegister;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDState, PPUMode, Registers};
 use crate::gb::utils::bit_at;
-use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH, VERTICAL_BLANK_SCAN_LINE_MAX};
+use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH};
 use display::Display;
 use std::cmp::Ordering;
+
+/// LCDC is the main LCD Control register.
+/// Its bits toggle what elements are displayed on the screen, and how.
+const PPU_LCDC: u16 = 0xFF40;
+
+/// LCD Status register.
+const PPU_STAT: u16 = 0xFF41;
+
+/// These two registers specify the top-left coordinates of the visible 160×144 pixel
+/// area within the 256×256 pixels BG map.
+const PPU_SCY: u16 = 0xFF42;
+const PPU_SCX: u16 = 0xFF43;
+
+/// LY indicates the current horizontal line, which might be about to be drawn, being drawn,
+/// or just been drawn. LY can hold any value from 0 to 153, with values from 144 to 153
+/// indicating the VBlank period.
+const PPU_LY: u16 = 0xFF44;
+
+/// When both PPU_LYC and PPU_LY values are identical, the “LYC=LY” flag in the STAT register is set
+const PPU_LYC: u16 = 0xFF45;
+
+/// Writing to this register requests an OAM DMA transfer, but it’s just a request and the
+/// actual DMA transfer starts with a delay.
+const PPU_DMA: u16 = 0xFF46;
+
+/// This register assigns gray shades to the color indices of the BG and Window tiles.
+const PPU_BGP: u16 = 0xFF47;
+
+/// These registers assigns gray shades to the color indexes of the OBJs that use the corresponding
+/// palette. They work exactly like BGP, except that the lower two bits are ignored because color
+/// index 0 is transparent for OBJs.
+const PPU_OBP0: u16 = 0xFF48;
+const PPU_OBP1: u16 = 0xFF49;
+
+/// These two registers specify the on-screen coordinates of the Window’s top-left pixel.
+const PPU_WY: u16 = 0xFF4A;
+const PPU_WX: u16 = 0xFF4B;
 
 const ACCESS_OAM_CYCLES: isize = 21;
 const ACCESS_VRAM_CYCLES: isize = 43;
 const HBLANK_CYCLES: isize = 51;
 const VBLANK_LINE_CYCLES: isize = 114;
+
+/// The Window is visible (if enabled) when both coordinates are in the ranges WX=0..166, WY=0..143
+/// respectively. Values WX=7, WY=0 place the Window at the top left of the screen,
+/// completely covering the background.
+const WINDOW_X_MAX: u8 = 166;
+const WINDOW_Y_MAX: u8 = 143;
+
+/// A frame consists of 154 scanlines; during the first 144, the screen is drawn top to bottom,
+/// left to right.
+const VBLANK_SCAN_LINE_MAX: u8 = 153;
 
 /// Pixel Processing Unit
 pub struct PPU {
@@ -25,19 +72,22 @@ pub struct PPU {
     vram: [u8; VRAM_SIZE],
     oam: [u8; OAM_SIZE],
     cycles: isize,
+    // This line counter determines what window line is to be rendered on the current scanline.
+    // See https://gbdev.io/pandocs/Tile_Maps.html#window
+    wy_internal: Option<u8>,
     display: Option<Display>,
-    window_line_counter: u8,
 }
 
 impl Clone for PPU {
+    /// Clones everything except the `Display`.
     fn clone(&self) -> Self {
         Self {
             r: self.r,
             vram: self.vram,
             oam: self.oam,
             cycles: self.cycles,
+            wy_internal: self.wy_internal,
             display: None,
-            window_line_counter: self.window_line_counter,
         }
     }
 }
@@ -50,8 +100,8 @@ impl Default for PPU {
             vram: [0u8; VRAM_SIZE],
             oam: [0u8; OAM_SIZE],
             cycles: ACCESS_OAM_CYCLES,
+            wy_internal: None,
             display: None,
-            window_line_counter: 0,
         }
     }
 }
@@ -111,12 +161,9 @@ impl PPU {
         self.r.lcd_stat.set_mode(mode);
         self.cycles += mode.cycles();
         match mode {
-            PPUMode::AccessOAM => {
-                if self.r.lcd_stat.contains(LCDState::OAM_INT) {
-                    int_reg.insert(InterruptRegister::STAT);
-                }
-            }
+            PPUMode::HBlank => {}
             PPUMode::VBlank => {
+                self.wy_internal = None;
                 int_reg.insert(InterruptRegister::VBLANK);
                 if self.r.lcd_stat.contains(LCDState::V_BLANK_INT) {
                     int_reg.insert(InterruptRegister::STAT);
@@ -125,7 +172,19 @@ impl PPU {
                     int_reg.insert(InterruptRegister::STAT);
                 }
             }
-            _ => {}
+            PPUMode::AccessOAM => {
+                if self.r.lcd_stat.contains(LCDState::OAM_INT) {
+                    int_reg.insert(InterruptRegister::STAT);
+                }
+            }
+            PPUMode::AccessVRAM => {
+                if self.r.lcd_control.contains(LCDControl::WIN_EN)
+                    && self.wy_internal.is_none()
+                    && self.r.wy == self.r.ly
+                {
+                    self.wy_internal = Some(0);
+                }
+            }
         }
     }
 
@@ -144,13 +203,13 @@ impl PPU {
     /// Handles the HBlank mode, requests an OAM and/or STAT interrupt if needed
     fn handle_hblank(&mut self, int_reg: &mut InterruptRegister) {
         self.r.ly += 1;
-        if self.r.ly >= SCREEN_HEIGHT {
+        if is_on_screen_y(self.r.ly) {
+            self.switch_mode(PPUMode::AccessOAM, int_reg);
+        } else {
             if let Some(display) = &mut self.display {
                 display.send_frame();
             }
             self.switch_mode(PPUMode::VBlank, int_reg);
-        } else {
-            self.switch_mode(PPUMode::AccessOAM, int_reg);
         }
         self.handle_coincidence_flag(int_reg);
     }
@@ -158,9 +217,8 @@ impl PPU {
     /// Handles the VBlank mode, requests an VBLANK and/or STAT interrupt if needed
     fn handle_vblank(&mut self, int_reg: &mut InterruptRegister) {
         self.r.ly += 1;
-        if self.r.ly > VERTICAL_BLANK_SCAN_LINE_MAX {
+        if self.r.ly > VBLANK_SCAN_LINE_MAX {
             self.r.ly = 0;
-            self.window_line_counter = 0;
             self.switch_mode(PPUMode::AccessOAM, int_reg);
         } else {
             self.cycles += VBLANK_LINE_CYCLES;
@@ -169,7 +227,7 @@ impl PPU {
     }
 
     /// Draws the background on the current scan line.
-    fn draw_background(&mut self, bg_prio: &mut [bool; SCREEN_WIDTH as usize]) {
+    fn draw_background_line(&mut self, bg_prio: &mut [bool; SCREEN_WIDTH as usize]) {
         let map_mask = self.r.lcd_control.bg_tile_map_area();
 
         let y = self.r.ly.wrapping_add(self.r.scy);
@@ -204,12 +262,21 @@ impl PPU {
     }
 
     /// Draws the window on the current scan line.
-    fn draw_window(&mut self, bg_prio: &mut [bool; SCREEN_WIDTH as usize]) {
+    fn draw_window_line(&mut self, bg_prio: &mut [bool; SCREEN_WIDTH as usize]) {
+        if self.r.wx >= WINDOW_X_MAX || self.r.wy >= WINDOW_Y_MAX {
+            return;
+        }
+
+        let y = match self.wy_internal {
+            Some(wy) => wy,
+            None => return,
+        };
+
+        self.wy_internal = Some(y + 1);
+
         let map_mask = self.r.lcd_control.window_tile_map_area();
         let window_x = self.r.wx.wrapping_sub(7);
 
-        //let y = self.r.ly - self.r.wy;
-        let y = self.window_line_counter;
         let row = (y / 8) as usize;
 
         for i in window_x..SCREEN_WIDTH {
@@ -318,7 +385,7 @@ impl PPU {
 
                 let should_draw = !sprite.attributes.contains(SpriteAttributes::PRIORITY)
                     || !bg_prio[target_x as usize];
-                if target_x < SCREEN_WIDTH && pixel != Pixel::Zero && should_draw {
+                if is_on_screen_x(target_x) && pixel != Pixel::Zero && should_draw {
                     let color = palette.colorize(pixel);
                     if let Some(display) = &mut self.display {
                         display.write_pixel(target_x, self.r.ly, color);
@@ -331,19 +398,12 @@ impl PPU {
     /// Draws the current scan line to the display.
     fn draw_line(&mut self) {
         let mut bg_prio = [false; SCREEN_WIDTH as usize];
-
         if self.r.lcd_control.contains(LCDControl::BG_EN) {
-            self.draw_background(&mut bg_prio);
+            self.draw_background_line(&mut bg_prio);
         }
-
-        if self.r.lcd_control.contains(LCDControl::WIN_EN) && self.r.ly >= self.r.wy {
-            if self.r.ly == self.r.wy {
-                self.window_line_counter = 0;
-            }
-            self.draw_window(&mut bg_prio);
-            self.window_line_counter += 1;
+        if self.r.lcd_control.contains(LCDControl::WIN_EN) {
+            self.draw_window_line(&mut bg_prio);
         }
-
         if self.r.lcd_control.contains(LCDControl::OBJ_EN) {
             self.draw_sprites(&bg_prio);
         }
@@ -364,6 +424,7 @@ impl PPU {
                 eprintln!("FIXME: LCD off, but not in VBlank");
             }
             self.r.ly = 0;
+            self.wy_internal = None;
         }
         self.r.lcd_control = new;
     }
@@ -455,4 +516,16 @@ impl AddressSpace for PPU {
             _ => panic!("Attempt to read from unmapped audio register: {address:#06x}"),
         }
     }
+}
+
+/// Checks whether the given x coordinate is within the `SCREEN_WIDTH`.
+#[inline(always)]
+fn is_on_screen_x(x: u8) -> bool {
+    x < SCREEN_WIDTH
+}
+
+/// Checks whether the given y coordinate is within the `SCREEN_HEIGHT`.
+#[inline(always)]
+fn is_on_screen_y(y: u8) -> bool {
+    y < SCREEN_HEIGHT
 }
