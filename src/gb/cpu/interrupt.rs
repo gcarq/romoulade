@@ -2,20 +2,17 @@ use crate::gb::Bus;
 use crate::gb::bus::InterruptRegister;
 use crate::gb::cpu::{CPU, ImeState};
 
-const VBLANK_IRQ_ADDRESS: u16 = 0x40;
-const LCD_IRQ_ADDRESS: u16 = 0x48;
-const TIMER_IRQ_ADDRESS: u16 = 0x50;
-const SERIAL_IRQ_ADDRESS: u16 = 0x58;
-const JOYPAD_IRQ_ADDRESS: u16 = 0x60;
+const VBLANK_IRQ_ADDRESS: u16 = 0x0040;
+const LCD_IRQ_ADDRESS: u16 = 0x0048;
+const TIMER_IRQ_ADDRESS: u16 = 0x0050;
+const SERIAL_IRQ_ADDRESS: u16 = 0x0058;
+const JOYPAD_IRQ_ADDRESS: u16 = 0x0060;
 
 /// Handles pending interrupt requests.
 /// Returns true if an interrupt was handled.
 /// TODO: implement HALT instruction bug (Section 4.10):
 ///  https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
-pub fn handle<T>(cpu: &mut CPU, bus: &mut T)
-where
-    T: Bus,
-{
+pub fn handle<T: Bus>(cpu: &mut CPU, bus: &mut T) {
     if !bus.has_irq() {
         return;
     }
@@ -47,10 +44,7 @@ where
 
 /// Handles interrupt request
 #[inline]
-fn interrupt<T>(cpu: &mut CPU, bus: &mut T, address: u16)
-where
-    T: Bus,
-{
+fn interrupt<T: Bus>(cpu: &mut CPU, bus: &mut T, address: u16) {
     cpu.ime = ImeState::Disabled;
     bus.cycle();
     bus.cycle();

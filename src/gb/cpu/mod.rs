@@ -37,10 +37,7 @@ pub struct CPU {
 impl CPU {
     /// Makes one CPU step, this consumes one or more bytes depending on the
     /// next instruction and current CPU state (halted, stopped, etc.).
-    pub fn step<T>(&mut self, bus: &mut T)
-    where
-        T: Bus,
-    {
+    pub fn step<T: Bus>(&mut self, bus: &mut T) {
         if self.ime == ImeState::Pending {
             self.ime = ImeState::Enabled;
         } else {
@@ -60,10 +57,7 @@ impl CPU {
 
     /// Executes the given instruction, advances the internal clock
     /// and returns the updated program counter.
-    fn execute<T>(&mut self, instruction: Instruction, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn execute<T: Bus>(&mut self, instruction: Instruction, bus: &mut T) -> u16 {
         match instruction {
             ADD(source) => self.handle_add(source, bus),
             ADDHL(source) => self.handle_add_hl(source, bus),
@@ -120,10 +114,7 @@ impl CPU {
     }
 
     /// Push an u16 value onto the stack.
-    pub fn push<T>(&mut self, value: u16, bus: &mut T)
-    where
-        T: Bus,
-    {
+    pub fn push<T: Bus>(&mut self, value: u16, bus: &mut T) {
         bus.cycle();
         self.sp = self.sp.wrapping_sub(1);
         // Write the most significant byte
@@ -134,10 +125,7 @@ impl CPU {
     }
 
     /// Pop an u16 value from the stack.
-    fn pop<T>(&mut self, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn pop<T: Bus>(&mut self, bus: &mut T) -> u16 {
         let low = bus.cycle_read(self.sp) as u16;
         self.sp = self.sp.wrapping_add(1);
 
@@ -148,10 +136,7 @@ impl CPU {
     }
 
     /// Handles ADD A, n instructions
-    fn handle_add<T>(&mut self, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_add<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let source_value = source.read(self, bus);
         let (new_value, did_overflow) = self.r.a.overflowing_add(source_value);
         // Half Carry is set if adding the lower nibbles of the value and register A
@@ -168,10 +153,7 @@ impl CPU {
     }
 
     /// Handles ADD HL, nn instructions
-    fn handle_add_hl<T>(&mut self, source: WordSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_add_hl<T: Bus>(&mut self, source: WordSource, bus: &mut T) -> u16 {
         let value = source.read(self);
         let hl = self.r.get_hl();
         let (result, overflow) = hl.overflowing_add(value);
@@ -186,10 +168,7 @@ impl CPU {
     }
 
     /// Handles ADD SP, i8 instruction
-    fn handle_add_sp<T>(&mut self, value: i8, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_add_sp<T: Bus>(&mut self, value: i8, bus: &mut T) -> u16 {
         let sp = self.sp as i32;
         let byte = value as i32;
         let result = sp.wrapping_add(byte);
@@ -205,10 +184,7 @@ impl CPU {
     }
 
     /// Handles ADC instructions
-    fn handle_adc<T>(&mut self, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_adc<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
         let half_carry = ((self.r.a & 0b1111)
             + (value & 0b1111)
@@ -227,10 +203,7 @@ impl CPU {
 
     /// Handles AND instructions
     #[inline]
-    fn handle_and<T>(&mut self, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_and<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
         self.r.a &= value;
         self.r.f.update(self.r.a == 0, false, true, false);
@@ -238,10 +211,7 @@ impl CPU {
     }
 
     /// Handles BIT instructions
-    fn handle_bit<T>(&mut self, bit: u8, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_bit<T: Bus>(&mut self, bit: u8, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
         self.r
             .f
@@ -252,10 +222,7 @@ impl CPU {
     }
 
     /// Handle CALL instructions
-    fn handle_call<T>(&mut self, test: JumpCondition, address: u16, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_call<T: Bus>(&mut self, test: JumpCondition, address: u16, bus: &mut T) -> u16 {
         if test.resolve(self) {
             self.push(self.pc, bus);
             address
@@ -274,10 +241,7 @@ impl CPU {
     }
 
     /// Handles CP instructions
-    fn handle_cp<T>(&mut self, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_cp<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
         let result = u32::from(self.r.a).wrapping_sub(u32::from(value));
 
@@ -326,10 +290,7 @@ impl CPU {
     }
 
     /// Handles DEC instructions for bytes
-    fn handle_dec_byte<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_dec_byte<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let result = value.wrapping_sub(1);
         target.write(self, bus, result);
@@ -342,10 +303,7 @@ impl CPU {
     }
 
     /// Handles DEC instructions for words
-    fn handle_dec_word<T>(&mut self, target: WordRegister, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_dec_word<T: Bus>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
         let value = target.read(self);
         let result = value.wrapping_sub(1);
         target.write(self, result);
@@ -355,20 +313,14 @@ impl CPU {
 
     /// Handles HALT instruction
     #[inline]
-    fn handle_halt<T>(&mut self, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_halt<T: Bus>(&mut self, bus: &mut T) -> u16 {
         self.is_halted = true;
         bus.cycle();
         self.pc
     }
 
     /// Handles INC instructions for bytes
-    fn handle_inc_byte<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_inc_byte<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let result = value.wrapping_add(1);
         target.write(self, bus, result);
@@ -381,10 +333,7 @@ impl CPU {
     }
 
     /// Handles INC instructions for words
-    fn handle_inc_word<T>(&mut self, target: WordRegister, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_inc_word<T: Bus>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
         let value = target.read(self);
         let result = value.wrapping_add(1);
         target.write(self, result);
@@ -400,10 +349,7 @@ impl CPU {
     }
 
     /// Handles JR instructions
-    fn handle_jr<T>(&mut self, test: JumpCondition, offset: i8, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_jr<T: Bus>(&mut self, test: JumpCondition, offset: i8, bus: &mut T) -> u16 {
         match test.resolve(self) {
             true => {
                 bus.cycle();
@@ -414,10 +360,7 @@ impl CPU {
     }
 
     /// Handles JP instructions
-    fn handle_jp<T>(&mut self, test: JumpCondition, target: JumpTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_jp<T: Bus>(&mut self, test: JumpCondition, target: JumpTarget, bus: &mut T) -> u16 {
         match test.resolve(self) {
             true => {
                 let addr = target.read(self);
@@ -431,10 +374,7 @@ impl CPU {
     }
 
     /// Handles LD instructions
-    fn handle_ld<T>(&mut self, load_type: Load, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_ld<T: Bus>(&mut self, load_type: Load, bus: &mut T) -> u16 {
         match load_type {
             Load::Byte(target, source) => {
                 let value = source.read(self, bus);
@@ -501,10 +441,7 @@ impl CPU {
 
     /// Handles OR instructions
     #[inline]
-    fn handle_or<T>(&mut self, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_or<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
         self.r.a |= value;
         self.r.f.update(self.r.a == 0, false, false, false);
@@ -513,10 +450,7 @@ impl CPU {
 
     /// Handles POP instruction
     #[inline]
-    fn handle_pop<T>(&mut self, target: WordRegister, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_pop<T: Bus>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
         let word = self.pop(bus);
         target.write(self, word);
         self.pc
@@ -524,10 +458,7 @@ impl CPU {
 
     /// Handles PUSH instruction
     #[inline]
-    fn handle_push<T>(&mut self, target: WordRegister, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_push<T: Bus>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
         let word = target.read(self);
         self.push(word, bus);
         self.pc
@@ -535,10 +466,7 @@ impl CPU {
 
     /// Handles RES instructions
     #[inline]
-    fn handle_res<T>(&mut self, bit: u8, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_res<T: Bus>(&mut self, bit: u8, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let result = utils::set_bit(value, bit, false);
         target.write(self, bus, result);
@@ -546,10 +474,7 @@ impl CPU {
     }
 
     /// Handles RET instruction
-    fn handle_ret<T>(&mut self, test: JumpCondition, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_ret<T: Bus>(&mut self, test: JumpCondition, bus: &mut T) -> u16 {
         if test != JumpCondition::Always {
             bus.cycle();
         }
@@ -565,10 +490,7 @@ impl CPU {
 
     /// Handles RETI instruction
     #[inline]
-    fn handle_reti<T>(&mut self, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_reti<T: Bus>(&mut self, bus: &mut T) -> u16 {
         self.ime = ImeState::Enabled;
         let addr = self.pop(bus);
         bus.cycle();
@@ -579,10 +501,7 @@ impl CPU {
     /// Rotate n left through Carry flag.
     /// TODO: combine RL and RLA
     #[inline]
-    fn handle_rl<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_rl<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0b1000_0000 != 0;
         let result = (value << 1) | self.r.f.contains(FlagsRegister::CARRY) as u8;
@@ -605,10 +524,7 @@ impl CPU {
     /// Handles RLC instructions
     /// Rotates register to the left and updates CPU flags
     /// TODO: combine RLC and RLCA
-    fn handle_rlc<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_rlc<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0b1000_0000 != 0;
         let result = (value << 1) | carry as u8;
@@ -627,10 +543,7 @@ impl CPU {
     }
 
     /// Handles RR instructions
-    fn handle_rr<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_rr<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0x01 != 0;
         let result = (value >> 1) | (u8::from(self.r.f.contains(FlagsRegister::CARRY)) << 7);
@@ -650,10 +563,7 @@ impl CPU {
 
     /// Handles RRC instructions
     /// TODO: combine with RRCA
-    fn handle_rrc<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_rrc<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0b0000_0001;
         let result = (value >> 1) | (carry << 7);
@@ -673,19 +583,13 @@ impl CPU {
 
     /// Handles RST instructions
     #[inline]
-    fn handle_rst<T>(&mut self, code: ResetCode, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_rst<T: Bus>(&mut self, code: ResetCode, bus: &mut T) -> u16 {
         self.push(self.pc, bus);
         code as u16
     }
 
     /// Handles SBC instructions
-    fn handle_sbc<T>(&mut self, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_sbc<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let a = self.r.a as u32;
         let value = source.read(self, bus) as u32;
         let result = a
@@ -711,10 +615,7 @@ impl CPU {
     }
 
     /// Handles SET instructions
-    fn handle_set<T>(&mut self, bit: u8, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_set<T: Bus>(&mut self, bit: u8, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let result = utils::set_bit(value, bit, true);
         target.write(self, bus, result);
@@ -722,10 +623,7 @@ impl CPU {
     }
 
     /// Handles SLA instructions
-    fn handle_sla<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_sla<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0b1000_0000 != 0;
         let result = value << 1;
@@ -735,10 +633,7 @@ impl CPU {
     }
 
     /// Handles SRA instructions
-    fn handle_sra<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_sra<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0x01 != 0;
         let result = (value >> 1) | (value & 0b1000_0000);
@@ -748,10 +643,7 @@ impl CPU {
     }
 
     /// Handles SRL instructions
-    fn handle_srl<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_srl<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         let carry = value & 0x01 != 0;
         let result = value >> 1;
@@ -768,10 +660,7 @@ impl CPU {
 
     /// Handles SUB instructions
     /// TODO: reuse the code from CP
-    fn handle_sub<T>(&mut self, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_sub<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let a = u16::from(self.r.a);
         let value = u16::from(source.read(self, bus));
         let result = a.wrapping_sub(value);
@@ -786,10 +675,7 @@ impl CPU {
 
     /// Handles SWAP instructions
     #[inline]
-    fn handle_swap<T>(&mut self, target: ByteTarget, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_swap<T: Bus>(&mut self, target: ByteTarget, bus: &mut T) -> u16 {
         let value = target.read(self, bus);
         self.r.f.update(value == 0, false, false, false);
         target.write(self, bus, value.rotate_right(4));
@@ -798,10 +684,7 @@ impl CPU {
 
     /// Handles XOR instructions
     #[inline]
-    fn handle_xor<T>(&mut self, source: ByteSource, bus: &mut T) -> u16
-    where
-        T: Bus,
-    {
+    fn handle_xor<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
         self.r.a ^= value;
         self.r.f.update(self.r.a == 0, false, false, false);

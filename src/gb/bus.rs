@@ -10,7 +10,7 @@ use crate::gb::{Bus, SubSystem};
 
 bitflags! {
     /// Represents interrupt registers IE at 0xFFFF and IF at 0xFF0F
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, PartialEq, Debug)]
     pub struct InterruptRegister: u8 {
         const VBLANK = 0b00000001; // V-Blank Interrupt
         const STAT   = 0b00000010; // LCD STAT Interrupt

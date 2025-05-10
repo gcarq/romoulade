@@ -127,10 +127,7 @@ impl Registers {
     }
 
     /// Draws an integer value in binary format with colored bits.
-    fn draw_bits<T>(&self, ui: &mut Ui, value: T)
-    where
-        T: BitView,
-    {
+    fn draw_bits<T: BitView>(&self, ui: &mut Ui, value: T) {
         let bits = value.view_bits::<Lsb0>();
         let mut job = LayoutJob::default();
         for (i, chunk) in bits.chunks(4).enumerate() {

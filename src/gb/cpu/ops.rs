@@ -120,10 +120,7 @@ pub enum ByteTarget {
 impl ByteTarget {
     /// Reads the referring value from the CPU or memory
     #[inline]
-    pub fn read<T>(&self, cpu: &CPU, bus: &mut T) -> u8
-    where
-        T: Bus,
-    {
+    pub fn read<T: Bus>(&self, cpu: &CPU, bus: &mut T) -> u8 {
         match self {
             ByteTarget::R(reg) => reg.read(cpu),
             ByteTarget::I(indirect) => bus.cycle_read(indirect.resolve(cpu)),
@@ -132,10 +129,7 @@ impl ByteTarget {
 
     /// Writes to the referring register or memory location
     #[inline]
-    pub fn write<T>(&self, cpu: &mut CPU, bus: &mut T, value: u8)
-    where
-        T: Bus,
-    {
+    pub fn write<T: Bus>(&self, cpu: &mut CPU, bus: &mut T, value: u8) {
         match self {
             ByteTarget::R(reg) => reg.write(cpu, value),
             ByteTarget::I(indirect) => bus.cycle_write(indirect.resolve(cpu), value),
@@ -197,10 +191,7 @@ pub enum ByteSource {
 
 impl ByteSource {
     /// Read byte from the CPU or memory.
-    pub fn read<T>(&self, cpu: &CPU, bus: &mut T) -> u8
-    where
-        T: Bus,
-    {
+    pub fn read<T: Bus>(&self, cpu: &CPU, bus: &mut T) -> u8 {
         match self {
             ByteSource::R(reg) => reg.read(cpu),
             ByteSource::D8(value) => *value,

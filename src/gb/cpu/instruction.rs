@@ -71,10 +71,7 @@ impl Instruction {
     /// many bytes as needed to create and `Instruction`.
     /// It returns the parsed `Instruction` and the incremented address that can be used
     /// to read the next instruction.
-    pub fn from_memory<T>(address: u16, bus: &mut T) -> (Instruction, u16)
-    where
-        T: Bus,
-    {
+    pub fn from_memory<T: Bus>(address: u16, bus: &mut T) -> (Instruction, u16) {
         match bus.cycle_read(address) {
             OPCODE_PREFIX_16BIT => (Self::prefixed(bus.cycle_read(address + 1)), address + 2),
             opcode => Self::not_prefixed(opcode, address + 1, bus),
@@ -356,10 +353,7 @@ impl Instruction {
     /// Creates a new `Instruction` from the given opcode,
     /// the passed address is the next address after the opcode.
     /// Returns the parsed `Instruction` and the next address.
-    fn not_prefixed<T>(opcode: u8, address: u16, bus: &mut T) -> (Instruction, u16)
-    where
-        T: Bus,
-    {
+    fn not_prefixed<T: Bus>(opcode: u8, address: u16, bus: &mut T) -> (Instruction, u16) {
         let mut address = address;
         let instruction = match opcode {
             0x00 => NOP,
@@ -724,10 +718,7 @@ impl fmt::Display for Instruction {
 /// Reads a byte from the bus at the given address,
 /// increments the passed address and returns the read value.
 #[inline]
-fn read_byte<T>(address: &mut u16, bus: &mut T) -> u8
-where
-    T: Bus,
-{
+fn read_byte<T: Bus>(address: &mut u16, bus: &mut T) -> u8 {
     let value = bus.cycle_read(*address);
     *address += 1;
     value
@@ -736,10 +727,7 @@ where
 /// Reads a word from the bus at the given address,
 /// increments the passed address and returns the read value.
 #[inline]
-fn read_word<T>(address: &mut u16, bus: &mut T) -> u16
-where
-    T: Bus,
-{
+fn read_word<T: Bus>(address: &mut u16, bus: &mut T) -> u16 {
     let low = read_byte(address, bus);
     let high = read_byte(address, bus);
     u16::from(low) | (u16::from(high) << 8)

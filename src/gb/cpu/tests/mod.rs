@@ -1,4 +1,5 @@
 mod cpu;
+mod interrupt;
 mod ops;
 
 use crate::gb::cpu::CPU;
