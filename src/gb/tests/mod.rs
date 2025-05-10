@@ -1,12 +1,12 @@
 mod joypad;
 mod timer;
 
-use crate::gb::bus::{Bus, InterruptRegister};
+use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
 use crate::gb::cpu::CPU;
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
-use crate::gb::{AddressSpace, HardwareContext};
+use crate::gb::{Bus, SubSystem};
 use std::sync::Arc;
 
 /// Represents a mock for MemoryBus
@@ -28,19 +28,27 @@ impl MockBus {
     }
 }
 
-impl AddressSpace for MockBus {
+impl SubSystem for MockBus {
     fn write(&mut self, address: u16, value: u8) {
-        self.cycles += 1;
         self.data[address as usize] = value;
     }
 
     fn read(&mut self, address: u16) -> u8 {
-        self.cycles += 1;
         self.data[address as usize]
     }
 }
 
-impl HardwareContext for MockBus {
+impl Bus for MockBus {
+    fn cycle(&mut self) {
+        self.cycles += 1;
+    }
+
+    fn has_irq(&self) -> bool {
+        let enabled = self.interrupt_enable.bits() & 0b0001_1111;
+        let flag = self.interrupt_flags.bits() & 0b0001_1111;
+        enabled & flag != 0
+    }
+
     fn set_ie(&mut self, r: InterruptRegister) {
         self.interrupt_enable = r;
     }
@@ -55,16 +63,6 @@ impl HardwareContext for MockBus {
 
     fn get_if(&self) -> InterruptRegister {
         self.interrupt_flags
-    }
-
-    fn has_irq(&self) -> bool {
-        let enabled = self.interrupt_enable.bits() & 0b0001_1111;
-        let flag = self.interrupt_flags.bits() & 0b0001_1111;
-        enabled & flag != 0
-    }
-
-    fn tick(&mut self) {
-        self.cycles += 1;
     }
 }
 
@@ -84,7 +82,7 @@ fn test_boot_rom() {
     let cartridge = Cartridge::try_from(Arc::from(rom.into_boxed_slice())).unwrap();
 
     let mut cpu = CPU::default();
-    let mut bus = Bus::with_cartridge(cartridge, None);
+    let mut bus = MainBus::with_cartridge(cartridge, None);
 
     while cpu.pc < BOOT_END + 1 {
         cpu.step(&mut bus);

@@ -6,7 +6,7 @@ use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
-use crate::gb::{AddressSpace, HardwareContext};
+use crate::gb::{Bus, SubSystem};
 
 bitflags! {
     /// Represents interrupt registers IE at 0xFFFF and IF at 0xFF0F
@@ -22,7 +22,7 @@ bitflags! {
 
 /// Defines a global Bus, all processing units should access memory through it.
 #[derive(Clone)]
-pub struct Bus {
+pub struct MainBus {
     pub is_boot_rom_active: bool,
     apu: AudioProcessor,
     serial_transfer: SerialTransfer,
@@ -38,7 +38,7 @@ pub struct Bus {
     hram: [u8; HRAM_SIZE],
 }
 
-impl Bus {
+impl MainBus {
     pub fn with_cartridge(cartridge: Cartridge, display: Option<Display>) -> Self {
         Self {
             cartridge,
@@ -154,7 +154,7 @@ impl Bus {
     /// Checks if the OAM DMA transfer is active and transfers the data to the OAM
     fn oam_transfer(&mut self) {
         if let Some(source_address) = self.ppu.r.oam_dma.transfer() {
-            let value = self.read_raw(source_address);
+            let value = self.read(source_address);
             let offset = source_address & 0b1111_1111;
             let target_address = OAM_BEGIN + offset;
             self.ppu.write(target_address, value);
@@ -166,17 +166,10 @@ impl Bus {
             self.ppu.r.oam_dma.pending = Some(source);
         }
     }
+}
 
-    /// This function is used to step all components.
-    #[inline]
-    fn cycle(&mut self) {
-        self.oam_transfer();
-        self.ppu.step(&mut self.interrupt_flag);
-        self.timer.step(&mut self.interrupt_flag);
-    }
-
-    /// TODO: this is a hacky solution to avoid stepping the components when writing while debugging
-    pub fn write_raw(&mut self, address: u16, value: u8) {
+impl SubSystem for MainBus {
+    fn write(&mut self, address: u16, value: u8) {
         match address {
             ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.ppu.write(address, value),
@@ -195,8 +188,7 @@ impl Bus {
         }
     }
 
-    /// TODO: this is a hacky solution to avoid stepping the components when reading while debugging
-    pub fn read_raw(&mut self, address: u16) -> u8 {
+    fn read(&mut self, address: u16) -> u8 {
         match address {
             ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END => self.read_cartridge(address),
             VRAM_BEGIN..=VRAM_END => self.ppu.read(address),
@@ -216,19 +208,21 @@ impl Bus {
     }
 }
 
-impl AddressSpace for Bus {
-    fn write(&mut self, address: u16, value: u8) {
-        self.cycle();
-        self.write_raw(address, value);
+impl Bus for MainBus {
+    #[inline]
+    fn cycle(&mut self) {
+        self.oam_transfer();
+        self.ppu.step(&mut self.interrupt_flag);
+        self.timer.step(&mut self.interrupt_flag);
     }
 
-    fn read(&mut self, address: u16) -> u8 {
-        self.cycle();
-        self.read_raw(address)
+    #[inline(always)]
+    fn has_irq(&self) -> bool {
+        let enabled = self.interrupt_enable.bits() & 0b0001_1111;
+        let flag = self.interrupt_flag.bits() & 0b0001_1111;
+        enabled & flag != 0
     }
-}
 
-impl HardwareContext for Bus {
     #[inline(always)]
     fn set_ie(&mut self, r: InterruptRegister) {
         self.interrupt_enable = r;
@@ -247,17 +241,5 @@ impl HardwareContext for Bus {
     #[inline(always)]
     fn get_if(&self) -> InterruptRegister {
         self.interrupt_flag
-    }
-
-    #[inline(always)]
-    fn has_irq(&self) -> bool {
-        let enabled = self.interrupt_enable.bits() & 0b0001_1111;
-        let flag = self.interrupt_flag.bits() & 0b0001_1111;
-        enabled & flag != 0
-    }
-
-    #[inline(always)]
-    fn tick(&mut self) {
-        self.cycle();
     }
 }

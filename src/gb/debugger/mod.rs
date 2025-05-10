@@ -1,7 +1,7 @@
 pub mod bus;
 
 use crate::gb::EmulatorMessage;
-use crate::gb::bus::Bus;
+use crate::gb::bus::MainBus;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::bus::DebugBus;
@@ -26,7 +26,7 @@ pub struct DebugMessage {
 
 impl DebugMessage {
     #[inline]
-    pub fn new(cpu: &CPU, bus: &Bus) -> Self {
+    pub fn new(cpu: &CPU, bus: &MainBus) -> Self {
         Self {
             cpu: cpu.clone(),
             bus: DebugBus::from(bus.clone()),
@@ -43,7 +43,7 @@ pub struct Debugger {
 
 impl Debugger {
     /// Creates a new debugger instance and sends the initial state to the frontend.
-    pub fn new(cpu: &CPU, bus: &mut Bus, sender: Sender<EmulatorMessage>) -> Self {
+    pub fn new(cpu: &CPU, bus: &mut MainBus, sender: Sender<EmulatorMessage>) -> Self {
         let instance = Self {
             message: None,
             breakpoints: HashSet::new(),
@@ -57,7 +57,7 @@ impl Debugger {
 
     /// Checks the current debugger state and steps the CPU if necessary.
     /// Only does a single step per call.
-    pub fn maybe_step(&mut self, cpu: &mut CPU, bus: &mut Bus) {
+    pub fn maybe_step(&mut self, cpu: &mut CPU, bus: &mut MainBus) {
         match &self.message {
             // The frontend requested a single step
             Some(FrontendDebugMessage::Step) => {
@@ -105,7 +105,7 @@ impl Debugger {
 
     /// Steps the CPU and handles interrupts.
     #[inline]
-    fn step(&mut self, cpu: &mut CPU, bus: &mut Bus) {
+    fn step(&mut self, cpu: &mut CPU, bus: &mut MainBus) {
         cpu.step(bus);
     }
 

@@ -1,4 +1,4 @@
-use crate::gb::AddressSpace;
+use crate::gb::SubSystem;
 use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::*;
 use crate::gb::timer::{Timer, TimerControl};

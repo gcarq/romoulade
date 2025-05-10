@@ -1,7 +1,7 @@
 use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::ops::*;
 
-use crate::gb::AddressSpace;
+use crate::gb::Bus;
 use crate::gb::cpu::ops::JumpCondition::{Always, Carry, NotCarry, NotZero, Zero};
 use crate::gb::cpu::ops::Load::{
     Byte, HLFromSPi8, HLIFromADec, HLIFromAInc, HLIToADec, HLIToAInc, IndirectFrom, IndirectFromSP,
@@ -73,10 +73,10 @@ impl Instruction {
     /// to read the next instruction.
     pub fn from_memory<T>(address: u16, bus: &mut T) -> (Instruction, u16)
     where
-        T: AddressSpace,
+        T: Bus,
     {
-        match bus.read(address) {
-            OPCODE_PREFIX_16BIT => (Self::prefixed(bus.read(address + 1)), address + 2),
+        match bus.cycle_read(address) {
+            OPCODE_PREFIX_16BIT => (Self::prefixed(bus.cycle_read(address + 1)), address + 2),
             opcode => Self::not_prefixed(opcode, address + 1, bus),
         }
     }
@@ -358,7 +358,7 @@ impl Instruction {
     /// Returns the parsed `Instruction` and the next address.
     fn not_prefixed<T>(opcode: u8, address: u16, bus: &mut T) -> (Instruction, u16)
     where
-        T: AddressSpace,
+        T: Bus,
     {
         let mut address = address;
         let instruction = match opcode {
@@ -726,9 +726,9 @@ impl fmt::Display for Instruction {
 #[inline]
 fn read_byte<T>(address: &mut u16, bus: &mut T) -> u8
 where
-    T: AddressSpace,
+    T: Bus,
 {
-    let value = bus.read(*address);
+    let value = bus.cycle_read(*address);
     *address += 1;
     value
 }
@@ -738,7 +738,7 @@ where
 #[inline]
 fn read_word<T>(address: &mut u16, bus: &mut T) -> u16
 where
-    T: AddressSpace,
+    T: Bus,
 {
     let low = read_byte(address, bus);
     let high = read_byte(address, bus);

@@ -1,6 +1,6 @@
+use crate::gb::Bus;
 use crate::gb::bus::InterruptRegister;
 use crate::gb::cpu::{CPU, ImeState};
-use crate::gb::{AddressSpace, HardwareContext};
 
 const VBLANK_IRQ_ADDRESS: u16 = 0x40;
 const LCD_IRQ_ADDRESS: u16 = 0x48;
@@ -14,7 +14,7 @@ const JOYPAD_IRQ_ADDRESS: u16 = 0x60;
 ///  https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
 pub fn handle<T>(cpu: &mut CPU, bus: &mut T)
 where
-    T: AddressSpace + HardwareContext,
+    T: Bus,
 {
     if !bus.has_irq() {
         return;
@@ -49,11 +49,11 @@ where
 #[inline]
 fn interrupt<T>(cpu: &mut CPU, bus: &mut T, address: u16)
 where
-    T: AddressSpace + HardwareContext,
+    T: Bus,
 {
     cpu.ime = ImeState::Disabled;
-    bus.tick();
-    bus.tick();
+    bus.cycle();
+    bus.cycle();
     // Save current execution address by pushing it onto the stack
     cpu.push(cpu.pc, bus);
     cpu.pc = address;

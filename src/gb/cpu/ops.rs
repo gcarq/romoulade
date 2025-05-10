@@ -1,4 +1,4 @@
-use crate::gb::AddressSpace;
+use crate::gb::Bus;
 use crate::gb::cpu::CPU;
 use crate::gb::cpu::instruction::ReallySigned;
 use crate::gb::cpu::registers::FlagsRegister;
@@ -122,11 +122,11 @@ impl ByteTarget {
     #[inline]
     pub fn read<T>(&self, cpu: &CPU, bus: &mut T) -> u8
     where
-        T: AddressSpace,
+        T: Bus,
     {
         match self {
             ByteTarget::R(reg) => reg.read(cpu),
-            ByteTarget::I(indirect) => bus.read(indirect.resolve(cpu)),
+            ByteTarget::I(indirect) => bus.cycle_read(indirect.resolve(cpu)),
         }
     }
 
@@ -134,11 +134,11 @@ impl ByteTarget {
     #[inline]
     pub fn write<T>(&self, cpu: &mut CPU, bus: &mut T, value: u8)
     where
-        T: AddressSpace,
+        T: Bus,
     {
         match self {
             ByteTarget::R(reg) => reg.write(cpu, value),
-            ByteTarget::I(indirect) => bus.write(indirect.resolve(cpu), value),
+            ByteTarget::I(indirect) => bus.cycle_write(indirect.resolve(cpu), value),
         }
     }
 }
@@ -199,12 +199,12 @@ impl ByteSource {
     /// Read byte from the CPU or memory.
     pub fn read<T>(&self, cpu: &CPU, bus: &mut T) -> u8
     where
-        T: AddressSpace,
+        T: Bus,
     {
         match self {
             ByteSource::R(reg) => reg.read(cpu),
             ByteSource::D8(value) => *value,
-            ByteSource::I(indirect) => bus.read(indirect.resolve(cpu)),
+            ByteSource::I(indirect) => bus.cycle_read(indirect.resolve(cpu)),
         }
     }
 }

@@ -1,12 +1,12 @@
-use crate::gb::bus::{Bus, InterruptRegister};
+use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::constants::*;
 use crate::gb::cpu::instruction::Instruction;
-use crate::gb::{AddressSpace, HardwareContext};
+use crate::gb::{Bus, SubSystem};
 use std::ops::RangeInclusive;
 
 #[derive(Clone)]
 pub struct DebugBus {
-    inner: Bus,
+    inner: MainBus,
 }
 
 impl DebugBus {
@@ -35,14 +35,45 @@ impl DebugBus {
     }
 }
 
-impl From<Bus> for DebugBus {
+impl From<MainBus> for DebugBus {
     #[inline(always)]
-    fn from(bus: Bus) -> Self {
+    fn from(bus: MainBus) -> Self {
         Self { inner: bus }
     }
 }
 
-impl HardwareContext for DebugBus {
+impl SubSystem for DebugBus {
+    fn write(&mut self, address: u16, value: u8) {
+        self.inner.write(address, value);
+    }
+
+    fn read(&mut self, address: u16) -> u8 {
+        self.inner.read(address)
+    }
+}
+
+impl Bus for DebugBus {
+    #[inline(always)]
+    fn cycle_write(&mut self, address: u16, value: u8) {
+        // We don't want cycle for debugger writes
+        self.write(address, value);
+    }
+
+    #[inline(always)]
+    fn cycle_read(&mut self, address: u16) -> u8 {
+        // We don't want cycle for debugger reads
+        self.read(address)
+    }
+    #[inline(always)]
+    fn cycle(&mut self) {
+        self.inner.cycle();
+    }
+
+    #[inline(always)]
+    fn has_irq(&self) -> bool {
+        self.inner.has_irq()
+    }
+
     #[inline(always)]
     fn set_ie(&mut self, r: InterruptRegister) {
         self.inner.set_ie(r);
@@ -61,27 +92,5 @@ impl HardwareContext for DebugBus {
     #[inline(always)]
     fn get_if(&self) -> InterruptRegister {
         self.inner.get_if()
-    }
-
-    #[inline(always)]
-    fn has_irq(&self) -> bool {
-        self.inner.has_irq()
-    }
-
-    #[inline(always)]
-    fn tick(&mut self) {
-        self.inner.tick();
-    }
-}
-
-impl AddressSpace for DebugBus {
-    #[inline]
-    fn write(&mut self, address: u16, value: u8) {
-        self.inner.write_raw(address, value);
-    }
-
-    #[inline]
-    fn read(&mut self, address: u16) -> u8 {
-        self.inner.read_raw(address)
     }
 }

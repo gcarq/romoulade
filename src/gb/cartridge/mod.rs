@@ -1,6 +1,6 @@
-use crate::gb::GBResult;
+use crate::gb::GBError;
 use crate::gb::cartridge::controller::BankController;
-use crate::gb::{AddressSpace, GBError};
+use crate::gb::{GBResult, SubSystem};
 use std::fmt;
 use std::sync::Arc;
 
@@ -202,7 +202,7 @@ impl fmt::Display for Cartridge {
     }
 }
 
-impl AddressSpace for Cartridge {
+impl SubSystem for Cartridge {
     #[inline]
     fn write(&mut self, address: u16, value: u8) {
         self.controller.write(address, value);

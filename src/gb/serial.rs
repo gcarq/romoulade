@@ -1,4 +1,4 @@
-use crate::gb::AddressSpace;
+use crate::gb::SubSystem;
 use crate::gb::constants::*;
 
 bitflags! {
@@ -31,7 +31,7 @@ impl Default for SerialTransfer {
     }
 }
 
-impl AddressSpace for SerialTransfer {
+impl SubSystem for SerialTransfer {
     fn write(&mut self, address: u16, value: u8) {
         match address {
             SERIAL_TRANSFER_DATA => self.data = value,

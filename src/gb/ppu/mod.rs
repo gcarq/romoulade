@@ -10,7 +10,7 @@ use crate::gb::constants::*;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDState, PPUMode, Registers};
 use crate::gb::utils::bit_at;
-use crate::gb::{AddressSpace, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH, SubSystem};
 use display::Display;
 use std::cmp::Ordering;
 
@@ -476,7 +476,7 @@ impl PPU {
     }
 }
 
-impl AddressSpace for PPU {
+impl SubSystem for PPU {
     fn write(&mut self, address: u16, value: u8) {
         match address {
             VRAM_BEGIN..=VRAM_END => self.write_vram(address, value),

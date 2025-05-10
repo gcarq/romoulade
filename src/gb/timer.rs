@@ -1,4 +1,4 @@
-use crate::gb::AddressSpace;
+use crate::gb::SubSystem;
 use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
 
@@ -127,7 +127,7 @@ impl Timer {
     }
 }
 
-impl AddressSpace for Timer {
+impl SubSystem for Timer {
     fn write(&mut self, address: u16, value: u8) {
         match address {
             TIMER_DIVIDER => self.write_divider(),

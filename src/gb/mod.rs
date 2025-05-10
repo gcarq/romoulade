@@ -1,4 +1,4 @@
-use crate::gb::bus::{Bus, InterruptRegister};
+use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
@@ -32,21 +32,39 @@ pub const SCREEN_HEIGHT: u8 = 144;
 pub type GBResult<T> = Result<T, GBError>;
 pub type GBError = Box<dyn error::Error>;
 
-/// This trait defines a common interface to interact with the hardware context.
-pub trait HardwareContext {
+/// This trait defines a common interface for all subsystems of the emulator.
+pub trait SubSystem {
+    /// Writes a byte to the given address.
+    fn write(&mut self, address: u16, value: u8);
+
+    /// Reads a byte from the given address.
+    fn read(&mut self, address: u16) -> u8;
+}
+
+/// This trait defines a common interface to interact with the Hardware Bus.
+pub trait Bus: SubSystem {
+    /// Advance the bus for 1 machine cycle and write a byte to the given address.
+    fn cycle_write(&mut self, address: u16, value: u8) {
+        self.cycle();
+        self.write(address, value);
+    }
+
+    /// Advance the bus for 1 machine cycle and read a byte from the given address.
+    fn cycle_read(&mut self, address: u16) -> u8 {
+        self.cycle();
+        self.read(address)
+    }
+
+    /// Advance the bus for 1 machine cycle.
+    fn cycle(&mut self);
+
+    /// Indicates whether an interrupt is pending.
+    fn has_irq(&self) -> bool;
+
     fn set_ie(&mut self, r: InterruptRegister);
     fn get_ie(&self) -> InterruptRegister;
     fn set_if(&mut self, r: InterruptRegister);
     fn get_if(&self) -> InterruptRegister;
-    /// Indicates whether an interrupt is pending.
-    fn has_irq(&self) -> bool;
-    fn tick(&mut self);
-}
-
-/// This trait defines a common interface to interact with the memory bus.
-pub trait AddressSpace {
-    fn write(&mut self, address: u16, value: u8);
-    fn read(&mut self, address: u16) -> u8;
 }
 
 /// This enum defines the possible messages that can be sent from the emulator to the frontend.
@@ -74,7 +92,7 @@ pub struct EmulatorConfig {
 /// Holds and manages the state of the whole emulator backend.
 pub struct Emulator {
     cpu: CPU,
-    bus: Bus,
+    bus: MainBus,
     sender: Sender<EmulatorMessage>,
     receiver: Receiver<FrontendMessage>,
     debugger: Option<Debugger>,
@@ -92,7 +110,7 @@ impl Emulator {
     ) -> GBResult<Self> {
         let display = Display::new(sender.clone(), config.upscale)?;
         let cpu = CPU::default();
-        let mut bus = Bus::with_cartridge(cartridge, Some(display));
+        let mut bus = MainBus::with_cartridge(cartridge, Some(display));
         let debugger = match config.debug {
             true => Some(Debugger::new(&cpu, &mut bus, sender.clone())),
             false => None,

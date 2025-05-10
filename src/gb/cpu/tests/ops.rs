@@ -1,4 +1,4 @@
-use crate::gb::AddressSpace;
+use crate::gb::Bus;
 use crate::gb::cpu::CPU;
 use crate::gb::cpu::ops::Register::{A, B, C, D, E, H, L};
 use crate::gb::cpu::ops::WordRegister::{AF, BC, DE, HL, SP};
@@ -149,7 +149,7 @@ fn test_byte_target_i() {
     let target = ByteTarget::I(ByteRef::D16(0x0001));
     assert_eq!(target.read(&cpu, &mut bus), 0x22);
     target.write(&mut cpu, &mut bus, 0x33);
-    assert_eq!(bus.read(0x0001), 0x33);
+    assert_eq!(bus.cycle_read(0x0001), 0x33);
     assert_eq!(target.to_string(), "(0x0001)");
 }
 

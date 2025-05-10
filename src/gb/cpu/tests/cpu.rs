@@ -1,4 +1,4 @@
-use crate::gb::AddressSpace;
+use crate::gb::Bus;
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::cpu::tests::assert_flags;
 use crate::gb::cpu::{CPU, ImeState};
@@ -188,8 +188,8 @@ fn test_call_a16() {
         ..Default::default()
     };
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x02), 0x00);
-    assert_eq!(bus.read(0x01), 0x03);
+    assert_eq!(bus.cycle_read(0x02), 0x00);
+    assert_eq!(bus.cycle_read(0x01), 0x03);
     assert_eq!(cpu.pc, 0x2211);
     assert_eq!(cpu.sp, 0x01);
     assert_eq!(bus.cycles, 8);
@@ -203,8 +203,8 @@ fn test_call_c_16_no_jump() {
     cpu.r.f.remove(FlagsRegister::CARRY);
     cpu.sp = 0x03;
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x02), 0x22);
-    assert_eq!(bus.read(0x01), 0x11);
+    assert_eq!(bus.cycle_read(0x02), 0x22);
+    assert_eq!(bus.cycle_read(0x01), 0x11);
     assert_eq!(cpu.pc, 0x03);
     assert_eq!(cpu.sp, 0x03);
     assert_eq!(bus.cycles, 5);
@@ -527,7 +527,7 @@ fn test_inc_hl() {
     let mut cpu = CPU::default();
     cpu.r.set_hl(0x01);
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x01), 0x04);
+    assert_eq!(bus.cycle_read(0x01), 0x04);
     assert_eq!(cpu.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 4);
@@ -630,7 +630,7 @@ fn test_ld_hl_d8() {
     let mut cpu = CPU::default();
     cpu.r.set_hl(0x02);
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x02), 0x42);
+    assert_eq!(bus.cycle_read(0x02), 0x42);
     assert_eq!(cpu.pc, 2);
     assert_eq!(bus.cycles, 4);
 }
@@ -643,7 +643,7 @@ fn test_ld_hl_plus_a() {
     cpu.r.set_hl(0x02);
     cpu.r.a = 0x42;
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x02), 0x42);
+    assert_eq!(bus.cycle_read(0x02), 0x42);
     assert_eq!(cpu.r.get_hl(), 0x03);
     assert_eq!(cpu.pc, 1);
     assert_eq!(bus.cycles, 3);
@@ -657,7 +657,7 @@ fn test_ld_hl_minus_a() {
     cpu.r.set_hl(0x02);
     cpu.r.a = 0x42;
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x02), 0x42);
+    assert_eq!(bus.cycle_read(0x02), 0x42);
     assert_eq!(cpu.r.get_hl(), 0x01);
     assert_eq!(cpu.pc, 1);
     assert_eq!(bus.cycles, 3);
@@ -670,7 +670,7 @@ fn test_ld_a16_a() {
     let mut cpu = CPU::default();
     cpu.r.a = 0x42;
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x0005), 0x42);
+    assert_eq!(bus.cycle_read(0x0005), 0x42);
     assert_eq!(cpu.pc, 3);
     assert_eq!(bus.cycles, 5);
 }
@@ -710,8 +710,8 @@ fn test_ld_a16_sp() {
         ..Default::default()
     };
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x0005), 0xad);
-    assert_eq!(bus.read(0x0006), 0xde);
+    assert_eq!(bus.cycle_read(0x0005), 0xad);
+    assert_eq!(bus.cycle_read(0x0006), 0xde);
     assert_eq!(cpu.pc, 3);
     assert_eq!(bus.cycles, 7);
 }
@@ -1082,7 +1082,7 @@ fn test_set_7_hl() {
     let mut cpu = CPU::default();
     cpu.r.set_hl(0x02);
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x02), 0b10000010);
+    assert_eq!(bus.cycle_read(0x02), 0b10000010);
     assert_eq!(cpu.pc, 2);
     assert_eq!(bus.cycles, 5);
 }
@@ -1252,8 +1252,8 @@ fn test_push_af() {
     cpu.r.set_af(0xff);
     cpu.sp = 0x03;
     cpu.step(&mut bus);
-    assert_eq!(bus.read(0x01), 0xf0);
-    assert_eq!(bus.read(0x02), 0x00);
+    assert_eq!(bus.cycle_read(0x01), 0xf0);
+    assert_eq!(bus.cycle_read(0x02), 0x00);
     assert_eq!(cpu.pc, 1);
     assert_eq!(bus.cycles, 6);
 }

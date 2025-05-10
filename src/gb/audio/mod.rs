@@ -1,4 +1,4 @@
-use crate::gb::AddressSpace;
+use crate::gb::SubSystem;
 use crate::gb::constants::*;
 
 /// This register controls CH1’s period sweep functionality
@@ -78,7 +78,7 @@ impl Default for AudioProcessor {
     }
 }
 
-impl AddressSpace for AudioProcessor {
+impl SubSystem for AudioProcessor {
     fn write(&mut self, address: u16, value: u8) {
         let offset = (address - AUDIO_REGISTERS_START) as usize;
         match address {
