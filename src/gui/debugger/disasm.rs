@@ -28,10 +28,9 @@ impl Disassembler {
             .column(Column::auto().at_least(300.0))
             .sense(egui::Sense::click());
 
-        if let Some(address) = self.scroll_to_address {
+        if let Some(address) = self.scroll_to_address.take() {
             if let Some(index) = instructions.iter().position(|(addr, _)| *addr == address) {
                 table = table.scroll_to_row(index, Some(Align::Center));
-                self.scroll_to_address = None;
             }
         }
 

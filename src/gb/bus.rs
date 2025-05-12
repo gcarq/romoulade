@@ -2,8 +2,8 @@ use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
 use crate::gb::joypad::{Joypad, JoypadInput};
-use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
+use crate::gb::ppu::PPU;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
 use crate::gb::{Bus, SubSystem};
@@ -83,9 +83,8 @@ impl MainBus {
         match address {
             // Whenever a ROM writes to this register we will handle the pending input events
             JOYPAD => {
-                if self.joypad.write(value, self.pending_joypad_event) {
+                if self.joypad.write(value, self.pending_joypad_event.take()) {
                     self.interrupt_flag.insert(InterruptRegister::JOYPAD);
-                    self.pending_joypad_event = None;
                 }
             }
             SERIAL_TRANSFER_DATA => self.serial_transfer.write(address, value),
@@ -103,10 +102,8 @@ impl MainBus {
             CGB_PREPARE_SPEED_SWITCH => {} // only used in GBC mode
             0xFF4E => {}                   // undocumented
             0xFF4F => {}                   // only used in GBC mode
-            BOOT_ROM_OFF => {
-                if value > 0 {
-                    self.is_boot_rom_active = false
-                }
+            BOOT_ROM_OFF => if value > 0 {
+                self.is_boot_rom_active = false
             }
             0xFF51..=0xFF56 => {}  // only used in GBC mode
             0xFF57..=0xFF67 => {}  // undocumented
