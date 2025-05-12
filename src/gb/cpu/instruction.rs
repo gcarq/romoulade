@@ -1,6 +1,7 @@
 use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::ops::*;
 
+use crate::gb::Bus;
 use crate::gb::cpu::ops::JumpCondition::{Always, Carry, NotCarry, NotZero, Zero};
 use crate::gb::cpu::ops::Load::{
     Byte, HLFromSPi8, HLIFromADec, HLIFromAInc, HLIToADec, HLIToAInc, IndirectFrom, IndirectFromSP,
@@ -9,7 +10,6 @@ use crate::gb::cpu::ops::Load::{
 use crate::gb::cpu::ops::Register::{A, B, C, D, E, H, L};
 use crate::gb::cpu::ops::ResetCode::{RST00, RST08, RST10, RST18, RST20, RST28, RST30, RST38};
 use crate::gb::cpu::ops::WordRegister::{AF, BC, DE, HL, SP};
-use crate::gb::Bus;
 use std::fmt;
 
 const OPCODE_PREFIX_16BIT: u8 = 0xCB;
@@ -680,7 +680,7 @@ impl fmt::Display for Instruction {
             }
             CALL(test, address) => match test {
                 Always => format!("CALL {address:#06x}"),
-                _ => format!("CALL {test}, {address:#06x}")
+                _ => format!("CALL {test}, {address:#06x}"),
             },
             ADDHL(source) => format!("ADD HL, {source}"),
             ADDSP(value) => format!("ADD SP, {value:#04x}"),

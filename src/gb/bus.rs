@@ -1,9 +1,9 @@
 use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
-use crate::gb::joypad::{Joypad, JoypadInput};
-use crate::gb::ppu::display::Display;
+use crate::gb::joypad::Joypad;
 use crate::gb::ppu::PPU;
+use crate::gb::ppu::display::Display;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
 use crate::gb::{Bus, SubSystem};
@@ -29,8 +29,7 @@ pub struct MainBus {
     pub cartridge: Cartridge,
     timer: Timer,
     ppu: PPU,
-    joypad: Joypad,
-    pending_joypad_event: Option<JoypadInput>,
+    pub joypad: Joypad,
     pub interrupt_enable: InterruptRegister,
     pub interrupt_flag: InterruptRegister,
     wram: [u8; WRAM_SIZE],
@@ -47,7 +46,6 @@ impl MainBus {
             serial_transfer: SerialTransfer::default(),
             ppu: PPU::new(display),
             joypad: Joypad::default(),
-            pending_joypad_event: None,
             interrupt_enable: InterruptRegister::empty(),
             interrupt_flag: InterruptRegister::empty(),
             timer: Timer::default(),
@@ -55,11 +53,6 @@ impl MainBus {
             eram: [0u8; ERAM_SIZE],
             hram: [0u8; HRAM_SIZE],
         }
-    }
-
-    #[inline]
-    pub fn handle_joypad_event(&mut self, input: JoypadInput) {
-        self.pending_joypad_event = Some(input);
     }
 
     /// Reads value from boot ROM or cartridge
@@ -81,12 +74,7 @@ impl MainBus {
     /// Handles all writes to the I/O registers (0xFF00-0xFF7F)
     fn write_io(&mut self, address: u16, value: u8) {
         match address {
-            // Whenever a ROM writes to this register we will handle the pending input events
-            JOYPAD => {
-                if self.joypad.write(value, self.pending_joypad_event.take()) {
-                    self.interrupt_flag.insert(InterruptRegister::JOYPAD);
-                }
-            }
+            JOYPAD => self.joypad.write(value, &mut self.interrupt_flag),
             SERIAL_TRANSFER_DATA => self.serial_transfer.write(address, value),
             SERIAL_TRANSFER_CTRL => self.serial_transfer.write(address, value),
             // undocumented
@@ -102,8 +90,10 @@ impl MainBus {
             CGB_PREPARE_SPEED_SWITCH => {} // only used in GBC mode
             0xFF4E => {}                   // undocumented
             0xFF4F => {}                   // only used in GBC mode
-            BOOT_ROM_OFF => if value > 0 {
-                self.is_boot_rom_active = false
+            BOOT_ROM_OFF => {
+                if value > 0 {
+                    self.is_boot_rom_active = false
+                }
             }
             0xFF51..=0xFF56 => {}  // only used in GBC mode
             0xFF57..=0xFF67 => {}  // undocumented

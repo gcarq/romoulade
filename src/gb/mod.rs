@@ -177,7 +177,7 @@ impl Emulator {
         if let Ok(message) = self.receiver.try_recv() {
             match message {
                 FrontendMessage::Stop => self.is_running = false,
-                FrontendMessage::Input(input) => self.bus.handle_joypad_event(input),
+                FrontendMessage::Input(input) => self.bus.joypad.handle_input(input),
                 FrontendMessage::AttachDebugger => self.attach_debugger(),
                 FrontendMessage::DetachDebugger => self.debugger = None,
                 FrontendMessage::Debug(message) => {

@@ -1,7 +1,5 @@
 use crate::gb::cartridge::Cartridge;
-use crate::gb::joypad::ActionInput::{A, B, Select, Start};
-use crate::gb::joypad::DPadInput::{Down, Left, Right, Up};
-use crate::gb::joypad::JoypadInput::{Action, DPad};
+use crate::gb::joypad::JoypadInput;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
@@ -181,19 +179,22 @@ impl EmulatorFrontend {
     /// Handles user input and sends it to the emulator.
     fn handle_user_input(&self, ui: &mut Ui) {
         ui.input(|i| {
+            let mut input = JoypadInput::default();
             for key in &i.keys_down {
-                let message = match key {
-                    Key::A => DPad(Left),
-                    Key::D => DPad(Right),
-                    Key::W => DPad(Up),
-                    Key::S => DPad(Down),
-                    Key::ArrowRight => Action(A),
-                    Key::ArrowLeft => Action(B),
-                    Key::Enter => Action(Start),
-                    Key::Backspace => Action(Select),
+                match key {
+                    Key::A => input.left = true,
+                    Key::D => input.right = true,
+                    Key::W => input.up = true,
+                    Key::S => input.down = true,
+                    Key::ArrowRight => input.a = true,
+                    Key::ArrowLeft => input.b = true,
+                    Key::Enter => input.start = true,
+                    Key::Backspace => input.select = true,
                     _ => continue,
-                };
-                self.send_message(FrontendMessage::Input(message));
+                }
+            }
+            if input.is_pressed() {
+                self.send_message(FrontendMessage::Input(input));
             }
         });
     }
