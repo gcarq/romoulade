@@ -232,6 +232,7 @@ fn test_joypad_common() {
     assert_eq!(joypad.read(), 0b1111_1111);
 }
 
+#[test]
 fn test_joypad_input_is_pressed() {
     let input = JoypadInput::default();
     assert!(!input.is_pressed());
