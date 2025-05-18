@@ -117,17 +117,17 @@ pub struct Sprite {
     pub x: u8, // Object’s horizontal position on the screen + 8
     pub y: u8, // Object’s vertical position on the screen + 16
     pub tile_index: u8,
-    pub attributes: SpriteAttributes,
+    pub attrs: SpriteAttributes,
 }
 
 impl Sprite {
     #[inline]
-    pub fn new(y: u8, x: u8, tile_index: u8, attributes: SpriteAttributes) -> Self {
+    pub fn new(y: u8, x: u8, tile_index: u8, attrs: SpriteAttributes) -> Self {
         Self {
             y,
             x,
             tile_index,
-            attributes,
+            attrs,
         }
     }
 }

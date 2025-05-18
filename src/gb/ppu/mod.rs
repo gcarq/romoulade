@@ -66,6 +66,16 @@ const WINDOW_Y_MAX: u8 = 143;
 /// left to right.
 const VBLANK_SCAN_LINE_MAX: u8 = 153;
 
+const TILES_PER_LINE: usize = 32;
+const TILE_WIDTH: usize = 8;
+const TILE_HEIGHT: usize = 8;
+
+/// A single tile contains 8 lines, each of which is two bytes.
+const TILE_BYTES: usize = 2 * 8;
+
+/// The number of bytes a sprite takes in the OAM.
+const SPRITE_BYTES: usize = 4;
+
 /// Pixel Processing Unit
 pub struct PPU {
     pub r: Registers,
@@ -228,35 +238,18 @@ impl PPU {
 
     /// Draws the background on the current scan line.
     fn draw_background_line(&mut self, bg_prio: &mut [bool; SCREEN_WIDTH as usize]) {
-        let map_mask = self.r.lcd_control.bg_tile_map_area();
-
-        let y = self.r.ly.wrapping_add(self.r.scy);
-        let row = (y / 8) as usize;
-        for i in 0..SCREEN_WIDTH {
-            let x = i.wrapping_add(self.r.scx);
-            let col = (x / 8) as usize;
-
-            let tile_num = self.vram[((row * 32 + col) | map_mask as usize) & 0x1fff] as usize;
-            let tile_num = if self.r.lcd_control.contains(LCDControl::TILE_SEL) {
-                tile_num
-            } else {
-                128 + ((tile_num as i8 as i16) + 128) as usize
-            };
-
-            let line = ((y % 8) * 2) as usize;
-            let tile_mask = tile_num << 4;
-            let data1 = self.vram[(tile_mask | line) & 0x1fff];
-            let data2 = self.vram[(tile_mask | (line + 1)) & 0x1fff];
-
-            let bit = (x % 8).wrapping_sub(7).wrapping_mul(0xff) as usize;
-
-            let color_value =
-                ((bit_at(data2, bit as u8) as u8) << 1) | bit_at(data1, bit as u8) as u8;
-            let pixel = Pixel::from(color_value);
-            let color = self.r.bg_palette.colorize(pixel);
-            bg_prio[i as usize] = pixel != Pixel::Zero;
+        let tile_map_address = self.r.lcd_control.bg_tile_map_area();
+        // Y position of the pixel on the final screen
+        let screen_y = self.r.ly;
+        // Y position of the pixel in the tile map
+        let scrolled_y = screen_y.wrapping_add(self.r.scy);
+        for screen_x in 0..SCREEN_WIDTH {
+            // X position of the pixel in the tile map
+            let scrolled_x = screen_x.wrapping_add(self.r.scx);
+            let pixel = self.fetch_pixel_from_tile(tile_map_address, scrolled_x, scrolled_y);
+            bg_prio[screen_x as usize] = pixel != Pixel::Zero;
             if let Some(display) = &mut self.display {
-                display.write_pixel(i, self.r.ly, color);
+                display.write_pixel(screen_x, screen_y, self.r.bg_palette.colorize(pixel));
             }
         }
     }
@@ -267,67 +260,48 @@ impl PPU {
             return;
         }
 
-        let y = match self.wy_internal {
+        // Y position of the pixel in the tile map
+        let window_y = match self.wy_internal {
             Some(wy) => wy,
             None => return,
         };
+        self.wy_internal = Some(window_y + 1);
+        // Y position of the pixel on the final screen
+        let screen_y = self.r.ly;
 
-        self.wy_internal = Some(y + 1);
-
-        let map_mask = self.r.lcd_control.window_tile_map_area();
-        let window_x = self.r.wx.wrapping_sub(7);
-
-        let row = (y / 8) as usize;
-
-        for i in window_x..SCREEN_WIDTH {
-            let mut x = i.wrapping_add(self.r.scx);
-            if x >= window_x {
-                x = i - window_x;
+        let tile_map_address = self.r.lcd_control.window_tile_map_area();
+        let window_x_start = self.r.wx.saturating_sub(7);
+        for screen_x in window_x_start..SCREEN_WIDTH {
+            // X position of the pixel in the tile map
+            let mut window_x = screen_x;
+            if window_x >= window_x_start {
+                window_x = screen_x - window_x_start;
             }
-            let col = (x / 8) as usize;
-
-            let tile_num = self.vram[((row * 32 + col) | map_mask as usize) & 0x1FFF] as usize;
-            let tile_num = if self.r.lcd_control.contains(LCDControl::TILE_SEL) {
-                tile_num
-            } else {
-                128 + ((tile_num as i8 as i16) + 128) as usize
-            };
-
-            let line = ((y % 8) * 2) as usize;
-            let tile_mask = tile_num << 4;
-            let data1 = self.vram[(tile_mask | line) & 0x1FFF];
-            let data2 = self.vram[(tile_mask | (line + 1)) & 0x1FFF];
-
-            let bit = (x % 8).wrapping_sub(7).wrapping_mul(0xFF) as usize;
-            let color_value =
-                ((bit_at(data2, bit as u8) as u8) << 1) | bit_at(data1, bit as u8) as u8;
-            let pixel = Pixel::from(color_value);
-            let color = self.r.bg_palette.colorize(pixel);
-            bg_prio[i as usize] = pixel != Pixel::Zero;
+            let pixel = self.fetch_pixel_from_tile(tile_map_address, window_x, window_y);
+            bg_prio[screen_x as usize] = pixel != Pixel::Zero;
             if let Some(display) = &mut self.display {
-                display.write_pixel(i, self.r.ly, color);
+                display.write_pixel(screen_x, screen_y, self.r.bg_palette.colorize(pixel));
             }
         }
     }
 
-    /// Draws the sprites on the current scan line.
+    /// Draws all visible sprites on the current scan line.
     fn draw_sprites(&mut self, bg_prio: &[bool; SCREEN_WIDTH as usize]) {
         let size = match self.r.lcd_control.contains(LCDControl::OBJ_SIZE) {
             true => 16,
             false => 8,
         };
 
-        let mut sprites_to_draw: Vec<(usize, Sprite)> = self
+        let mut sprites: Vec<(usize, Sprite)> = self
             .oam
-            .chunks(4)
+            .chunks_exact(SPRITE_BYTES)
             .filter_map(|chunk| match chunk {
                 &[y, x, tile_num, attrs] => {
                     let y = y.wrapping_sub(16);
                     let x = x.wrapping_sub(8);
                     if self.r.ly.wrapping_sub(y) < size {
                         let attrs = SpriteAttributes::from_bits_truncate(attrs);
-                        let sprite = Sprite::new(y, x, tile_num, attrs);
-                        Some(sprite)
+                        Some(Sprite::new(y, x, tile_num, attrs))
                     } else {
                         None
                     }
@@ -338,7 +312,7 @@ impl PPU {
             .enumerate()
             .collect();
 
-        sprites_to_draw.sort_by(|&(a_index, a), &(b_index, b)| {
+        sprites.sort_by(|&(a_index, a), &(b_index, b)| {
             match a.x.cmp(&b.x) {
                 // If X coordinates are the same, use OAM index as priority (low index => draw last)
                 Ordering::Equal => a_index.cmp(&b_index).reverse(),
@@ -347,49 +321,52 @@ impl PPU {
             }
         });
 
-        for (_, sprite) in sprites_to_draw {
-            let palette = match sprite.attributes.contains(SpriteAttributes::DMG_PALETTE) {
-                true => &self.r.obj_palette1,
-                false => &self.r.obj_palette0,
+        for (_, sprite) in sprites {
+            self.draw_sprite(sprite, size, bg_prio);
+        }
+    }
+
+    /// Draws the given `Sprite` on the current scan line with respect to the background priority.
+    fn draw_sprite(&mut self, sprite: Sprite, size: u8, bg_prio: &[bool; SCREEN_WIDTH as usize]) {
+        let palette = match sprite.attrs.contains(SpriteAttributes::DMG_PALETTE) {
+            true => &self.r.obj_palette1,
+            false => &self.r.obj_palette0,
+        };
+
+        // Ignore bit 0 of tile index for 8x16 sprites
+        let mut tile_num = match size == 16 {
+            true => sprite.tile_index & 0b1111_1110,
+            false => sprite.tile_index,
+        } as usize;
+
+        let screen_y = self.r.ly;
+        let mut line = match sprite.attrs.contains(SpriteAttributes::Y_FLIP) {
+            true => size - screen_y.wrapping_sub(sprite.y) - 1,
+            false => screen_y.wrapping_sub(sprite.y),
+        };
+
+        if line >= 8 {
+            tile_num += 1;
+            line -= 8;
+        }
+        line *= 2;
+        let tile_mask = tile_num << 4;
+        let data1 = self.vram[(tile_mask | line as usize) & 0x1FFF];
+        let data2 = self.vram[(tile_mask | (line as usize + 1)) & 0x1FFF];
+
+        for x in (0..8).rev() {
+            let bit = match sprite.attrs.contains(SpriteAttributes::X_FLIP) {
+                true => 7 - x,
+                false => x,
             };
-
-            // Ignore bit 0 of tile index for 8x16 sprites
-            let mut tile_num = match size == 16 {
-                true => sprite.tile_index & 0b1111_1110,
-                false => sprite.tile_index,
-            } as usize;
-
-            let mut line = match sprite.attributes.contains(SpriteAttributes::Y_FLIP) {
-                true => size - self.r.ly.wrapping_sub(sprite.y) - 1,
-                false => self.r.ly.wrapping_sub(sprite.y),
-            };
-
-            if line >= 8 {
-                tile_num += 1;
-                line -= 8;
+            let pixel = pixel_from_line(data1, data2, bit);
+            let screen_x = sprite.x.wrapping_add(7 - x);
+            if !is_on_screen_x(screen_x) || pixel == Pixel::Zero {
+                continue;
             }
-            line *= 2;
-            let tile_mask = tile_num << 4;
-            let data1 = self.vram[(tile_mask | line as usize) & 0x1FFF];
-            let data2 = self.vram[(tile_mask | (line as usize + 1)) & 0x1FFF];
-
-            for x in (0..8).rev() {
-                let bit = match sprite.attributes.contains(SpriteAttributes::X_FLIP) {
-                    true => 7 - x,
-                    false => x,
-                };
-
-                let pixel_value = ((bit_at(data2, bit) as u8) << 1) | bit_at(data1, bit) as u8;
-                let pixel = Pixel::from(pixel_value);
-                let target_x = sprite.x.wrapping_add(7 - x);
-
-                let should_draw = !sprite.attributes.contains(SpriteAttributes::PRIORITY)
-                    || !bg_prio[target_x as usize];
-                if is_on_screen_x(target_x) && pixel != Pixel::Zero && should_draw {
-                    let color = palette.colorize(pixel);
-                    if let Some(display) = &mut self.display {
-                        display.write_pixel(target_x, self.r.ly, color);
-                    }
+            if !sprite.attrs.contains(SpriteAttributes::PRIORITY) || !bg_prio[screen_x as usize] {
+                if let Some(display) = &mut self.display {
+                    display.write_pixel(screen_x, screen_y, palette.colorize(pixel));
                 }
             }
         }
@@ -397,6 +374,7 @@ impl PPU {
 
     /// Draws the current scan line to the display.
     fn draw_line(&mut self) {
+        // This slice is used to determine the priority of the background and window over sprites.
         let mut bg_prio = [false; SCREEN_WIDTH as usize];
         if self.r.lcd_control.contains(LCDControl::BG_EN) {
             self.draw_background_line(&mut bg_prio);
@@ -407,6 +385,27 @@ impl PPU {
         if self.r.lcd_control.contains(LCDControl::OBJ_EN) {
             self.draw_sprites(&bg_prio);
         }
+    }
+
+    /// Returns a `Pixel` from the tile data at the given coordinates.
+    fn fetch_pixel_from_tile(&self, tile_map_address: u16, x: u8, y: u8) -> Pixel {
+        let col = x as usize / TILE_WIDTH;
+        let row = y as usize / TILE_HEIGHT;
+
+        let tile_id_address = tile_map_address + (row * TILES_PER_LINE + col) as u16;
+        let tile_id = self.vram[(tile_id_address - VRAM_BEGIN) as usize];
+        let data_address = if self.r.lcd_control.contains(LCDControl::TILE_SEL) {
+            0x8000 + tile_id as usize * TILE_BYTES
+        } else {
+            0x8800 + ((tile_id as i8 as i16) + 128) as usize * TILE_BYTES
+        };
+
+        let line = (y as usize % TILE_HEIGHT) * 2;
+        let byte1 = self.vram[data_address + line - VRAM_BEGIN as usize];
+        let byte2 = self.vram[data_address + line + 1 - VRAM_BEGIN as usize];
+
+        let bit = (x % TILE_WIDTH as u8).wrapping_sub(7).wrapping_mul(0xFF);
+        pixel_from_line(byte1, byte2, bit)
     }
 
     /// Writes to the LCD control register (PPU_LCDC).
@@ -528,4 +527,10 @@ fn is_on_screen_x(x: u8) -> bool {
 #[inline(always)]
 fn is_on_screen_y(y: u8) -> bool {
     y < SCREEN_HEIGHT
+}
+
+/// Creates a pixel from tile data at the given bit position.
+#[inline]
+fn pixel_from_line(byte1: u8, byte2: u8, bit: u8) -> Pixel {
+    Pixel::from(((bit_at(byte2, bit) as u8) << 1) | bit_at(byte1, bit) as u8)
 }

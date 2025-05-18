@@ -1,5 +1,6 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::{ColoredPixel, Palette, Pixel};
+use crate::gb::ppu::pixel_from_line;
 use crate::gb::ppu::registers::{LCDState, PPUMode};
 use egui::Color32;
 
@@ -133,4 +134,22 @@ fn test_colored_pixel() {
 
     assert_eq!(ColoredPixel::from(0b1111_1111), ColoredPixel::Black);
     assert_eq!(ColoredPixel::from(0b0101_1100), ColoredPixel::White);
+}
+
+#[test]
+fn test_pixel_from_line() {
+    let data = vec![
+        (0b0000_0000, 0b0000_0000, 0, Pixel::Zero),
+        (0b1111_1111, 0b1111_1111, 1, Pixel::Three),
+        (0b1010_1010, 0b0101_0101, 2, Pixel::Two),
+        (0b1100_1100, 0b0011_0011, 3, Pixel::One),
+        (0b1111_0000, 0b0000_1111, 4, Pixel::One),
+        (0b0000_1111, 0b1111_0000, 5, Pixel::Two),
+        (0b1100_0011, 0b0011_1100, 6, Pixel::One),
+        (0b0011_1100, 0b0100_0011, 7, Pixel::Zero),
+    ];
+    for (byte1, byte2, index, expected) in data {
+        let pixel = pixel_from_line(byte1, byte2, index);
+        assert_eq!(pixel, expected);
+    }
 }
