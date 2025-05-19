@@ -62,7 +62,7 @@ enum SelectedButtons {
 /// then read out the bits 0-3. The lower nibble is Read-only.
 /// Note that, rather unconventionally for the Game Boy,
 /// a button being pressed is seen as the corresponding bit being 0, not 1.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Joypad {
     a_right: bool,              // bit 0, A or Right
     b_left: bool,               // bit 1, B or Left
@@ -70,19 +70,6 @@ pub struct Joypad {
     start_down: bool,           // bit 3, Start or Down
     selection: SelectedButtons, // bit 4-5, D-Pad keys or Action keys respectively
     pending_event: JoypadInput, // pending input events that need handling
-}
-
-impl Default for Joypad {
-    fn default() -> Self {
-        Self {
-            a_right: false,
-            b_left: false,
-            select_up: false,
-            start_down: false,
-            selection: SelectedButtons::default(),
-            pending_event: JoypadInput::default(),
-        }
-    }
 }
 
 impl Joypad {
