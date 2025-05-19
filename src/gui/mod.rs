@@ -7,7 +7,6 @@ use crate::gui::emulator::EmulatorFrontend;
 use eframe::egui;
 use egui::{CentralPanel, Color32, Label, RichText, TopBottomPanel, Ui, Widget};
 use std::fs;
-use std::path::Path;
 use std::sync::Arc;
 
 pub struct Romoulade {
@@ -17,39 +16,43 @@ pub struct Romoulade {
 }
 
 impl Romoulade {
-    pub const fn new(config: EmulatorConfig) -> Self {
-        Self {
-            frontend: None,
-            cartridge: None,
-            config,
-        }
-    }
+    pub fn new(config: EmulatorConfig) -> GBResult<Self> {
+        let cartridge = match &config.rom {
+            Some(rom) => Some(Cartridge::try_from(rom.as_path())?),
+            None => None,
+        };
 
-    /// Loads a cartridge from the given `Path`.
-    pub fn load_cartridge(&mut self, path: &Path) -> GBResult<()> {
-        println!("Loading Cartridge: {}", path.display());
-        let rom = fs::read(path)?;
-        self.cartridge = Some(Cartridge::try_from(Arc::from(rom.into_boxed_slice()))?);
-        Ok(())
+        // Initialize the emulator frontend if a cartridge is loaded
+        let frontend = cartridge
+            .as_ref()
+            .map(|cartridge| EmulatorFrontend::start(cartridge, config.clone()));
+
+        Ok(Self {
+            frontend,
+            cartridge,
+            config,
+        })
     }
 
     /// Loads a cartridge using a file dialog.
-    fn choose_cartridge(&mut self) {
+    fn choose_cartridge(&mut self) -> GBResult<()> {
         if let Some(frontend) = &self.frontend {
             frontend.shutdown();
         }
         let dialog = rfd::FileDialog::new().add_filter("Game Boy ROM", &["gb"]);
         if let Some(path) = dialog.pick_file() {
-            self.load_cartridge(&path)
-                .expect("Failed to load cartridge");
+            println!("Loading Cartridge: {}", path.display());
+            let rom = fs::read(path)?;
+            self.cartridge = Some(Cartridge::try_from(Arc::from(rom.into_boxed_slice()))?);
         }
+        Ok(())
     }
 
     /// Starts the `Emulator` with the loaded `Cartridge`.
     #[inline]
     fn run(&mut self) {
         if let Some(cartridge) = &self.cartridge {
-            self.frontend = Some(EmulatorFrontend::start(cartridge, self.config));
+            self.frontend = Some(EmulatorFrontend::start(cartridge, self.config.clone()));
         }
     }
 
@@ -66,7 +69,9 @@ impl Romoulade {
         ui.horizontal(|ui| {
             if ui.button("Load ROM").clicked() {
                 self.shutdown();
-                self.choose_cartridge();
+                if let Err(msg) = self.choose_cartridge() {
+                    eprintln!("Error loading ROM: {msg}");
+                }
             }
             ui.separator();
             if ui.button("Run").clicked() {

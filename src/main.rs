@@ -7,11 +7,15 @@
 #[macro_use]
 extern crate bitflags;
 extern crate clap;
-use crate::gui::Romoulade;
+
+use crate::gb::cartridge::Cartridge;
+use crate::gb::{Emulator, EmulatorConfig};
 use crate::gui::emulator::UPSCALE;
+use crate::gui::Romoulade;
 use clap::Parser;
-use eframe::{HardwareAcceleration, egui};
+use eframe::{egui, HardwareAcceleration};
 use std::path::PathBuf;
+use std::sync::mpsc;
 
 mod gb;
 mod gui;
@@ -23,13 +27,44 @@ struct Args {
     #[arg(short, long)]
     rom: Option<PathBuf>,
 
-    /// Starts and skips the boot ROM
+    /// Enable the debugger immediately
+    #[arg(short, long)]
+    debug: bool,
+
+    /// Start immediately and skip boot ROM
     #[arg(short, long)]
     fastboot: bool,
+
+    /// Print serial data to stdout
+    #[arg(short, long)]
+    print_serial: bool,
+
+    /// Start the emulator in headless mode
+    #[arg(long)]
+    headless: bool,
 }
 
 fn main() {
     let args = Args::parse();
+
+    let config = EmulatorConfig {
+        rom: args.rom,
+        upscale: UPSCALE, // TODO: make this configurable
+        debug: args.debug,
+        fastboot: args.fastboot,
+        print_serial: args.print_serial,
+        headless: args.headless,
+    };
+
+    if config.headless {
+        headless_mode(config);
+    } else {
+        gui_mode(config);
+    }
+}
+
+/// Starts the emulator with an `egui` frontend.
+fn gui_mode(config: EmulatorConfig) {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_resizable(false)
@@ -39,17 +74,20 @@ fn main() {
         ..Default::default()
     };
 
-    let config = gb::EmulatorConfig {
-        upscale: UPSCALE, // TODO: make this configurable
-        debug: false,
-        fastboot: args.fastboot,
-    };
-
-    let mut app = Romoulade::new(config);
-    if let Some(rom) = args.rom {
-        app.load_cartridge(&rom).expect("Failed to load cartridge");
-    }
-
+    let app = Romoulade::new(config).expect("Failed to create Romoulade instance");
     eframe::run_native("Romoulade", options, Box::new(|_| Ok(Box::new(app))))
         .expect("Unable to run egui app");
+}
+
+/// Starts the emulator in headless mode.
+fn headless_mode(config: EmulatorConfig) {
+    let rom = config
+        .rom
+        .as_ref()
+        .expect("No ROM path provided for headless mode");
+    let cartridge = Cartridge::try_from(rom.as_path()).expect("Failed to load cartridge");
+    let (emulator_sender, _) = mpsc::channel();
+    let (_, frontend_receiver) = mpsc::channel();
+    let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
+    emulator.run();
 }

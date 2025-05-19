@@ -6,7 +6,7 @@ use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
 use crate::gb::cpu::{CPU, ImeState};
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
-use crate::gb::{Bus, SubSystem};
+use crate::gb::{Bus, EmulatorConfig, SubSystem};
 use std::sync::Arc;
 
 /// Represents a mock for `MemoryBus`
@@ -82,7 +82,7 @@ fn test_boot_rom() {
     let cartridge = Cartridge::try_from(Arc::from(rom.into_boxed_slice())).unwrap();
 
     let mut cpu = CPU::default();
-    let mut bus = MainBus::with_cartridge(cartridge, None);
+    let mut bus = MainBus::with_cartridge(cartridge, EmulatorConfig::default(), None);
 
     while cpu.r.pc < BOOT_END + 1 {
         cpu.step(&mut bus);

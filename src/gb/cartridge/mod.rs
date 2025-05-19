@@ -1,8 +1,9 @@
 use crate::gb::GBError;
 use crate::gb::cartridge::controller::BankController;
 use crate::gb::{GBResult, SubSystem};
-use std::fmt;
+use std::path::Path;
 use std::sync::Arc;
+use std::{fmt, fs};
 
 mod controller;
 mod mbc1;
@@ -193,6 +194,15 @@ impl TryFrom<Arc<[u8]>> for Cartridge {
         let header = CartridgeHeader::try_from(rom.as_ref())?;
         let controller = controller::new(header.config, rom);
         Ok(Self { controller, header })
+    }
+}
+
+impl TryFrom<&Path> for Cartridge {
+    type Error = GBError;
+
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        let rom = fs::read(path)?;
+        Cartridge::try_from(Arc::from(rom.into_boxed_slice()))
     }
 }
 

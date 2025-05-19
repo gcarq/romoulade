@@ -43,16 +43,13 @@ pub struct Debugger {
 
 impl Debugger {
     /// Creates a new debugger instance and sends the initial state to the frontend.
-    pub fn new(cpu: &CPU, bus: &mut MainBus, sender: Sender<EmulatorMessage>) -> Self {
-        let instance = Self {
+    #[inline]
+    pub fn new(sender: Sender<EmulatorMessage>) -> Self {
+        Self {
             message: None,
             breakpoints: HashSet::new(),
             sender,
-        };
-        // Send the initial state to the frontend
-        // TODO: find a better solution
-        instance.send_message(DebugMessage::new(cpu, bus));
-        instance
+        }
     }
 
     /// Checks the current debugger state and steps the CPU if necessary.
@@ -97,6 +94,14 @@ impl Debugger {
         }
     }
 
+    /// Sends a message to the frontend.
+    #[inline]
+    pub fn send_message(&self, message: DebugMessage) {
+        self.sender
+            .send(EmulatorMessage::Debug(Box::new(message)))
+            .expect("Unable to send debug message");
+    }
+
     /// Handles a message from the frontend.
     #[inline(always)]
     pub fn handle_message(&mut self, message: FrontendDebugMessage) {
@@ -107,13 +112,5 @@ impl Debugger {
     #[inline]
     fn step(&mut self, cpu: &mut CPU, bus: &mut MainBus) {
         cpu.step(bus);
-    }
-
-    /// Sends a message to the frontend.
-    #[inline]
-    fn send_message(&self, message: DebugMessage) {
-        self.sender
-            .send(EmulatorMessage::Debug(Box::new(message)))
-            .expect("Unable to send debug message");
     }
 }

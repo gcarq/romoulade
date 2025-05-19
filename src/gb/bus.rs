@@ -6,7 +6,7 @@ use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
-use crate::gb::{Bus, SubSystem};
+use crate::gb::{Bus, EmulatorConfig, SubSystem};
 
 bitflags! {
     /// Represents interrupt registers IE at 0xFFFF and IF at 0xFF0F
@@ -25,7 +25,7 @@ bitflags! {
 pub struct MainBus {
     pub is_boot_rom_active: bool,
     apu: AudioProcessor,
-    serial_transfer: SerialTransfer,
+    serial: SerialTransfer,
     pub cartridge: Cartridge,
     timer: Timer,
     ppu: PPU,
@@ -38,12 +38,16 @@ pub struct MainBus {
 }
 
 impl MainBus {
-    pub fn with_cartridge(cartridge: Cartridge, display: Option<Display>) -> Self {
+    pub fn with_cartridge(
+        cartridge: Cartridge,
+        config: EmulatorConfig,
+        display: Option<Display>,
+    ) -> Self {
         Self {
             cartridge,
             is_boot_rom_active: true,
             apu: AudioProcessor::default(),
-            serial_transfer: SerialTransfer::default(),
+            serial: SerialTransfer::new(config.print_serial),
             ppu: PPU::new(display),
             joypad: Joypad::default(),
             interrupt_enable: InterruptRegister::empty(),
@@ -75,8 +79,8 @@ impl MainBus {
     fn write_io(&mut self, address: u16, value: u8) {
         match address {
             JOYPAD => self.joypad.write(value, &mut self.interrupt_flag),
-            SERIAL_TRANSFER_DATA => self.serial_transfer.write(address, value),
-            SERIAL_TRANSFER_CTRL => self.serial_transfer.write(address, value),
+            SERIAL_TRANSFER_DATA => self.serial.write(address, value),
+            SERIAL_TRANSFER_CTRL => self.serial.write(address, value),
             // undocumented
             0xFF03 => {}
             // Whenever a ROM writes to this register it will reset to 0
@@ -111,8 +115,8 @@ impl MainBus {
     fn read_io(&mut self, address: u16) -> u8 {
         match address {
             JOYPAD => self.joypad.read(),
-            SERIAL_TRANSFER_DATA => self.serial_transfer.read(address),
-            SERIAL_TRANSFER_CTRL => self.serial_transfer.read(address),
+            SERIAL_TRANSFER_DATA => self.serial.read(address),
+            SERIAL_TRANSFER_CTRL => self.serial.read(address),
             0xFF03 => UNDEFINED_READ, // undocumented
             TIMER_DIVIDER..=TIMER_CTRL => self.timer.read(address),
             0xFF08..=0xFF0E => UNDEFINED_READ, // undocumented

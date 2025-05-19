@@ -73,16 +73,14 @@ impl EmulatorFrontend {
     pub fn start(cartridge: &Cartridge, config: EmulatorConfig) -> Self {
         let (emulator_sender, emulator_receiver) = mpsc::channel();
         let (frontend_sender, frontend_receiver) = mpsc::channel();
-        let used_cartridge = cartridge.clone();
+        let cartridge = cartridge.clone();
 
-        let debugger = match config.debug {
-            true => Some(DebuggerFrontend::new(frontend_sender.clone())),
-            false => None,
-        };
+        let debugger = config
+            .debug
+            .then_some(DebuggerFrontend::new(frontend_sender.clone()));
 
         let thread = thread::spawn(move || {
-            let mut emulator =
-                Emulator::new(emulator_sender, frontend_receiver, used_cartridge, config);
+            let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
             emulator.run();
         });
         Self {

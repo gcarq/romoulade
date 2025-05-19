@@ -34,21 +34,16 @@ this feature is WIP and might just not work.
 ## Usage
 
 ```
-romoulade 0.1.0
-gcarq <egger.m@protonmail.com>
-Experimental GB Emulator
+Usage: romoulade [OPTIONS]
 
-USAGE:
-    romoulade [FLAGS] <ROM>
-
-FLAGS:
-        --debug           Enable debugger
-    -h, --help            Prints help information
-        --no-fps-limit    Disable fps limit for debugging purposes
-    -V, --version         Prints version information
-
-ARGS:
-    <ROM>    Path of the ROM to load
+Options:
+  -r, --rom <ROM>     Path to the Game Boy ROM
+  -d, --debug         Enable the debugger immediately
+  -f, --fastboot      Start immediately and skip boot ROM
+  -p, --print-serial  Print serial data to stdout
+      --headless      Start the emulator in headless mode
+  -h, --help          Print help
+  -V, --version       Print version
 ```
 
 ## Development
