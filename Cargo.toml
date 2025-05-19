@@ -7,10 +7,9 @@ edition = "2024"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitflags = "2.9.0"
-clap = { version = "4.5.30", features = ["derive"] }
+bitflags = "2.9.1"
+clap = { version = "4.5.38", features = ["derive"] }
 eframe = { version = "0.31.1", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
-egui = { version = "0.31.1", default-features = false }
 egui_extras = { version = "0.31.1", default-features = false }
 rfd = { version = "0.15.3", default-features = false, features = ["xdg-portal", "async-std"] }
 bitvec = { version = "1.0.1", default-features = false, features = [] }

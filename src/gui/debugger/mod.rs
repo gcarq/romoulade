@@ -9,7 +9,8 @@ use crate::gb::debugger::bus::DebugBus;
 use crate::gb::debugger::{DebugMessage, FrontendDebugMessage};
 use crate::gui::debugger::disasm::Disassembler;
 use crate::gui::debugger::registers::Registers;
-use egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};
+use eframe::egui;
+use eframe::egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};
 use egui_extras::{Size, StripBuilder};
 use std::sync::mpsc::Sender;
 

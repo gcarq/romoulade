@@ -2,7 +2,7 @@ use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::{ColoredPixel, Palette, Pixel};
 use crate::gb::ppu::pixel_from_line;
 use crate::gb::ppu::registers::{LCDState, PPUMode};
-use egui::Color32;
+use eframe::egui::Color32;
 
 #[test]
 fn test_get_lcd_mode() {

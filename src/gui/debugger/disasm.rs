@@ -1,5 +1,5 @@
 use crate::gui::debugger::EmulatorState;
-use egui::{Align, Color32, Label, RichText, Ui, Widget};
+use eframe::egui::{Align, Color32, Label, RichText, Sense, TextStyle, Ui, Widget};
 use egui_extras::{Column, TableBuilder};
 use std::collections::HashSet;
 
@@ -16,7 +16,7 @@ impl Disassembler {
     pub fn update(&mut self, state: &EmulatorState, ui: &mut Ui) -> bool {
         let mut breakpoints_changed = false;
 
-        let text_height = egui::TextStyle::Monospace
+        let text_height = TextStyle::Monospace
             .resolve(ui.style())
             .size
             .max(ui.spacing().interact_size.y);
@@ -26,7 +26,7 @@ impl Disassembler {
         let mut table = TableBuilder::new(ui)
             .resizable(false)
             .column(Column::auto().at_least(300.0))
-            .sense(egui::Sense::click());
+            .sense(Sense::click());
 
         if let Some(address) = self.scroll_to_address.take() {
             if let Some(index) = instructions.iter().position(|(addr, _)| *addr == address) {

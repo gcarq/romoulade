@@ -1,5 +1,5 @@
-use crate::gb::cartridge::controller::BankController;
 use crate::gb::cartridge::CartridgeConfig;
+use crate::gb::cartridge::controller::BankController;
 use crate::gb::constants::*;
 use std::sync::Arc;
 

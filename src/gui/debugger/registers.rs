@@ -3,9 +3,9 @@ use crate::gb::cpu::registers::FlagsRegister;
 use crate::gui::debugger::EmulatorState;
 use bitvec::order::Lsb0;
 use bitvec::view::BitView;
+use eframe::egui::text::LayoutJob;
+use eframe::egui::{FontId, TextFormat, Ui};
 use eframe::epaint::Color32;
-use egui::text::LayoutJob;
-use egui::{FontId, TextFormat, Ui};
 
 /// Represents the registers view in the debugger UI.
 pub struct Registers;
