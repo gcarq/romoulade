@@ -1,5 +1,5 @@
 use crate::gb::bus::InterruptRegister;
-use crate::gb::cpu::{CPU, ImeState, interrupt};
+use crate::gb::cpu::{interrupt, ImeState, CPU};
 use crate::gb::tests::MockBus;
 use crate::gb::{Bus, SubSystem};
 
@@ -36,6 +36,7 @@ fn test_interrupt_ime_enabled() {
         let mut cpu = CPU {
             sp: 0x0002,
             pc: 0x1234,
+            ime: ImeState::Enabled,
             ..Default::default()
         };
         let mut bus = MockBus::new(vec![0x00; 100]);

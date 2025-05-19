@@ -17,9 +17,9 @@ mod tests;
 /// after one machine cycle has passed which puts it on state `ImeState::Pending`.
 #[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub enum ImeState {
+    #[default]
     Disabled,
     Pending,
-    #[default]
     Enabled,
 }
 

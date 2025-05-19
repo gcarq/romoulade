@@ -4,7 +4,7 @@ mod timer;
 use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
-use crate::gb::cpu::CPU;
+use crate::gb::cpu::{ImeState, CPU};
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
 use crate::gb::{Bus, SubSystem};
 use std::sync::Arc;
@@ -95,6 +95,7 @@ fn test_boot_rom() {
     assert_eq!(cpu.r.get_hl(), 0x014D, "HL is invalid");
     assert_eq!(cpu.sp, 0xFFFE, "SP is invalid");
     assert_eq!(cpu.pc, 0x0100, "PC is invalid");
+    assert_eq!(cpu.ime, ImeState::Disabled, "IME should be disabled");
 }
 
 #[test]
