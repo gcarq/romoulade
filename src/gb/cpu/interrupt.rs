@@ -38,6 +38,7 @@ pub fn handle<T: Bus>(cpu: &mut CPU, bus: &mut T) {
                 _ => unreachable!(),
             };
             interrupt(cpu, bus, address);
+            return;
         }
     }
 }
