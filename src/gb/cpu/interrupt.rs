@@ -9,20 +9,10 @@ const SERIAL_IRQ_ADDRESS: u16 = 0x0058;
 const JOYPAD_IRQ_ADDRESS: u16 = 0x0060;
 
 /// Handles pending interrupt requests.
-/// Returns true if an interrupt was handled.
-/// TODO: implement HALT instruction bug (Section 4.10):
-///  `<https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf>`
 pub fn handle<T: Bus>(cpu: &mut CPU, bus: &mut T) {
-    if !bus.has_irq() {
-        return;
-    }
-
-    // CPU should be always woken up from HALT if there is a pending interrupt
-    cpu.is_halted = false;
-
-    if cpu.ime != ImeState::Enabled {
-        return;
-    }
+    debug_assert!(bus.has_irq());
+    debug_assert_eq!(cpu.ime, ImeState::Enabled);
+    debug_assert!(!cpu.is_halted);
 
     let mut int_flags = bus.get_if();
     for irq in InterruptRegister::all().iter() {

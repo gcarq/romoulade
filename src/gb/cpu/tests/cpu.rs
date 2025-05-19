@@ -1,3 +1,4 @@
+use crate::gb::bus::InterruptRegister;
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::cpu::tests::assert_flags;
 use crate::gb::cpu::{ImeState, CPU};
@@ -442,6 +443,8 @@ fn test_ei() {
 fn test_ei_di_rapid() {
     // Rapid EI/DI should not result in any interrupts
     let mut bus = MockBus::new(vec![0xfb, 0xf3]);
+    bus.set_ie(InterruptRegister::VBLANK);
+    bus.set_if(InterruptRegister::VBLANK);
     let mut cpu = CPU {
         ime: ImeState::Disabled,
         ..Default::default()
@@ -482,7 +485,40 @@ fn test_halt() {
 
     cpu.step(&mut bus);
     assert_eq!(cpu.pc, 1, "HALT should not change PC");
-    assert_eq!(bus.cycles, 3); // TODO: is this correct?
+    assert_eq!(bus.cycles, 3);
+}
+
+#[test]
+fn test_halt_bug() {
+    // Tests the HALT instruction bug
+    // ADDR DATA     INSTRUCTIONS
+    // 0000 76       halt
+    // 0001 06 04    ld B,4
+    //
+    // The byte 0x06 is read twice, and the CPU effectively sees this stream of data:
+    // ADDR DATA     INSTRUCTIONS
+    // 0000 76       halt
+    // 0001 06 06    ld B,6
+    // 0002 04       inc B
+
+    let mut bus = MockBus::new(vec![0x76, 0x06, 0x04]);
+    bus.set_ie(InterruptRegister::VBLANK);
+    bus.set_if(InterruptRegister::VBLANK);
+    assert!(bus.has_irq());
+
+    let mut cpu = CPU::default();
+    cpu.step(&mut bus);
+    assert_eq!(cpu.pc, 1);
+    assert!(cpu.is_halted, "CPU should be halted normally");
+
+    cpu.step(&mut bus);
+    assert!(!cpu.is_halted, "CPU should be woken up due to pending IRQ");
+    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.b, 0x06, "B should be 6");
+
+    cpu.step(&mut bus);
+    assert_eq!(cpu.pc, 3);
+    assert_eq!(cpu.r.b, 0x07, "B should be 7");
 }
 
 #[test]

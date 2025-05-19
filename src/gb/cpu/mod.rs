@@ -32,25 +32,45 @@ pub struct CPU {
     pub pc: u16,       // Program counter
     pub sp: u16,       // Stack Pointer
     pub is_halted: bool,
+    // Indicates whether the HALT bug has been triggered.
+    // See https://gbdev.io/pandocs/halt.html#halt-bug
+    halt_bug: bool,
 }
 
 impl CPU {
     /// Makes one CPU step, this consumes one or more bytes depending on the
     /// next instruction and current CPU state (halted, stopped, etc.).
     pub fn step<T: Bus>(&mut self, bus: &mut T) {
-        if self.ime == ImeState::Pending {
-            self.ime = ImeState::Enabled;
-        } else {
-            interrupt::handle(self, bus);
+        // CPU should always be woken up from if there is a pending interrupt
+        if self.is_halted && bus.has_irq() {
+            self.is_halted = false;
         }
 
+        // If CPU is halted, just cycle the components once
         if self.is_halted {
             bus.cycle();
             return;
         }
 
-        // Parse instruction from address, execute it and update program counter
-        let (instruction, address) = Instruction::from_memory(self.pc, bus);
+        match self.ime {
+            // Enabling IME is delayed by one instruction
+            ImeState::Pending => { self.ime = ImeState::Enabled }
+            // Handle interrupts if IME is enabled and there is a pending IRQ
+            ImeState::Enabled if bus.has_irq() => { interrupt::handle(self, bus) }
+            _ => {}
+        }
+
+        let opcode = bus.cycle_read(self.pc);
+        // If the HALT bug is triggered, the PC is not incremented correctly
+        // and the next byte gets read twice.
+        if self.halt_bug {
+            self.halt_bug = false;
+        } else {
+            self.pc += 1;
+        }
+
+        // Parse instruction from the given opcode, execute it and update program counter
+        let (instruction, address) = Instruction::from_opcode(opcode, self.pc, bus);
         self.pc = address;
         self.pc = self.execute(instruction, bus);
     }
@@ -327,11 +347,16 @@ impl CPU {
         self.pc
     }
 
-    /// Handles HALT instruction
-    #[inline]
+    /// Handles the HALT instruction.
     fn handle_halt<T: Bus>(&mut self, bus: &mut T) -> u16 {
         self.is_halted = true;
-        bus.cycle();
+        if !bus.has_irq() {
+            bus.cycle();
+            return self.pc;
+        }
+        if self.ime != ImeState::Enabled {
+            self.halt_bug = true;
+        }
         self.pc
     }
 

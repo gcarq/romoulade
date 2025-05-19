@@ -67,14 +67,14 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    /// Creates a new Instruction from the given address in the `AddressSpace`, it reads as
-    /// many bytes as needed to create and `Instruction`.
+    /// Creates a new Instruction from the given opcode, it reads as many bytes as needed from
+    /// the `Bus` starting at the given address to create an `Instruction`.
     /// It returns the parsed `Instruction` and the incremented address that can be used
-    /// to read the next instruction.
-    pub fn from_memory<T: Bus>(address: u16, bus: &mut T) -> (Instruction, u16) {
-        match bus.cycle_read(address) {
-            OPCODE_PREFIX_16BIT => (Self::prefixed(bus.cycle_read(address + 1)), address + 2),
-            opcode => Self::not_prefixed(opcode, address + 1, bus),
+    /// to read the next instruction from.
+    pub fn from_opcode<T: Bus>(opcode: u8, address: u16, bus: &mut T) -> (Instruction, u16) {
+        match opcode {
+            OPCODE_PREFIX_16BIT => (Self::prefixed(bus.cycle_read(address)), address + 1),
+            opcode => Self::not_prefixed(opcode, address, bus),
         }
     }
 

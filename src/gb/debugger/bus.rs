@@ -27,7 +27,8 @@ impl DebugBus {
         let mut pc = *range.start();
 
         while pc <= *range.end() {
-            let (instruction, next_pc) = Instruction::from_memory(pc, self);
+            let opcode = self.read(pc);
+            let (instruction, next_pc) = Instruction::from_opcode(opcode, pc + 1, self);
             instructions.push((pc, instruction));
             pc = next_pc;
         }
