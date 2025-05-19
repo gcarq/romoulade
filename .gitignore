@@ -1,7 +1,8 @@
 /target
 /roms
+/blargg_roms
+/scripts
 
 .idea
 misc.txt
-test.sh
 log.txt
