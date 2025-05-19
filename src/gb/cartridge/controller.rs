@@ -1,4 +1,5 @@
 use crate::gb::cartridge::mbc1::MBC1;
+use crate::gb::cartridge::mbc5::MBC5;
 use crate::gb::cartridge::nombc::NoMBC;
 use crate::gb::cartridge::{CartridgeConfig, ControllerType};
 use dyn_clone::DynClone;
@@ -17,7 +18,8 @@ dyn_clone::clone_trait_object!(BankController);
 /// Creates a new `BankController` with the given ROM and `CartridgeConfig`.
 pub fn new(config: CartridgeConfig, rom: Arc<[u8]>) -> Box<dyn BankController> {
     match config.controller {
-        ControllerType::NoMBC | ControllerType::NoMBCWithRAM => Box::new(NoMBC::new(config, rom)),
-        ControllerType::MBC1 | ControllerType::MBC1WithRAM => Box::new(MBC1::new(config, rom)),
+        ControllerType::NoMBC => Box::new(NoMBC::new(config, rom)),
+        ControllerType::MBC1 => Box::new(MBC1::new(config, rom)),
+        ControllerType::MBC5 => Box::new(MBC5::new(config, rom)),
     }
 }

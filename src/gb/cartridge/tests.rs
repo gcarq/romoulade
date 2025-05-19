@@ -1,6 +1,6 @@
 use crate::gb::cartridge::{
     CARTRIDGE_GLOBAL_CHECKSUM1, CARTRIDGE_GLOBAL_CHECKSUM2, CartridgeConfig, ControllerType,
-    calculate_global_checksum, verify_checksum,
+    calculate_global_checksum, rom_bank_mask, verify_checksum,
 };
 
 #[test]
@@ -40,10 +40,20 @@ fn test_verify_checksum_buffer_invalid_checksum() {
 
 #[test]
 fn test_cartridge_config() {
-    let config = CartridgeConfig::new(ControllerType::MBC1WithRAM, 0x02, 0x03).unwrap();
-    assert_eq!(config.controller, ControllerType::MBC1WithRAM);
-    assert_eq!(config.rom_size, 131072);
+    let config = CartridgeConfig::new(ControllerType::MBC1, 0x02, 0x03).unwrap();
+    assert_eq!(config.controller, ControllerType::MBC1);
     assert_eq!(config.rom_banks, 8);
     assert_eq!(config.ram_size, 32768);
     assert_eq!(config.ram_banks, 4);
+}
+
+#[test]
+fn test_rom_bank_mask() {
+    assert_eq!(rom_bank_mask(2), 0b11);
+    assert_eq!(rom_bank_mask(4), 0b111);
+    assert_eq!(rom_bank_mask(8), 0b1111);
+    assert_eq!(rom_bank_mask(16), 0b11111);
+    assert_eq!(rom_bank_mask(32), 0b111111);
+    assert_eq!(rom_bank_mask(64), 0b1111111);
+    assert_eq!(rom_bank_mask(128), 0b11111111);
 }

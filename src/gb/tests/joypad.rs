@@ -225,7 +225,7 @@ fn test_joypad_common() {
     assert_eq!(joypad.read(), 0b1111_1111);
 
     // Acceptance test of mooneye test suite:
-    // See `<https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/bits/unused_hwio-GS.s>`
+    // See https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/bits/unused_hwio-GS.s
     joypad.handle_input(JoypadInput::default());
     joypad.write(0b1111_1111, &mut int_reg);
     assert!(int_reg.is_empty());

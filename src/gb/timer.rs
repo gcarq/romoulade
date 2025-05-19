@@ -32,7 +32,7 @@ impl TimerControl {
 }
 
 /// This struct holds all timer related registers.
-/// See `<https://gbdev.io/pandocs/Timer_and_Divider_Registers.html>`
+/// See https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
 #[derive(Clone)]
 pub struct Timer {
     // DIV. The upper bits of the divider are mapped to memory but the two extra bits

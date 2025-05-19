@@ -83,7 +83,7 @@ pub struct PPU {
     oam: [u8; OAM_SIZE],
     cycles: isize,
     // This line counter determines what window line is to be rendered on the current scanline.
-    // See `<https://gbdev.io/pandocs/Tile_Maps.html#window>`
+    // See https://gbdev.io/pandocs/Tile_Maps.html#window
     wy_internal: Option<u8>,
     display: Option<Display>,
 }

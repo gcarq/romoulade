@@ -2,7 +2,6 @@
 #![warn(clippy::semicolon_if_nothing_returned)]
 #![warn(clippy::unnecessary_semicolon)]
 #![warn(clippy::missing_const_for_fn)]
-#![warn(clippy::doc_markdown)]
 
 #[macro_use]
 extern crate bitflags;
@@ -10,10 +9,10 @@ extern crate clap;
 
 use crate::gb::cartridge::Cartridge;
 use crate::gb::{Emulator, EmulatorConfig};
-use crate::gui::emulator::UPSCALE;
 use crate::gui::Romoulade;
+use crate::gui::emulator::UPSCALE;
 use clap::Parser;
-use eframe::{egui, HardwareAcceleration};
+use eframe::{HardwareAcceleration, egui};
 use std::path::PathBuf;
 use std::sync::mpsc;
 

@@ -7,6 +7,7 @@ use std::{fmt, fs};
 
 mod controller;
 mod mbc1;
+mod mbc5;
 mod nombc;
 #[cfg(test)]
 mod tests;
@@ -29,7 +30,7 @@ const _CARTRIDGE_CGB_FLAG: u16 = 0x0143;
 /// 0x03  => MBC1 + RAM + Battery
 /// 0x05  => MBC2
 /// ...
-/// See `<https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type>`
+/// See https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type
 const CARTRIDGE_TYPE: u16 = 0x0147;
 
 /// This byte indicates how much ROM is present on the cartridge.
@@ -53,24 +54,22 @@ const RAM_BANK_SIZE: usize = 8192;
 #[derive(PartialEq, Copy, Clone, Debug)]
 #[repr(u8)]
 /// The controller type of the cartridge.
-/// See `<https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type>`
+/// See https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type
 /// TODO: implement remaining modes (and specify battery support?)
 pub enum ControllerType {
     NoMBC,
-    NoMBCWithRAM,
     MBC1,
-    MBC1WithRAM,
+    MBC5,
 }
 
 impl TryFrom<u8> for ControllerType {
     type Error = GBError;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let mode = match value {
-            0x00 => ControllerType::NoMBC,
-            0x01 => ControllerType::MBC1,
-            0x02 | 0x03 => ControllerType::MBC1WithRAM,
-            0x08 | 0x09 => ControllerType::NoMBCWithRAM,
-            _ => return Err(format!("Cartridge type {value:#04X} not implemented").into()),
+            0x00 | 0x08 | 0x09 => ControllerType::NoMBC,
+            0x01..=0x03 => ControllerType::MBC1,
+            0x19..=0x1E => ControllerType::MBC5,
+            _ => return Err(format!("Cartridge type {value:#04x} not implemented").into()),
         };
         Ok(mode)
     }
@@ -79,10 +78,9 @@ impl TryFrom<u8> for ControllerType {
 impl fmt::Display for ControllerType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
-            ControllerType::NoMBC => "ROM Only",
-            ControllerType::NoMBCWithRAM => "ROM + RAM",
+            ControllerType::NoMBC => "NoMBC",
             ControllerType::MBC1 => "MBC1",
-            ControllerType::MBC1WithRAM => "MBC1 + RAM",
+            ControllerType::MBC5 => "MBC5",
         };
         write!(f, "{name}")
     }
@@ -93,7 +91,6 @@ impl fmt::Display for ControllerType {
 #[derive(Copy, Clone, Debug)]
 pub struct CartridgeConfig {
     pub controller: ControllerType,
-    pub rom_size: u32,
     pub rom_banks: u16,
     pub ram_size: u32,
     pub ram_banks: u16,
@@ -125,7 +122,6 @@ impl CartridgeConfig {
         };
 
         Ok(Self {
-            rom_size: 32768 * (1 << rom_size),
             ram_size: RAM_BANK_SIZE as u32 * ram_banks as u32,
             rom_banks,
             controller: banking,
@@ -135,7 +131,7 @@ impl CartridgeConfig {
 }
 
 /// Contains the cartridge header information.
-/// See `<https://gbdev.io/pandocs/The_Cartridge_Header.html>`
+/// See https://gbdev.io/pandocs/The_Cartridge_Header.html
 #[derive(Clone)]
 pub struct CartridgeHeader {
     pub title: String,
@@ -256,4 +252,11 @@ fn calculate_global_checksum(buf: &[u8]) -> u16 {
             CARTRIDGE_GLOBAL_CHECKSUM2 => sum,
             _ => sum.wrapping_add(byte as u16),
         })
+}
+
+/// This function masks the ROM Bank Number to the number of banks in the cartridge.
+#[inline]
+const fn rom_bank_mask(rom_banks: u16) -> u32 {
+    let mask = u16::BITS - rom_banks.leading_zeros();
+    (1 << mask) - 1
 }

@@ -1,5 +1,5 @@
 use crate::gb::cartridge::controller::BankController;
-use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE};
+use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, rom_bank_mask};
 use crate::gb::constants::*;
 use std::sync::Arc;
 
@@ -85,11 +85,7 @@ impl MBC1 {
         // we don't consider the advanced banking mode
         if self.config.rom_banks < 32 {
             self.low_rom_bank_offset = 0;
-
-            // If the ROM Bank Number is set to a higher value than the number of banks in the cart,
-            // the bank number is masked to the required number of bits
-            let bank_mask = u16::BITS - self.config.rom_banks.leading_zeros();
-            self.bank_low_bits &= (1 << bank_mask) - 1;
+            self.bank_low_bits &= rom_bank_mask(self.config.rom_banks) as u8;
             self.high_rom_bank_offset = ROM_BANK_SIZE * self.bank_low_bits as usize;
             return;
         }
@@ -172,7 +168,7 @@ impl BankController for MBC1 {
                     self.ram[self.ram_bank_offset + (address - CRAM_BANK_BEGIN) as usize] = value;
                 }
             }
-            _ => panic!("MBC1: Invalid address for write: {address:#06x}, value: {value:#04x}"),
+            _ => {}
         }
     }
 }
