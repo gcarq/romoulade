@@ -92,7 +92,6 @@ impl fmt::Display for ControllerType {
 pub struct CartridgeConfig {
     pub controller: ControllerType,
     pub rom_banks: u16,
-    pub ram_size: u32,
     pub ram_banks: u16,
 }
 
@@ -122,11 +121,15 @@ impl CartridgeConfig {
         };
 
         Ok(Self {
-            ram_size: RAM_BANK_SIZE as u32 * ram_banks as u32,
-            rom_banks,
             controller: banking,
+            rom_banks,
             ram_banks,
         })
+    }
+
+    #[inline(always)]
+    pub const fn ram_size(&self) -> usize {
+        self.ram_banks as usize * RAM_BANK_SIZE
     }
 }
 
@@ -157,8 +160,7 @@ impl CartridgeHeader {
     fn parse_title(buf: &[u8]) -> String {
         let title = buf[CARTRIDGE_TITLE_BEGIN as usize..=CARTRIDGE_TITLE_END as usize]
             .iter()
-            .filter(|b| b.is_ascii_alphanumeric())
-            .map(|b| char::from(*b))
+            .filter_map(|b| b.is_ascii_alphanumeric().then_some(char::from(*b)))
             .collect::<String>();
         match title.is_empty() {
             true => "Unnamed".to_string(),
@@ -228,8 +230,7 @@ fn verify_checksum(buf: &[u8]) -> GBResult<()> {
 
     let byte1 = buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize];
     let byte2 = buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize];
-
-    let checksum = (byte1 as u16) << 8 | (byte2 as u16);
+    let checksum = u16::from(byte1) << 8 | u16::from(byte2);
     let calculated_checksum = calculate_global_checksum(buf);
 
     if checksum == calculated_checksum {
@@ -237,7 +238,7 @@ fn verify_checksum(buf: &[u8]) -> GBResult<()> {
     }
 
     let msg = format!(
-        "Global checksum mismatch! Expected: {calculated_checksum:#06X} Got: {checksum:#06X}"
+        "Global checksum mismatch! Expected: {calculated_checksum:#06x} Got: {checksum:#06x}"
     );
     Err(msg.into())
 }

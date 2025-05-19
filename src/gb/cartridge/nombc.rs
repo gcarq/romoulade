@@ -17,7 +17,7 @@ impl NoMBC {
     #[inline]
     pub fn new(config: CartridgeConfig, rom: Arc<[u8]>) -> Self {
         Self {
-            ram: vec![0; config.ram_size as usize],
+            ram: vec![0; config.ram_size()],
             rom,
         }
     }

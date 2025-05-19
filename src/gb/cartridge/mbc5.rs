@@ -39,7 +39,7 @@ pub struct MBC5 {
 impl MBC5 {
     pub fn new(config: CartridgeConfig, rom: Arc<[u8]>) -> Self {
         Self {
-            ram: vec![0; config.ram_size as usize],
+            ram: vec![0; config.ram_size()],
             rom_bank_number: 1,
             ram_bank_number: 0,
             has_ram_access: false,
@@ -97,6 +97,95 @@ impl BankController for MBC5 {
                 }
             }
             _ => {}
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gb::cartridge::ControllerType;
+
+    #[test]
+    fn test_ram_state() {
+        let config = CartridgeConfig::new(ControllerType::MBC5, 0x03, 0x02).unwrap();
+        let mut controller = MBC5::new(config, Arc::new([0; ROM_BANK_SIZE * 16]));
+
+        let addr = CRAM_BANK_BEGIN + 0x10;
+        controller.write(addr, 0x42);
+        assert_eq!(controller.read(addr), 0xFF, "RAM should be disabled");
+
+        controller.write(RAM_ENABLE_BEGIN, 0x0A);
+        assert_eq!(
+            controller.read(addr),
+            0x00,
+            "First write should have been ignored"
+        );
+
+        controller.write(addr, 0x42);
+        assert_eq!(controller.read(addr), 0x42, "RAM should be enabled");
+
+        controller.write(RAM_ENABLE_BEGIN, 0xFF);
+        assert_eq!(controller.read(addr), 0xFF, "RAM should be disabled");
+    }
+
+    #[test]
+    fn test_rom_bank_bits() {
+        let config = CartridgeConfig::new(ControllerType::MBC5, 0x08, 0x02).unwrap();
+        let mut ctrl = MBC5::new(config, Arc::new([0; ROM_BANK_SIZE * 16]));
+
+        ctrl.write(ROM_BANK_LOW_BITS_BEGIN, 0x01);
+        assert_eq!(ctrl.rom_bank_number, 0x01);
+
+        ctrl.write(ROM_BANK_HIGH_BIT_BEGIN, 0x01);
+        assert_eq!(ctrl.rom_bank_number, 0x101);
+
+        ctrl.write(ROM_BANK_HIGH_BIT_BEGIN, 0xFF);
+        assert_eq!(
+            ctrl.rom_bank_number, 0x101,
+            "Only first 9 bits should be used"
+        );
+    }
+    #[test]
+    fn test_ram_banking() {
+        let config = CartridgeConfig::new(ControllerType::MBC5, 0x00, 0x03).unwrap();
+
+        // Initialize each bank with a unique value
+        let mut ctrl = MBC5::new(
+            config,
+            (0u8..64).flat_map(|i| vec![i; ROM_BANK_SIZE]).collect(),
+        );
+
+        ctrl.write(RAM_BANK_NUMBER_BEGIN, 1);
+        ctrl.write(RAM_ENABLE_BEGIN, 0x0A);
+
+        // Assert the banks are set correctly and the memory is initialized
+        for i in 0u8..4 {
+            ctrl.write(RAM_BANK_NUMBER_BEGIN, i);
+            assert_eq!(ctrl.ram_bank_number, i);
+            assert_eq!(
+                ctrl.read(CRAM_BANK_BEGIN),
+                0,
+                "RAM should be initialized to 0"
+            );
+            ctrl.write(CRAM_BANK_BEGIN, i + 1);
+            assert_eq!(
+                ctrl.read(CRAM_BANK_BEGIN),
+                i + 1,
+                "RAM should return {}",
+                i + 1
+            );
+        }
+
+        // Assert the written values are correct when switching banks again
+        for i in 0u8..4 {
+            ctrl.write(RAM_BANK_NUMBER_BEGIN, i);
+            assert_eq!(
+                ctrl.read(CRAM_BANK_BEGIN),
+                i + 1,
+                "RAM should return {}",
+                i + 1
+            );
         }
     }
 }

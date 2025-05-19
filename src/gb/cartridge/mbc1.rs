@@ -64,7 +64,7 @@ pub struct MBC1 {
 impl MBC1 {
     pub fn new(config: CartridgeConfig, rom: Arc<[u8]>) -> Self {
         Self {
-            ram: vec![0; config.ram_size as usize],
+            ram: vec![0; config.ram_size()],
             low_rom_bank_offset: 0,
             high_rom_bank_offset: ROM_HIGH_BANK_BEGIN as usize,
             ram_bank_offset: 0,

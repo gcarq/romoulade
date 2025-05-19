@@ -19,14 +19,13 @@ use std::sync::mpsc::Sender;
 struct EmulatorState {
     pub cpu: CPU,
     pub bus: DebugBus,
-    pub instructions: Vec<(u16, Instruction)>,
+    pub instructions: Vec<(u16, Vec<u8>, Instruction)>,
 }
 
 impl EmulatorState {
     pub fn new(cpu: CPU, bus: DebugBus) -> Self {
         let mut bus = bus;
         let instructions = bus.fetch_instructions();
-
         Self {
             cpu,
             bus,
@@ -112,17 +111,13 @@ impl DebuggerFrontend {
     /// Sends a debug message to the emulator.
     #[inline]
     fn send_message(&self, message: FrontendDebugMessage) {
-        // TODO: Handle errors properly, currently panics if the channel is closed.
-        self.sender
-            .send(FrontendMessage::Debug(message))
-            .expect("Unable to send debug message");
+        self.sender.send(FrontendMessage::Debug(message)).ok();
     }
 
     /// Handles the given `EmulatorDebugMessage` message from the emulator.
     #[inline]
     pub fn handle_message(&mut self, msg: DebugMessage) {
-        let pc = msg.cpu.r.pc;
-        self.disassembler.scroll_to_address(pc);
+        self.disassembler.scroll_to_address(msg.cpu.r.pc);
         self.state = Some(EmulatorState::new(msg.cpu, msg.bus));
     }
 }

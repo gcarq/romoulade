@@ -24,7 +24,7 @@ fn test_verify_checksum_ok() {
 
 #[test]
 fn test_verify_checksum_buffer_too_small() {
-    let buf = (0..=10).map(|i| i as u8).collect::<Vec<u8>>();
+    let buf = (0..=10).map(|i| i as u8).collect::<Vec<_>>();
     assert!(verify_checksum(&buf).is_err());
 }
 
@@ -43,7 +43,7 @@ fn test_cartridge_config() {
     let config = CartridgeConfig::new(ControllerType::MBC1, 0x02, 0x03).unwrap();
     assert_eq!(config.controller, ControllerType::MBC1);
     assert_eq!(config.rom_banks, 8);
-    assert_eq!(config.ram_size, 32768);
+    assert_eq!(config.ram_size(), 32768);
     assert_eq!(config.ram_banks, 4);
 }
 
