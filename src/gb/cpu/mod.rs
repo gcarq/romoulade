@@ -70,10 +70,10 @@ impl CPU {
             CP(source) => self.handle_cp(source, bus),
             CPL => self.handle_cpl(),
             DAA => self.handle_daa(),
-            DI => self.handle_interrupt(ImeState::Disabled),
+            DI => self.handle_di(),
             DEC(target) => self.handle_dec_byte(target, bus),
             DEC2(target) => self.handle_dec_word(target, bus),
-            EI => self.handle_interrupt(ImeState::Pending),
+            EI => self.handle_ei(),
             HALT => self.handle_halt(bus),
             INC(target) => self.handle_inc_byte(target, bus),
             INC2(target) => self.handle_inc_word(target, bus),
@@ -311,6 +311,22 @@ impl CPU {
         self.pc
     }
 
+    /// Handles DI instruction
+    #[inline]
+    const fn handle_di(&mut self) -> u16 {
+        self.ime = ImeState::Disabled;
+        self.pc
+    }
+
+    /// Handles EI instruction
+    #[inline]
+    fn handle_ei(&mut self) -> u16 {
+        if self.ime == ImeState::Disabled {
+            self.ime = ImeState::Pending;
+        }
+        self.pc
+    }
+
     /// Handles HALT instruction
     #[inline]
     fn handle_halt<T: Bus>(&mut self, bus: &mut T) -> u16 {
@@ -338,13 +354,6 @@ impl CPU {
         let result = value.wrapping_add(1);
         target.write(self, result);
         bus.cycle();
-        self.pc
-    }
-
-    /// Handles EI and DI instructions
-    #[inline]
-    const fn handle_interrupt(&mut self, state: ImeState) -> u16 {
-        self.ime = state;
         self.pc
     }
 

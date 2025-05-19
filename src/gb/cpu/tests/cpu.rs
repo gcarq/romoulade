@@ -1,8 +1,8 @@
-use crate::gb::Bus;
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::cpu::tests::assert_flags;
-use crate::gb::cpu::{CPU, ImeState};
+use crate::gb::cpu::{ImeState, CPU};
 use crate::gb::tests::MockBus;
+use crate::gb::Bus;
 
 #[test]
 fn test_illegal_opcodes() {
@@ -453,6 +453,22 @@ fn test_ei_di_rapid() {
     assert_eq!(cpu.ime, ImeState::Disabled);
     assert_eq!(cpu.pc, 2);
     assert_eq!(bus.cycles, 2);
+}
+
+#[test]
+fn test_ei_sequence() {
+    // EI should be set to enabled after the next instruction
+    let mut bus = MockBus::new(vec![0xfb, 0xfb]);
+    let mut cpu = CPU {
+        ime: ImeState::Disabled,
+        ..Default::default()
+    };
+    cpu.step(&mut bus);
+    assert_eq!(cpu.ime, ImeState::Pending);
+    assert_eq!(cpu.pc, 1);
+    cpu.step(&mut bus);
+    assert_eq!(cpu.ime, ImeState::Enabled);
+    assert_eq!(cpu.pc, 2);
 }
 
 #[test]
