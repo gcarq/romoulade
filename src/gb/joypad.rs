@@ -47,8 +47,10 @@ impl JoypadInput {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 enum SelectedButtons {
+    #[default]
+    Initial,
     DPad,
     Action,
     None,
@@ -77,7 +79,7 @@ impl Default for Joypad {
             b_left: false,
             select_up: false,
             start_down: false,
-            selection: SelectedButtons::None,
+            selection: SelectedButtons::default(),
             pending_event: JoypadInput::default(),
         }
     }
@@ -109,6 +111,10 @@ impl Joypad {
             SelectedButtons::None => {
                 value = utils::set_bit(value, 4, true);
                 value = utils::set_bit(value, 5, true);
+            }
+            SelectedButtons::Initial => {
+                value = utils::set_bit(value, 4, false);
+                value = utils::set_bit(value, 5, false);
             }
         }
         value

@@ -202,7 +202,7 @@ fn test_joypad_actions_not_pressed() {
 fn test_joypad_common() {
     let mut joypad = Joypad::default();
     let mut int_reg = InterruptRegister::empty();
-    assert_eq!(joypad.read(), 0b1111_1111);
+    assert_eq!(joypad.read(), 0b1100_1111, "Initial state should be 0xCF");
 
     // No selection mode while Right has been pressed
     let input = JoypadInput {
