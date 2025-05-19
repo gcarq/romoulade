@@ -167,8 +167,8 @@ impl Emulator {
         self.cpu.r.set_bc(0x0013);
         self.cpu.r.set_de(0x00D8);
         self.cpu.r.set_hl(0x014D);
-        self.cpu.sp = 0xFFFE;
-        self.cpu.pc = BOOT_END + 1;
+        self.cpu.r.sp = 0xFFFE;
+        self.cpu.r.pc = BOOT_END + 1;
         self.bus.is_boot_rom_active = false;
     }
 

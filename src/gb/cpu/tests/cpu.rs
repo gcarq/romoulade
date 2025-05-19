@@ -11,10 +11,10 @@ fn test_illegal_opcodes() {
         0xd3, 0xdb, 0xdd, 0xe3, 0xe4, 0xeb, 0xec, 0xed, 0xf4, 0xfc, 0xfd,
     ]);
     let mut cpu = CPU::default();
-    assert_eq!(cpu.pc, 0);
+    assert_eq!(cpu.r.pc, 0);
     for i in 0..10 {
         cpu.step(&mut bus);
-        assert_eq!(cpu.pc, i + 1, "Illegal opcodes should be ignored");
+        assert_eq!(cpu.r.pc, i + 1, "Illegal opcodes should be ignored");
     }
 }
 
@@ -25,7 +25,7 @@ fn test_add_a_hli_no_overflow() {
     let mut cpu = CPU::default();
     cpu.r.set_hl(0x01);
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.a, 0x42);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 2);
@@ -39,7 +39,7 @@ fn test_add_a_hli_overflow_zero() {
     cpu.r.a = 0xff;
     cpu.r.set_hl(0x01);
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.a, 0x01);
     assert_flags(cpu.r.f, false, false, true, true);
     assert_eq!(bus.cycles, 2);
@@ -53,7 +53,7 @@ fn test_add_hl_de_no_overflow() {
     cpu.r.set_hl(0x01);
     cpu.r.set_de(0x03);
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.get_hl(), 0x04);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 2);
@@ -67,7 +67,7 @@ fn test_add_hl_de_overflow() {
     cpu.r.set_hl(0xFFFE);
     cpu.r.set_de(0x03);
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.get_hl(), 0x0001);
     assert_flags(cpu.r.f, false, false, true, true);
     assert_eq!(bus.cycles, 2);
@@ -77,13 +77,11 @@ fn test_add_hl_de_overflow() {
 fn test_add_sp_s8_overflow_inc() {
     // ADD SP, s8
     let mut bus = MockBus::new(vec![0xe8, 0x01]);
-    let mut cpu = CPU {
-        sp: 0xffff,
-        ..Default::default()
-    };
+    let mut cpu = CPU::default();
+    cpu.r.sp = 0xffff;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 2);
-    assert_eq!(cpu.sp, 0x0000);
+    assert_eq!(cpu.r.pc, 2);
+    assert_eq!(cpu.r.sp, 0x0000);
     assert_flags(cpu.r.f, false, false, true, true);
     assert_eq!(bus.cycles, 4);
 }
@@ -95,8 +93,8 @@ fn test_add_sp_s8_overflow_dec() {
     let mut bus = MockBus::new(vec![0xe8, value as u8]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 2);
-    assert_eq!(cpu.sp, 0xffff);
+    assert_eq!(cpu.r.pc, 2);
+    assert_eq!(cpu.r.sp, 0xffff);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 4);
 }
@@ -109,7 +107,7 @@ fn test_adc_a_e_non_zero() {
     cpu.r.a = 0b1111_0001;
     cpu.r.e = 0b0000_0001;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.a, 0b1111_0010);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 1);
@@ -122,7 +120,7 @@ fn test_adc_a_d8_non_zero() {
     let mut cpu = CPU::default();
     cpu.r.a = 0b1111_0001;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(cpu.r.a, 0b1111_0010);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 2);
@@ -137,7 +135,7 @@ fn test_and_a_b_non_zero() {
     cpu.r.b = 0xff;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x02);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, true, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -151,7 +149,7 @@ fn test_and_a_b_zero() {
     cpu.r.b = 0x04;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x00);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, true, false, true, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -163,7 +161,7 @@ fn test_bit_7_h_zero() {
     let mut cpu = CPU::default();
     cpu.r.h = 0b01111111;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, true, false, true, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -175,7 +173,7 @@ fn test_bit_7_h_non_zero() {
     let mut cpu = CPU::default();
     cpu.r.h = 0b11010000;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, true, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -184,15 +182,13 @@ fn test_bit_7_h_non_zero() {
 fn test_call_a16() {
     // CALL a16
     let mut bus = MockBus::new(vec![0xcd, 0x11, 0x22, 0x33, 0x44]);
-    let mut cpu = CPU {
-        sp: 0x0003,
-        ..Default::default()
-    };
+    let mut cpu = CPU::default();
+    cpu.r.sp = 0x0003;
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x02), 0x00);
     assert_eq!(bus.cycle_read(0x01), 0x03);
-    assert_eq!(cpu.pc, 0x2211);
-    assert_eq!(cpu.sp, 0x01);
+    assert_eq!(cpu.r.pc, 0x2211);
+    assert_eq!(cpu.r.sp, 0x01);
     assert_eq!(bus.cycles, 8);
 }
 
@@ -202,12 +198,12 @@ fn test_call_c_16_no_jump() {
     let mut bus = MockBus::new(vec![0xdc, 0x11, 0x22]);
     let mut cpu = CPU::default();
     cpu.r.f.remove(FlagsRegister::CARRY);
-    cpu.sp = 0x03;
+    cpu.r.sp = 0x03;
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x02), 0x22);
     assert_eq!(bus.cycle_read(0x01), 0x11);
-    assert_eq!(cpu.pc, 0x03);
-    assert_eq!(cpu.sp, 0x03);
+    assert_eq!(cpu.r.pc, 0x03);
+    assert_eq!(cpu.r.sp, 0x03);
     assert_eq!(bus.cycles, 5);
 }
 
@@ -217,7 +213,7 @@ fn test_ccf_no_carry() {
     let mut bus = MockBus::new(vec![0x3f; 1]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 1);
 }
@@ -229,7 +225,7 @@ fn test_ccf_carry() {
     let mut cpu = CPU::default();
     cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -244,7 +240,7 @@ fn test_cp_b() {
     cpu.step(&mut bus);
     assert_flags(cpu.r.f, false, true, false, false);
     assert_eq!(cpu.r.a, 0x02);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -257,7 +253,7 @@ fn test_cpl() {
     cpu.step(&mut bus);
     assert_flags(cpu.r.f, false, true, true, false);
     assert_eq!(cpu.r.a, 0b00101100);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -271,7 +267,7 @@ fn test_daa_sub_carry() {
     cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0xe4);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, true, false, true);
     assert_eq!(bus.cycles, 1);
 }
@@ -286,7 +282,7 @@ fn test_daa_sub_half_carry() {
     cpu.r.f.insert(FlagsRegister::HALF_CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x3e);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, true, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -301,7 +297,7 @@ fn test_daa_non_sub_carry() {
     cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0xa4);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 1);
 }
@@ -314,7 +310,7 @@ fn test_daa_non_sub_0xd1() {
     cpu.r.a = 0b11010001;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x31, "(0b11010001 + 0x60) % 256 should be 0x31");
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 1);
 }
@@ -327,7 +323,7 @@ fn test_daa_non_sub_0x0f() {
     cpu.r.a = 0b00001111;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x15, "(0b00001111 + 0x06) % 256 should be 0x15");
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -342,7 +338,7 @@ fn test_daa_non_sub_half_carry() {
     cpu.r.f.insert(FlagsRegister::HALF_CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x4a);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -355,7 +351,7 @@ fn test_daa_zero() {
     cpu.r.a = 0x00;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x00);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -370,7 +366,7 @@ fn test_di() {
     };
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Disabled);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -381,7 +377,7 @@ fn test_dec_b_no_overflow() {
     let mut cpu = CPU::default();
     cpu.r.b = 0x02;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.b, 0x1);
     assert_flags(cpu.r.f, false, true, false, false);
     assert_eq!(bus.cycles, 1);
@@ -394,7 +390,7 @@ fn test_dec_b_overflow() {
     let mut cpu = CPU::default();
     cpu.r.b = 0x00;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.b, 0xff);
     assert_flags(cpu.r.f, false, true, true, false);
     assert_eq!(bus.cycles, 1);
@@ -407,7 +403,7 @@ fn test_dec_b_zero() {
     let mut cpu = CPU::default();
     cpu.r.b = 0x01;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.b, 0x00);
     assert_flags(cpu.r.f, true, true, false, false);
     assert_eq!(bus.cycles, 1);
@@ -421,7 +417,7 @@ fn test_dec_bc_word() {
     cpu.r.set_bc(0x42);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.get_bc(), 0x41);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 2);
 }
 
@@ -435,7 +431,7 @@ fn test_ei() {
     };
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Pending);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -451,10 +447,10 @@ fn test_ei_di_rapid() {
     };
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Pending);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Disabled);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(bus.cycles, 2);
 }
 
@@ -468,10 +464,10 @@ fn test_ei_sequence() {
     };
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Pending);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Enabled);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
 }
 
 #[test]
@@ -480,11 +476,11 @@ fn test_halt() {
     let mut bus = MockBus::new(vec![0x76; 1]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert!(cpu.is_halted);
 
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1, "HALT should not change PC");
+    assert_eq!(cpu.r.pc, 1, "HALT should not change PC");
     assert_eq!(bus.cycles, 3);
 }
 
@@ -508,16 +504,16 @@ fn test_halt_bug() {
 
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert!(cpu.is_halted, "CPU should be halted normally");
 
     cpu.step(&mut bus);
     assert!(!cpu.is_halted, "CPU should be woken up due to pending IRQ");
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(cpu.r.b, 0x06, "B should be 6");
 
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 3);
+    assert_eq!(cpu.r.pc, 3);
     assert_eq!(cpu.r.b, 0x07, "B should be 7");
 }
 
@@ -528,7 +524,7 @@ fn test_inc_b_no_overflow() {
     let mut cpu = CPU::default();
     cpu.r.b = 0x00;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.b, 0x01);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 1);
@@ -541,7 +537,7 @@ fn test_inc_b_overflow() {
     let mut cpu = CPU::default();
     cpu.r.b = 0b1111_1111;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.b, 0b0000_0000);
     assert_flags(cpu.r.f, true, false, true, false);
     assert_eq!(bus.cycles, 1);
@@ -554,7 +550,7 @@ fn test_inc_b_half_carry() {
     let mut cpu = CPU::default();
     cpu.r.b = 0b0000_1111;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(cpu.r.b, 0b0001_0000);
     assert_flags(cpu.r.f, false, false, true, false);
     assert_eq!(bus.cycles, 1);
@@ -568,7 +564,7 @@ fn test_inc_de() {
     cpu.r.set_de(0x01);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.get_de(), 0x02);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 2);
 }
 
@@ -580,7 +576,7 @@ fn test_inc_hl() {
     cpu.r.set_hl(0x01);
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x01), 0x04);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 4);
 }
@@ -595,7 +591,7 @@ fn test_jr_s8_neg_offset() {
     }
     // At this point 7 byte have been consumed.
     // pc must be 7 - 5 (offset)
-    assert_eq!(cpu.pc, 0x02);
+    assert_eq!(cpu.r.pc, 0x02);
     assert_eq!(bus.cycles, 8);
 }
 
@@ -605,7 +601,7 @@ fn test_jr_s8_pos_offset() {
     let mut bus = MockBus::new(vec![0x18, 0x03]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 0x05);
+    assert_eq!(cpu.r.pc, 0x05);
     assert_eq!(bus.cycles, 3);
 }
 
@@ -616,7 +612,7 @@ fn test_jr_nz_s8_no_jump() {
     let mut cpu = CPU::default();
     cpu.r.f.insert(FlagsRegister::ZERO);
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(bus.cycles, 2);
 }
 
@@ -626,7 +622,7 @@ fn test_jp_a16_jump() {
     let mut bus = MockBus::new(vec![0xc3, 0x01, 0x02]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 0x0201);
+    assert_eq!(cpu.r.pc, 0x0201);
     assert_eq!(bus.cycles, 4);
 }
 
@@ -637,7 +633,7 @@ fn test_jp_nc_no_jump() {
     let mut cpu = CPU::default();
     cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 3);
+    assert_eq!(cpu.r.pc, 3);
     assert_eq!(bus.cycles, 3);
 }
 
@@ -649,7 +645,7 @@ fn test_ld_c_a() {
     cpu.r.a = 0x42;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.c, 0x42);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -660,7 +656,7 @@ fn test_ld_bc_d16() {
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
     assert_eq!(cpu.r.get_bc(), 0x0042);
-    assert_eq!(cpu.pc, 3);
+    assert_eq!(cpu.r.pc, 3);
     assert_eq!(bus.cycles, 3);
 }
 
@@ -671,7 +667,7 @@ fn test_ld_a_a16() {
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x03);
-    assert_eq!(cpu.pc, 3);
+    assert_eq!(cpu.r.pc, 3);
     assert_eq!(bus.cycles, 4);
 }
 
@@ -683,7 +679,7 @@ fn test_ld_hl_d8() {
     cpu.r.set_hl(0x02);
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x02), 0x42);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(bus.cycles, 4);
 }
 
@@ -697,7 +693,7 @@ fn test_ld_hl_plus_a() {
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x02), 0x42);
     assert_eq!(cpu.r.get_hl(), 0x03);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 3);
 }
 
@@ -711,7 +707,7 @@ fn test_ld_hl_minus_a() {
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x02), 0x42);
     assert_eq!(cpu.r.get_hl(), 0x01);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 3);
 }
 
@@ -723,7 +719,7 @@ fn test_ld_a16_a() {
     cpu.r.a = 0x42;
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x0005), 0x42);
-    assert_eq!(cpu.pc, 3);
+    assert_eq!(cpu.r.pc, 3);
     assert_eq!(bus.cycles, 5);
 }
 
@@ -736,7 +732,7 @@ fn test_ld_a_hl_plus() {
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x11);
     assert_eq!(cpu.r.get_hl(), 0x03);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 2);
 }
 
@@ -749,7 +745,7 @@ fn test_ld_a_hl_minus() {
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x11);
     assert_eq!(cpu.r.get_hl(), 0x01);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 2);
 }
 
@@ -757,14 +753,12 @@ fn test_ld_a_hl_minus() {
 fn test_ld_a16_sp() {
     // LD (a16), SP
     let mut bus = MockBus::new(vec![0x08, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00]);
-    let mut cpu = CPU {
-        sp: 0xdead,
-        ..Default::default()
-    };
+    let mut cpu = CPU::default();
+    cpu.r.sp = 0xdead;
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x0005), 0xad);
     assert_eq!(bus.cycle_read(0x0006), 0xde);
-    assert_eq!(cpu.pc, 3);
+    assert_eq!(cpu.r.pc, 3);
     assert_eq!(bus.cycles, 7);
 }
 
@@ -772,14 +766,12 @@ fn test_ld_a16_sp() {
 fn test_ld_hl_sp_s8_pos() {
     // LD HL, SP+s8
     let mut bus = MockBus::new(vec![0xf8, 0x01]);
-    let mut cpu = CPU {
-        sp: 0x0001,
-        ..Default::default()
-    };
+    let mut cpu = CPU::default();
+    cpu.r.sp = 0x0001;
     cpu.step(&mut bus);
-    assert_eq!(cpu.sp, 0x0001);
+    assert_eq!(cpu.r.sp, 0x0001);
     assert_eq!(cpu.r.get_hl(), 0x0002);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(bus.cycles, 3);
 }
 
@@ -788,14 +780,12 @@ fn test_ld_hl_sp_s8_neg() {
     // LD HL, SP+s8
     let value = -1i8;
     let mut bus = MockBus::new(vec![0xf8, value as u8]);
-    let mut cpu = CPU {
-        sp: 0x0009,
-        ..Default::default()
-    };
+    let mut cpu = CPU::default();
+    cpu.r.sp = 0x0009;
     cpu.step(&mut bus);
-    assert_eq!(cpu.sp, 0x0009);
+    assert_eq!(cpu.r.sp, 0x0009);
     assert_eq!(cpu.r.get_hl(), 0x0008);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(bus.cycles, 3);
 }
 
@@ -805,7 +795,7 @@ fn test_nop() {
     let mut bus = MockBus::new(vec![0x00; 1]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -818,7 +808,7 @@ fn test_or_a_c_non_zero() {
     cpu.r.c = 0x03;
     cpu.step(&mut bus);
     assert_flags(cpu.r.f, false, false, false, false);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -831,7 +821,7 @@ fn test_or_a_c_zero() {
     cpu.r.c = 0x00;
     cpu.step(&mut bus);
     assert_flags(cpu.r.f, true, false, false, false);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -843,7 +833,7 @@ fn test_res_4_l() {
     cpu.r.l = 0b1111_1111;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.l, 0b1110_1111);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(bus.cycles, 2);
 }
 
@@ -853,10 +843,10 @@ fn test_ret_z_jump() {
     let mut bus = MockBus::new(vec![0xc8, 0x00, 0x22, 0x33]);
     let mut cpu = CPU::default();
     cpu.r.f.insert(FlagsRegister::ZERO);
-    cpu.sp = 0x0002;
+    cpu.r.sp = 0x0002;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 0x3322);
-    assert_eq!(cpu.sp, 0x0004);
+    assert_eq!(cpu.r.pc, 0x3322);
+    assert_eq!(cpu.r.sp, 0x0004);
     assert_eq!(bus.cycles, 5);
 }
 
@@ -866,10 +856,10 @@ fn test_ret_z_no_jump() {
     let mut bus = MockBus::new(vec![0xc8, 0x00, 0x22, 0x33]);
     let mut cpu = CPU::default();
     cpu.r.f.remove(FlagsRegister::ZERO);
-    cpu.sp = 0x0002;
+    cpu.r.sp = 0x0002;
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
-    assert_eq!(cpu.sp, 0x0002);
+    assert_eq!(cpu.r.pc, 1);
+    assert_eq!(cpu.r.sp, 0x0002);
     assert_eq!(bus.cycles, 2);
 }
 
@@ -881,7 +871,7 @@ fn test_rlca() {
     cpu.r.a = 0b1011_0110;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b0110_1101);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 1);
 }
@@ -890,14 +880,11 @@ fn test_rlca() {
 fn test_reti() {
     // RETI
     let mut bus = MockBus::new(vec![0xd9, 0x34, 0x12]);
-    let mut cpu = CPU {
-        ime: ImeState::Disabled,
-        sp: 0x0001,
-        ..Default::default()
-    };
+    let mut cpu = CPU::default();
+    cpu.r.sp = 0x0001;
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Enabled);
-    assert_eq!(cpu.pc, 0x1234);
+    assert_eq!(cpu.r.pc, 0x1234);
     assert_eq!(bus.cycles, 4);
 }
 
@@ -910,7 +897,7 @@ fn test_rr_c_non_zero() {
     cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.c, 0b1011_0001);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 2);
 }
@@ -924,7 +911,7 @@ fn test_rr_c_zero() {
     cpu.r.f.remove(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.c, 0x00);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -937,7 +924,7 @@ fn test_rl_c() {
     cpu.r.c = 0b0110_0011;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.c, 0b1100_0110);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -951,7 +938,7 @@ fn test_rl_e_non_zero() {
     cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.e, 0b1100_0111);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -965,7 +952,7 @@ fn test_rl_e_zero() {
     cpu.r.f.remove(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.e, 0);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -979,7 +966,7 @@ fn test_rla_non_zero() {
     cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b1100_0111);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -993,7 +980,7 @@ fn test_rla_zero() {
     cpu.r.f.remove(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -1006,7 +993,7 @@ fn test_rlc_d() {
     cpu.r.d = 0b0110_0011;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.d, 0b1100_0110);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1019,7 +1006,7 @@ fn test_rra() {
     cpu.r.a = 0b0110_0011;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b0011_0001);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 1);
 }
@@ -1032,7 +1019,7 @@ fn test_rrc_l_non_zero() {
     cpu.r.l = 0b0110_0011;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.l, 0b1011_0001);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 2);
 }
@@ -1045,7 +1032,7 @@ fn test_rrc_l_zero() {
     cpu.r.l = 0;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.l, 0);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1058,7 +1045,7 @@ fn test_rrca() {
     cpu.r.a = 0b0110_0011;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b1011_0001);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 1);
 }
@@ -1076,16 +1063,16 @@ fn test_rst_00h() {
     let mut bus = MockBus::new(vec![0x04, 0xc9, 0x00, 0xC7, 0x0C, 0x00, 0x00, 0x00]);
     let mut cpu = CPU::default();
 
-    assert_eq!(cpu.sp, 0);
-    cpu.pc = 0x02;
-    cpu.sp = 0x07;
+    assert_eq!(cpu.r.sp, 0);
+    cpu.r.pc = 0x02;
+    cpu.r.sp = 0x07;
 
     for _ in 0..5 {
         cpu.step(&mut bus);
     }
     assert_eq!(cpu.r.b, 0x01);
     assert_eq!(cpu.r.c, 0x01);
-    assert_eq!(cpu.pc, 0x05);
+    assert_eq!(cpu.r.pc, 0x05);
     assert_eq!(bus.cycles, 11);
 }
 
@@ -1098,7 +1085,7 @@ fn test_sbc_a_d8_carry() {
     cpu.r.f.insert(FlagsRegister::CARRY);
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b1111_1100);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, true, true, true);
     assert_eq!(bus.cycles, 2);
 }
@@ -1111,7 +1098,7 @@ fn test_sbc_a_d8_no_carry() {
     cpu.r.a = 0b0001_0000;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b0000_1100);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, true, true, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1122,7 +1109,7 @@ fn test_scf() {
     let mut bus = MockBus::new(vec![0x37; 1]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 1);
 }
@@ -1135,7 +1122,7 @@ fn test_set_7_hl() {
     cpu.r.set_hl(0x02);
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x02), 0b10000010);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_eq!(bus.cycles, 5);
 }
 
@@ -1147,7 +1134,7 @@ fn test_sla_a_non_zero() {
     cpu.r.a = 0b0110_0011;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b1100_0110);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1160,7 +1147,7 @@ fn test_sla_a_zero() {
     cpu.r.a = 0;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1173,7 +1160,7 @@ fn test_sra_e_non_zero() {
     cpu.r.e = 0b0110_0011;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.e, 0b0011_0001);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 2);
 }
@@ -1186,7 +1173,7 @@ fn test_rsa_e_zero() {
     cpu.r.e = 0;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.e, 0);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1199,7 +1186,7 @@ fn test_srl_b_non_zero() {
     cpu.r.b = 0b0110_0011;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.b, 0b0011_0001);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, true);
     assert_eq!(bus.cycles, 2);
 }
@@ -1212,7 +1199,7 @@ fn test_srl_b_zero() {
     cpu.r.b = 0x00;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.b, 0x00);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1223,7 +1210,7 @@ fn test_stop() {
     let mut bus = MockBus::new(vec![0x10]);
     let mut cpu = CPU::default();
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 1);
 }
 
@@ -1236,7 +1223,7 @@ fn test_sub_h_non_zero() {
     cpu.r.h = 0x01;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x01);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, true, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -1250,7 +1237,7 @@ fn test_sub_h_zero() {
     cpu.r.h = 0x02;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x00);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, true, true, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -1263,7 +1250,7 @@ fn test_swap_a_non_zero() {
     cpu.r.a = 0b1011_1010;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0b1010_1011);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1276,7 +1263,7 @@ fn test_swap_a_zero() {
     cpu.r.a = 0;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0);
-    assert_eq!(cpu.pc, 2);
+    assert_eq!(cpu.r.pc, 2);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 2);
 }
@@ -1285,14 +1272,12 @@ fn test_swap_a_zero() {
 fn test_pop_hl() {
     // POP HL
     let mut bus = MockBus::new(vec![0xe1, 0x11, 0x22]);
-    let mut cpu = CPU {
-        sp: 0x0001,
-        ..Default::default()
-    };
+    let mut cpu = CPU::default();
+    cpu.r.sp = 0x0001;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.get_hl(), 0x2211);
-    assert_eq!(cpu.sp, 0x0003);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.sp, 0x0003);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 3);
 }
 
@@ -1302,11 +1287,11 @@ fn test_push_af() {
     let mut bus = MockBus::new(vec![0xf5, 0x00, 0x00, 0x00]);
     let mut cpu = CPU::default();
     cpu.r.set_af(0xff);
-    cpu.sp = 0x03;
+    cpu.r.sp = 0x03;
     cpu.step(&mut bus);
     assert_eq!(bus.cycle_read(0x01), 0xf0);
     assert_eq!(bus.cycle_read(0x02), 0x00);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_eq!(bus.cycles, 6);
 }
 
@@ -1319,7 +1304,7 @@ fn test_xor_a_c_non_zero() {
     cpu.r.c = 0x90;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0xd2);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, false, false, false, false);
     assert_eq!(bus.cycles, 1);
 }
@@ -1333,7 +1318,7 @@ fn test_xor_a_c_zero() {
     cpu.r.c = 0x90;
     cpu.step(&mut bus);
     assert_eq!(cpu.r.a, 0x00);
-    assert_eq!(cpu.pc, 1);
+    assert_eq!(cpu.r.pc, 1);
     assert_flags(cpu.r.f, true, false, false, false);
     assert_eq!(bus.cycles, 1);
 }

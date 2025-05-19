@@ -1,6 +1,8 @@
 /// Holds all CPU registers
 #[derive(Copy, Clone)]
 pub struct Registers {
+    pub pc: u16,
+    pub sp: u16,
     pub a: u8,
     pub b: u8,
     pub c: u8,
@@ -61,6 +63,8 @@ impl Default for Registers {
     #[inline]
     fn default() -> Self {
         Self {
+            pc: 0x0000,
+            sp: 0x0000,
             a: 0,
             b: 0,
             c: 0,

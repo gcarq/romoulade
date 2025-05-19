@@ -2,11 +2,11 @@ mod disasm;
 
 mod registers;
 
-use crate::gb::FrontendMessage;
-use crate::gb::cpu::CPU;
 use crate::gb::cpu::instruction::Instruction;
+use crate::gb::cpu::CPU;
 use crate::gb::debugger::bus::DebugBus;
 use crate::gb::debugger::{DebugMessage, FrontendDebugMessage};
+use crate::gb::FrontendMessage;
 use crate::gui::debugger::disasm::Disassembler;
 use crate::gui::debugger::registers::Registers;
 use egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};
@@ -120,7 +120,7 @@ impl DebuggerFrontend {
     /// Handles the given `EmulatorDebugMessage` message from the emulator.
     #[inline]
     pub fn handle_message(&mut self, msg: DebugMessage) {
-        let pc = msg.cpu.pc;
+        let pc = msg.cpu.r.pc;
         self.disassembler.scroll_to_address(pc);
         self.state = Some(EmulatorState::new(msg.cpu, msg.bus));
     }

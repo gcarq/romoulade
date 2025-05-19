@@ -29,8 +29,6 @@ pub enum ImeState {
 pub struct CPU {
     pub r: Registers,  // CPU registers
     pub ime: ImeState, // Interrupt Master Enable
-    pub pc: u16,       // Program counter
-    pub sp: u16,       // Stack Pointer
     pub is_halted: bool,
     // Indicates whether the HALT bug has been triggered.
     // See https://gbdev.io/pandocs/halt.html#halt-bug
@@ -60,19 +58,19 @@ impl CPU {
             _ => {}
         }
 
-        let opcode = bus.cycle_read(self.pc);
+        let opcode = bus.cycle_read(self.r.pc);
         // If the HALT bug is triggered, the PC is not incremented correctly
         // and the next byte gets read twice.
         if self.halt_bug {
             self.halt_bug = false;
         } else {
-            self.pc += 1;
+            self.r.pc += 1;
         }
 
         // Parse instruction from the given opcode, execute it and update program counter
-        let (instruction, address) = Instruction::from_opcode(opcode, self.pc, bus);
-        self.pc = address;
-        self.pc = self.execute(instruction, bus);
+        let (instruction, address) = Instruction::from_opcode(opcode, self.r.pc, bus);
+        self.r.pc = address;
+        self.r.pc = self.execute(instruction, bus);
     }
 
     /// Executes the given instruction, advances the internal clock
@@ -128,7 +126,7 @@ impl CPU {
             XOR(source) => self.handle_xor(source, bus),
             Illegal(opcode) => {
                 eprintln!("WARNING: Illegal opcode: {opcode:#04x}");
-                self.pc
+                self.r.pc
             }
         }
     }
@@ -136,21 +134,21 @@ impl CPU {
     /// Push an u16 value onto the stack.
     pub fn push<T: Bus>(&mut self, value: u16, bus: &mut T) {
         bus.cycle();
-        self.sp = self.sp.wrapping_sub(1);
+        self.r.sp = self.r.sp.wrapping_sub(1);
         // Write the most significant byte
-        bus.cycle_write(self.sp, (value >> 8) as u8);
-        self.sp = self.sp.wrapping_sub(1);
+        bus.cycle_write(self.r.sp, (value >> 8) as u8);
+        self.r.sp = self.r.sp.wrapping_sub(1);
         // Write the least significant byte
-        bus.cycle_write(self.sp, value as u8);
+        bus.cycle_write(self.r.sp, value as u8);
     }
 
     /// Pop an u16 value from the stack.
     fn pop<T: Bus>(&mut self, bus: &mut T) -> u16 {
-        let low = u16::from(bus.cycle_read(self.sp));
-        self.sp = self.sp.wrapping_add(1);
+        let low = u16::from(bus.cycle_read(self.r.sp));
+        self.r.sp = self.r.sp.wrapping_add(1);
 
-        let high = u16::from(bus.cycle_read(self.sp));
-        self.sp = self.sp.wrapping_add(1);
+        let high = u16::from(bus.cycle_read(self.r.sp));
+        self.r.sp = self.r.sp.wrapping_add(1);
 
         (high << 8) | low
     }
@@ -169,7 +167,7 @@ impl CPU {
             did_overflow,
         );
         self.r.a = new_value;
-        self.pc
+        self.r.pc
     }
 
     /// Handles ADD HL, nn instructions
@@ -184,15 +182,15 @@ impl CPU {
         self.r.f.set(FlagsRegister::CARRY, overflow);
         self.r.set_hl(result);
         bus.cycle();
-        self.pc
+        self.r.pc
     }
 
     /// Handles ADD SP, i8 instruction
     fn handle_add_sp<T: Bus>(&mut self, value: i8, bus: &mut T) -> u16 {
-        let sp = self.sp as i32;
+        let sp = self.r.sp as i32;
         let byte = value as i32;
         let result = sp.wrapping_add(byte);
-        self.sp = result as u16;
+        self.r.sp = result as u16;
 
         // Carry and half carry are for the low byte
         let half_carry = (sp ^ byte ^ result) & 0b0001_0000 != 0;
@@ -200,7 +198,7 @@ impl CPU {
         self.r.f.update(false, false, half_carry, carry);
         bus.cycle();
         bus.cycle();
-        self.pc
+        self.r.pc
     }
 
     /// Handles ADC instructions
@@ -218,7 +216,7 @@ impl CPU {
         carry |= overflow;
         self.r.f.update(result == 0, false, half_carry, carry);
         self.r.a = result;
-        self.pc
+        self.r.pc
     }
 
     /// Handles AND instructions
@@ -227,7 +225,7 @@ impl CPU {
         let value = source.read(self, bus);
         self.r.a &= value;
         self.r.f.update(self.r.a == 0, false, true, false);
-        self.pc
+        self.r.pc
     }
 
     /// Handles BIT instructions
@@ -238,16 +236,16 @@ impl CPU {
             .set(FlagsRegister::ZERO, !utils::bit_at(value, bit));
         self.r.f.remove(FlagsRegister::SUBTRACTION);
         self.r.f.insert(FlagsRegister::HALF_CARRY);
-        self.pc
+        self.r.pc
     }
 
     /// Handle CALL instructions
     fn handle_call<T: Bus>(&mut self, test: JumpCondition, address: u16, bus: &mut T) -> u16 {
         if test.resolve(self) {
-            self.push(self.pc, bus);
+            self.push(self.r.pc, bus);
             address
         } else {
-            self.pc
+            self.r.pc
         }
     }
 
@@ -257,7 +255,7 @@ impl CPU {
         self.r.f.remove(FlagsRegister::SUBTRACTION);
         self.r.f.remove(FlagsRegister::HALF_CARRY);
         self.r.f.toggle(FlagsRegister::CARRY);
-        self.pc
+        self.r.pc
     }
 
     /// Handles CP instructions
@@ -274,7 +272,7 @@ impl CPU {
             .f
             .set(FlagsRegister::CARRY, result & 0b1_0000_0000 != 0);
         self.r.f.insert(FlagsRegister::SUBTRACTION);
-        self.pc
+        self.r.pc
     }
 
     /// Handles CPL instruction
@@ -283,7 +281,7 @@ impl CPU {
         self.r.a = !self.r.a;
         self.r.f.insert(FlagsRegister::SUBTRACTION);
         self.r.f.insert(FlagsRegister::HALF_CARRY);
-        self.pc
+        self.r.pc
     }
 
     /// Handles DAA instruction
@@ -306,7 +304,7 @@ impl CPU {
         }
         self.r.f.set(FlagsRegister::ZERO, self.r.a == 0);
         self.r.f.remove(FlagsRegister::HALF_CARRY);
-        self.pc
+        self.r.pc
     }
 
     /// Handles DEC instructions for bytes
@@ -319,7 +317,7 @@ impl CPU {
             .set(FlagsRegister::HALF_CARRY, value.trailing_zeros() >= 4);
         self.r.f.set(FlagsRegister::ZERO, result == 0);
         self.r.f.insert(FlagsRegister::SUBTRACTION);
-        self.pc
+        self.r.pc
     }
 
     /// Handles DEC instructions for words
@@ -328,14 +326,14 @@ impl CPU {
         let result = value.wrapping_sub(1);
         target.write(self, result);
         bus.cycle();
-        self.pc
+        self.r.pc
     }
 
     /// Handles DI instruction
     #[inline]
     const fn handle_di(&mut self) -> u16 {
         self.ime = ImeState::Disabled;
-        self.pc
+        self.r.pc
     }
 
     /// Handles EI instruction
@@ -344,7 +342,7 @@ impl CPU {
         if self.ime == ImeState::Disabled {
             self.ime = ImeState::Pending;
         }
-        self.pc
+        self.r.pc
     }
 
     /// Handles the HALT instruction.
@@ -352,12 +350,12 @@ impl CPU {
         self.is_halted = true;
         if !bus.has_irq() {
             bus.cycle();
-            return self.pc;
+            return self.r.pc;
         }
         if self.ime != ImeState::Enabled {
             self.halt_bug = true;
         }
-        self.pc
+        self.r.pc
     }
 
     /// Handles INC instructions for bytes
@@ -370,7 +368,7 @@ impl CPU {
             .set(FlagsRegister::HALF_CARRY, value & 0b1111 == 0b1111);
         self.r.f.set(FlagsRegister::ZERO, result == 0);
         self.r.f.remove(FlagsRegister::SUBTRACTION);
-        self.pc
+        self.r.pc
     }
 
     /// Handles INC instructions for words
@@ -379,16 +377,16 @@ impl CPU {
         let result = value.wrapping_add(1);
         target.write(self, result);
         bus.cycle();
-        self.pc
+        self.r.pc
     }
 
     /// Handles JR instructions
     fn handle_jr<T: Bus>(&mut self, test: JumpCondition, offset: i8, bus: &mut T) -> u16 {
         if test.resolve(self) {
             bus.cycle();
-            (self.pc as i32).wrapping_add(offset as i32) as u16
+            (self.r.pc as i32).wrapping_add(offset as i32) as u16
         } else {
-            self.pc
+            self.r.pc
         }
     }
 
@@ -401,7 +399,7 @@ impl CPU {
             }
             addr
         } else {
-            self.pc
+            self.r.pc
         }
     }
 
@@ -435,7 +433,7 @@ impl CPU {
                 self.r.set_hl(addr.wrapping_sub(1));
             }
             Load::IndirectFromSP(target) => {
-                let value = self.sp;
+                let value = self.r.sp;
                 let address = target.resolve(self);
                 bus.cycle_write(address, value as u8);
                 bus.cycle_write(address + 1, (value >> 8) as u8);
@@ -451,7 +449,7 @@ impl CPU {
                 self.r.set_hl(addr.wrapping_sub(1));
             }
             Load::HLFromSPi8(value) => {
-                let sp = self.sp as i32;
+                let sp = self.r.sp as i32;
                 let nn = value as i32;
 
                 let result = sp.wrapping_add(nn);
@@ -462,13 +460,13 @@ impl CPU {
                 bus.cycle();
             }
         }
-        self.pc
+        self.r.pc
     }
 
     /// Handles NOP instruction
     #[inline]
     const fn handle_nop(&mut self) -> u16 {
-        self.pc
+        self.r.pc
     }
 
     /// Handles OR instructions
@@ -477,7 +475,7 @@ impl CPU {
         let value = source.read(self, bus);
         self.r.a |= value;
         self.r.f.update(self.r.a == 0, false, false, false);
-        self.pc
+        self.r.pc
     }
 
     /// Handles POP instruction
@@ -485,7 +483,7 @@ impl CPU {
     fn handle_pop<T: Bus>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
         let word = self.pop(bus);
         target.write(self, word);
-        self.pc
+        self.r.pc
     }
 
     /// Handles PUSH instruction
@@ -493,7 +491,7 @@ impl CPU {
     fn handle_push<T: Bus>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
         let word = target.read(self);
         self.push(word, bus);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RES instructions
@@ -502,7 +500,7 @@ impl CPU {
         let value = target.read(self, bus);
         let result = utils::set_bit(value, bit, false);
         target.write(self, bus, result);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RET instruction
@@ -515,7 +513,7 @@ impl CPU {
             bus.cycle();
             addr
         } else {
-            self.pc
+            self.r.pc
         }
     }
 
@@ -538,7 +536,7 @@ impl CPU {
         let result = (value << 1) | self.r.f.contains(FlagsRegister::CARRY) as u8;
         self.r.f.update(result == 0, false, false, carry);
         target.write(self, bus, result);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RLA instruction
@@ -549,7 +547,7 @@ impl CPU {
         let carry = self.r.a & 0b1000_0000 != 0;
         self.r.a = (self.r.a << 1) | self.r.f.contains(FlagsRegister::CARRY) as u8;
         self.r.f.update(false, false, false, carry);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RLC instructions
@@ -561,7 +559,7 @@ impl CPU {
         let result = (value << 1) | carry as u8;
         self.r.f.update(result == 0, false, false, carry);
         target.write(self, bus, result);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RLCA instruction
@@ -570,7 +568,7 @@ impl CPU {
         let carry = self.r.a & 0b1000_0000 != 0;
         self.r.a = (self.r.a << 1) | carry as u8;
         self.r.f.update(false, false, false, carry);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RR instructions
@@ -580,7 +578,7 @@ impl CPU {
         let result = (value >> 1) | (u8::from(self.r.f.contains(FlagsRegister::CARRY)) << 7);
         target.write(self, bus, result);
         self.r.f.update(result == 0, false, false, carry);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RRA instruction
@@ -589,7 +587,7 @@ impl CPU {
         let carry = self.r.a & 0x01 != 0;
         self.r.a = (self.r.a >> 1) | (u8::from(self.r.f.contains(FlagsRegister::CARRY)) << 7);
         self.r.f.update(false, false, false, carry);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RRC instructions
@@ -600,7 +598,7 @@ impl CPU {
         let result = (value >> 1) | (carry << 7);
         self.r.f.update(result == 0, false, false, carry != 0);
         target.write(self, bus, result);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RRCA instruction
@@ -609,13 +607,13 @@ impl CPU {
         let carry = self.r.a & 0b0000_0001;
         self.r.a = (self.r.a >> 1) | (carry << 7);
         self.r.f.update(false, false, false, carry != 0);
-        self.pc
+        self.r.pc
     }
 
     /// Handles RST instructions
     #[inline]
     fn handle_rst<T: Bus>(&mut self, code: ResetCode, bus: &mut T) -> u16 {
-        self.push(self.pc, bus);
+        self.push(self.r.pc, bus);
         code as u16
     }
 
@@ -633,7 +631,7 @@ impl CPU {
             (a ^ value ^ result) & 0b0001_0000 != 0,
             result & 0b1_0000_0000 != 0,
         );
-        self.pc
+        self.r.pc
     }
 
     /// Handles SCF instruction
@@ -642,7 +640,7 @@ impl CPU {
         self.r.f.remove(FlagsRegister::SUBTRACTION);
         self.r.f.remove(FlagsRegister::HALF_CARRY);
         self.r.f.insert(FlagsRegister::CARRY);
-        self.pc
+        self.r.pc
     }
 
     /// Handles SET instructions
@@ -650,7 +648,7 @@ impl CPU {
         let value = target.read(self, bus);
         let result = utils::set_bit(value, bit, true);
         target.write(self, bus, result);
-        self.pc
+        self.r.pc
     }
 
     /// Handles SLA instructions
@@ -660,7 +658,7 @@ impl CPU {
         let result = value << 1;
         self.r.f.update(result == 0, false, false, carry);
         target.write(self, bus, result);
-        self.pc
+        self.r.pc
     }
 
     /// Handles SRA instructions
@@ -670,7 +668,7 @@ impl CPU {
         let result = (value >> 1) | (value & 0b1000_0000);
         self.r.f.update(result == 0, false, false, carry);
         target.write(self, bus, result);
-        self.pc
+        self.r.pc
     }
 
     /// Handles SRL instructions
@@ -680,13 +678,13 @@ impl CPU {
         let result = value >> 1;
         target.write(self, bus, result);
         self.r.f.update(result == 0, false, false, carry);
-        self.pc
+        self.r.pc
     }
 
     /// Handles STOP instruction
     fn handle_stop(&mut self) -> u16 {
         eprintln!("WARNING: STOP instruction not implemented");
-        self.pc
+        self.r.pc
     }
 
     /// Handles SUB instructions
@@ -701,7 +699,7 @@ impl CPU {
         let carry = carry_bits & 0b1_0000_0000 != 0;
         self.r.f.update(result == 0, true, half_carry, carry);
         self.r.a = result as u8;
-        self.pc
+        self.r.pc
     }
 
     /// Handles SWAP instructions
@@ -710,7 +708,7 @@ impl CPU {
         let value = target.read(self, bus);
         self.r.f.update(value == 0, false, false, false);
         target.write(self, bus, value.rotate_right(4));
-        self.pc
+        self.r.pc
     }
 
     /// Handles XOR instructions
@@ -719,6 +717,6 @@ impl CPU {
         let value = source.read(self, bus);
         self.r.a ^= value;
         self.r.f.update(self.r.a == 0, false, false, false);
-        self.pc
+        self.r.pc
     }
 }

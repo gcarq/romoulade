@@ -84,7 +84,7 @@ fn test_boot_rom() {
     let mut cpu = CPU::default();
     let mut bus = MainBus::with_cartridge(cartridge, None);
 
-    while cpu.pc < BOOT_END + 1 {
+    while cpu.r.pc < BOOT_END + 1 {
         cpu.step(&mut bus);
     }
 
@@ -93,8 +93,8 @@ fn test_boot_rom() {
     assert_eq!(cpu.r.get_bc(), 0x0013, "BC is invalid");
     assert_eq!(cpu.r.get_de(), 0x00D8, "DE is invalid");
     assert_eq!(cpu.r.get_hl(), 0x014D, "HL is invalid");
-    assert_eq!(cpu.sp, 0xFFFE, "SP is invalid");
-    assert_eq!(cpu.pc, 0x0100, "PC is invalid");
+    assert_eq!(cpu.r.sp, 0xFFFE, "SP is invalid");
+    assert_eq!(cpu.r.pc, 0x0100, "PC is invalid");
     assert_eq!(cpu.ime, ImeState::Disabled, "IME should be disabled");
 }
 

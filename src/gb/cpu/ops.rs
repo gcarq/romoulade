@@ -81,7 +81,7 @@ impl WordRegister {
             WordRegister::BC => cpu.r.get_bc(),
             WordRegister::DE => cpu.r.get_de(),
             WordRegister::HL => cpu.r.get_hl(),
-            WordRegister::SP => cpu.sp,
+            WordRegister::SP => cpu.r.sp,
         }
     }
 
@@ -93,7 +93,7 @@ impl WordRegister {
             WordRegister::BC => cpu.r.set_bc(value),
             WordRegister::DE => cpu.r.set_de(value),
             WordRegister::HL => cpu.r.set_hl(value),
-            WordRegister::SP => cpu.sp = value,
+            WordRegister::SP => cpu.r.sp = value,
         }
     }
 }

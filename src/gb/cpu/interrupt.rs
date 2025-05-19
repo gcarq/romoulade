@@ -40,6 +40,6 @@ fn interrupt<T: Bus>(cpu: &mut CPU, bus: &mut T, address: u16) {
     bus.cycle();
     bus.cycle();
     // Save current execution address by pushing it onto the stack
-    cpu.push(cpu.pc, bus);
-    cpu.pc = address;
+    cpu.push(cpu.r.pc, bus);
+    cpu.r.pc = address;
 }

@@ -1,5 +1,5 @@
-use crate::gb::cpu::ImeState;
 use crate::gb::cpu::registers::FlagsRegister;
+use crate::gb::cpu::ImeState;
 use crate::gui::debugger::EmulatorState;
 use bitvec::order::Lsb0;
 use bitvec::view::BitView;
@@ -70,9 +70,9 @@ impl Registers {
 
     /// Updates the Stack Pointer (SP) and Program Counter (PC) in the UI.
     fn update_sp_pc(&self, state: &EmulatorState, ui: &mut Ui) {
-        self.draw_u16_register(ui, "SP", state.cpu.sp);
+        self.draw_u16_register(ui, "SP", state.cpu.r.sp);
         ui.separator();
-        self.draw_u16_register(ui, "PC", state.cpu.pc);
+        self.draw_u16_register(ui, "PC", state.cpu.r.pc);
     }
 
     /// Draw a boolean flag with its name and value.

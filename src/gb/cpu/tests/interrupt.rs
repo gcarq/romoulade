@@ -14,8 +14,8 @@ fn test_interrupt_ime_disabled() {
     bus.set_ie(InterruptRegister::VBLANK);
     bus.set_if(InterruptRegister::VBLANK);
     cpu.step(&mut bus);
-    assert_eq!(cpu.pc, 1);
-    assert_eq!(cpu.sp, 0);
+    assert_eq!(cpu.r.pc, 1);
+    assert_eq!(cpu.r.sp, 0);
     assert!(
         !cpu.is_halted,
         "CPU should always wake up from HALT if an interrupt is pending"
@@ -33,19 +33,16 @@ fn test_interrupt_ime_enabled() {
     ];
 
     for (irq, address) in data {
-        let mut cpu = CPU {
-            sp: 0x0002,
-            pc: 0x1234,
-            ime: ImeState::Enabled,
-            ..Default::default()
-        };
+        let mut cpu = CPU { ime: ImeState::Enabled, ..Default::default() };
+        cpu.r.sp = 0x0002;
+        cpu.r.pc = 0x1234;
         let mut bus = MockBus::new(vec![0x00; 100]);
         bus.set_ie(irq);
         bus.set_if(irq);
 
         interrupt::handle(&mut cpu, &mut bus);
 
-        assert_eq!(cpu.pc, address, "PC should be set to {address:#06x}");
+        assert_eq!(cpu.r.pc, address, "PC should be set to {address:#06x}");
         assert_eq!(
             bus.get_if(),
             InterruptRegister::empty(),
@@ -55,6 +52,6 @@ fn test_interrupt_ime_enabled() {
         assert_eq!(cpu.ime, ImeState::Disabled, "IME should be disabled");
         assert_eq!(bus.read(0x0000), 0x34, "Should contain old PC (lower bits)");
         assert_eq!(bus.read(0x0001), 0x12, "Should contain old PC (upper bits)");
-        assert_eq!(cpu.sp, 0x0000, "SP should be decremented by 2");
+        assert_eq!(cpu.r.sp, 0x0000, "SP should be decremented by 2");
     }
 }

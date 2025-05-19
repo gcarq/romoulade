@@ -1,12 +1,12 @@
-use crate::gb::Bus;
-use crate::gb::cpu::CPU;
 use crate::gb::cpu::ops::Register::{A, B, C, D, E, H, L};
 use crate::gb::cpu::ops::WordRegister::{AF, BC, DE, HL, SP};
 use crate::gb::cpu::ops::{
     ByteRef, ByteSource, ByteTarget, JumpCondition, JumpTarget, Load, ResetCode, WordSource,
 };
 use crate::gb::cpu::registers::FlagsRegister;
+use crate::gb::cpu::CPU;
 use crate::gb::tests::MockBus;
+use crate::gb::Bus;
 
 #[test]
 fn test_register_a() {
@@ -120,13 +120,11 @@ fn test_word_register_hl() {
 
 #[test]
 fn test_word_register_sp() {
-    let mut cpu = CPU {
-        sp: 0x1234,
-        ..Default::default()
-    };
+    let mut cpu = CPU::default();
+    cpu.r.sp = 0x1234;
     assert_eq!(SP.read(&cpu), 0x1234);
     SP.write(&mut cpu, 0xABCD);
-    assert_eq!(cpu.sp, 0xABCD);
+    assert_eq!(cpu.r.sp, 0xABCD);
     assert_eq!(SP.to_string(), "SP");
 }
 

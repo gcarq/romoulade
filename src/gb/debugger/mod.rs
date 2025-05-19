@@ -1,10 +1,10 @@
 pub mod bus;
 
-use crate::gb::EmulatorMessage;
 use crate::gb::bus::MainBus;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::bus::DebugBus;
+use crate::gb::EmulatorMessage;
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 
@@ -68,7 +68,7 @@ impl Debugger {
             // The frontend requested normal execution, the cpu should step until breakpoint is hit
             Some(FrontendDebugMessage::Continue) => {
                 self.step(cpu, bus);
-                if self.breakpoints.contains(&cpu.pc) {
+                if self.breakpoints.contains(&cpu.r.pc) {
                     self.send_message(DebugMessage::new(cpu, bus));
                     self.message = None;
                 }
@@ -81,7 +81,7 @@ impl Debugger {
             // The frontend requested to skip the boot ROM,
             // the cpu should step until the end of the boot ROM
             Some(FrontendDebugMessage::SkipBootRom) => {
-                if bus.is_boot_rom_active && cpu.pc == BOOT_END - 1 {
+                if bus.is_boot_rom_active && cpu.r.pc == BOOT_END - 1 {
                     self.step(cpu, bus);
                     self.send_message(DebugMessage::new(cpu, bus));
                     self.message = None;
