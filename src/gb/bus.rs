@@ -2,8 +2,8 @@ use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
 use crate::gb::joypad::Joypad;
-use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
+use crate::gb::ppu::PPU;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
 use crate::gb::{Bus, SubSystem};
@@ -56,7 +56,7 @@ impl MainBus {
     }
 
     /// Reads value from boot ROM or cartridge
-    /// depending on BOOT_ROM_OFF register
+    /// depending on `BOOT_ROM_OFF` register
     fn read_cartridge(&mut self, address: u16) -> u8 {
         match address {
             BOOT_BEGIN..=BOOT_END if self.is_boot_rom_active => BOOT_ROM[address as usize],
@@ -66,7 +66,7 @@ impl MainBus {
 
     /// Writes to Echo RAM, effectively mirroring to Working RAM
     #[inline]
-    fn write_eram(&mut self, address: u16, value: u8) {
+    const fn write_eram(&mut self, address: u16, value: u8) {
         self.eram[(address - ERAM_BEGIN) as usize] = value;
         self.wram[(address - ERAM_SIZE as u16 - WRAM_BEGIN) as usize] = value;
     }
@@ -92,7 +92,7 @@ impl MainBus {
             0xFF4F => {}                   // only used in GBC mode
             BOOT_ROM_OFF => {
                 if value > 0 {
-                    self.is_boot_rom_active = false
+                    self.is_boot_rom_active = false;
                 }
             }
             0xFF51..=0xFF56 => {}  // only used in GBC mode

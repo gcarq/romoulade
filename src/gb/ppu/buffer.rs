@@ -35,7 +35,7 @@ impl FrameBuffer {
     }
 
     #[inline]
-    fn translate_color(&self, color: ColoredPixel) -> Color32 {
+    const fn translate_color(&self, color: ColoredPixel) -> Color32 {
         match color {
             ColoredPixel::White => Color32::from_rgb(0xff, 0xff, 0xff),
             ColoredPixel::LightGrey => Color32::from_rgb(0xab, 0xab, 0xab),

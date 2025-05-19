@@ -122,10 +122,10 @@ pub struct Sprite {
 
 impl Sprite {
     #[inline]
-    pub fn new(y: u8, x: u8, tile_index: u8, attrs: SpriteAttributes) -> Self {
+    pub const fn new(y: u8, x: u8, tile_index: u8, attrs: SpriteAttributes) -> Self {
         Self {
-            y,
             x,
+            y,
             tile_index,
             attrs,
         }

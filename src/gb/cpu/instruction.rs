@@ -1,7 +1,6 @@
 use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::ops::*;
 
-use crate::gb::Bus;
 use crate::gb::cpu::ops::JumpCondition::{Always, Carry, NotCarry, NotZero, Zero};
 use crate::gb::cpu::ops::Load::{
     Byte, HLFromSPi8, HLIFromADec, HLIFromAInc, HLIToADec, HLIToAInc, IndirectFrom, IndirectFromSP,
@@ -10,6 +9,7 @@ use crate::gb::cpu::ops::Load::{
 use crate::gb::cpu::ops::Register::{A, B, C, D, E, H, L};
 use crate::gb::cpu::ops::ResetCode::{RST00, RST08, RST10, RST18, RST20, RST28, RST30, RST38};
 use crate::gb::cpu::ops::WordRegister::{AF, BC, DE, HL, SP};
+use crate::gb::Bus;
 use std::fmt;
 
 const OPCODE_PREFIX_16BIT: u8 = 0xCB;
@@ -80,7 +80,7 @@ impl Instruction {
 
     /// Creates a new prefixed `Instruction` from the given opcode,
     /// the passed address is the next address after the opcode.
-    fn prefixed(opcode: u8) -> Instruction {
+    const fn prefixed(opcode: u8) -> Instruction {
         match opcode {
             0x00 => RLC(ByteTarget::R(B)),
             0x01 => RLC(ByteTarget::R(C)),

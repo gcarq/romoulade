@@ -1,6 +1,6 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::ColoredPixel;
-use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage, GBResult};
+use crate::gb::{EmulatorMessage, DISPLAY_REFRESH_RATE};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
@@ -14,12 +14,12 @@ pub struct Display {
 
 impl Display {
     /// Creates a new display with the given int upscale.
-    pub fn new(sender: Sender<EmulatorMessage>, upscale: usize) -> GBResult<Self> {
-        Ok(Self {
+    pub fn new(sender: Sender<EmulatorMessage>, upscale: usize) -> Self {
+        Self {
             sender,
             buffer: FrameBuffer::new(upscale),
             frame_limiter: FrameLimiter::new(DISPLAY_REFRESH_RATE),
-        })
+        }
     }
 
     /// Sends the current frame to the frontend and syncs the frame rate.

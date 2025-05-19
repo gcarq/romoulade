@@ -3,7 +3,7 @@ use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::ops::WordRegister::HL;
 use crate::gb::cpu::ops::*;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::{Bus, utils};
+use crate::gb::{utils, Bus};
 use registers::Registers;
 
 pub mod instruction;
@@ -126,10 +126,10 @@ impl CPU {
 
     /// Pop an u16 value from the stack.
     fn pop<T: Bus>(&mut self, bus: &mut T) -> u16 {
-        let low = bus.cycle_read(self.sp) as u16;
+        let low = u16::from(bus.cycle_read(self.sp));
         self.sp = self.sp.wrapping_add(1);
 
-        let high = bus.cycle_read(self.sp) as u16;
+        let high = u16::from(bus.cycle_read(self.sp));
         self.sp = self.sp.wrapping_add(1);
 
         (high << 8) | low
@@ -343,33 +343,31 @@ impl CPU {
 
     /// Handles EI and DI instructions
     #[inline]
-    fn handle_interrupt(&mut self, state: ImeState) -> u16 {
+    const fn handle_interrupt(&mut self, state: ImeState) -> u16 {
         self.ime = state;
         self.pc
     }
 
     /// Handles JR instructions
     fn handle_jr<T: Bus>(&mut self, test: JumpCondition, offset: i8, bus: &mut T) -> u16 {
-        match test.resolve(self) {
-            true => {
-                bus.cycle();
-                (self.pc as i32).wrapping_add(offset as i32) as u16
-            }
-            false => self.pc,
+        if test.resolve(self) {
+            bus.cycle();
+            (self.pc as i32).wrapping_add(offset as i32) as u16
+        } else {
+            self.pc
         }
     }
 
     /// Handles JP instructions
     fn handle_jp<T: Bus>(&mut self, test: JumpCondition, target: JumpTarget, bus: &mut T) -> u16 {
-        match test.resolve(self) {
-            true => {
-                let addr = target.read(self);
-                if target != JumpTarget::HL {
-                    bus.cycle();
-                }
-                addr
+        if test.resolve(self) {
+            let addr = target.read(self);
+            if target != JumpTarget::HL {
+                bus.cycle();
             }
-            false => self.pc,
+            addr
+        } else {
+            self.pc
         }
     }
 
@@ -435,7 +433,7 @@ impl CPU {
 
     /// Handles NOP instruction
     #[inline]
-    fn handle_nop(&mut self) -> u16 {
+    const fn handle_nop(&mut self) -> u16 {
         self.pc
     }
 
@@ -478,13 +476,12 @@ impl CPU {
         if test != JumpCondition::Always {
             bus.cycle();
         }
-        match test.resolve(self) {
-            true => {
-                let addr = self.pop(bus);
-                bus.cycle();
-                addr
-            }
-            false => self.pc,
+        if test.resolve(self) {
+            let addr = self.pop(bus);
+            bus.cycle();
+            addr
+        } else {
+            self.pc
         }
     }
 

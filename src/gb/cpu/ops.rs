@@ -1,7 +1,7 @@
-use crate::gb::Bus;
-use crate::gb::cpu::CPU;
 use crate::gb::cpu::instruction::ReallySigned;
 use crate::gb::cpu::registers::FlagsRegister;
+use crate::gb::cpu::CPU;
+use crate::gb::Bus;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -20,7 +20,7 @@ pub enum Register {
 impl Register {
     /// Reads value from the register.
     #[inline]
-    pub fn read(&self, cpu: &CPU) -> u8 {
+    pub const fn read(self, cpu: &CPU) -> u8 {
         match self {
             Register::A => cpu.r.a,
             Register::B => cpu.r.b,
@@ -34,7 +34,7 @@ impl Register {
 
     /// Writes value to the register.
     #[inline]
-    pub fn write(&self, cpu: &mut CPU, value: u8) {
+    pub const fn write(self, cpu: &mut CPU, value: u8) {
         match self {
             Register::A => cpu.r.a = value,
             Register::B => cpu.r.b = value,
@@ -75,7 +75,7 @@ pub enum WordRegister {
 impl WordRegister {
     /// Read from register.
     #[inline]
-    pub fn read(&self, cpu: &CPU) -> u16 {
+    pub fn read(self, cpu: &CPU) -> u16 {
         match self {
             WordRegister::AF => cpu.r.get_af(),
             WordRegister::BC => cpu.r.get_bc(),
@@ -87,7 +87,7 @@ impl WordRegister {
 
     /// Write value to register
     #[inline]
-    pub fn write(&self, cpu: &mut CPU, value: u16) {
+    pub const fn write(self, cpu: &mut CPU, value: u16) {
         match self {
             WordRegister::AF => cpu.r.set_af(value),
             WordRegister::BC => cpu.r.set_bc(value),
@@ -120,7 +120,7 @@ pub enum ByteTarget {
 impl ByteTarget {
     /// Reads the referring value from the CPU or memory
     #[inline]
-    pub fn read<T: Bus>(&self, cpu: &CPU, bus: &mut T) -> u8 {
+    pub fn read<T: Bus>(self, cpu: &CPU, bus: &mut T) -> u8 {
         match self {
             ByteTarget::R(reg) => reg.read(cpu),
             ByteTarget::I(indirect) => bus.cycle_read(indirect.resolve(cpu)),
@@ -129,7 +129,7 @@ impl ByteTarget {
 
     /// Writes to the referring register or memory location
     #[inline]
-    pub fn write<T: Bus>(&self, cpu: &mut CPU, bus: &mut T, value: u8) {
+    pub fn write<T: Bus>(self, cpu: &mut CPU, bus: &mut T, value: u8) {
         match self {
             ByteTarget::R(reg) => reg.write(cpu, value),
             ByteTarget::I(indirect) => bus.cycle_write(indirect.resolve(cpu), value),
@@ -159,12 +159,12 @@ pub enum ByteRef {
 impl ByteRef {
     /// Resolves and returns the referring address.
     #[inline]
-    pub fn resolve(&self, cpu: &CPU) -> u16 {
+    pub fn resolve(self, cpu: &CPU) -> u16 {
         match self {
             ByteRef::R(reg) => reg.read(cpu),
-            ByteRef::D16(address) => *address,
+            ByteRef::D16(address) => address,
             ByteRef::C => u16::from(cpu.r.c) | 0xFF00,
-            ByteRef::D8(offset) => u16::from(*offset) | 0xFF00,
+            ByteRef::D8(offset) => u16::from(offset) | 0xFF00,
         }
     }
 }
@@ -191,10 +191,10 @@ pub enum ByteSource {
 
 impl ByteSource {
     /// Read byte from the CPU or memory.
-    pub fn read<T: Bus>(&self, cpu: &CPU, bus: &mut T) -> u8 {
+    pub fn read<T: Bus>(self, cpu: &CPU, bus: &mut T) -> u8 {
         match self {
             ByteSource::R(reg) => reg.read(cpu),
-            ByteSource::D8(value) => *value,
+            ByteSource::D8(value) => value,
             ByteSource::I(indirect) => bus.cycle_read(indirect.resolve(cpu)),
         }
     }
@@ -221,10 +221,10 @@ pub enum WordSource {
 impl WordSource {
     /// Resolves the referring value
     #[inline]
-    pub fn read(&self, cpu: &CPU) -> u16 {
+    pub fn read(self, cpu: &CPU) -> u16 {
         match self {
             WordSource::R(reg) => reg.read(cpu),
-            WordSource::D16(word) => *word,
+            WordSource::D16(word) => word,
         }
     }
 }
@@ -299,7 +299,7 @@ pub enum JumpCondition {
 impl JumpCondition {
     /// Resolves whether the condition is met
     #[inline]
-    pub fn resolve(&self, cpu: &CPU) -> bool {
+    pub const fn resolve(self, cpu: &CPU) -> bool {
         match self {
             JumpCondition::NotZero => !cpu.r.f.contains(FlagsRegister::ZERO),
             JumpCondition::Zero => cpu.r.f.contains(FlagsRegister::ZERO),
@@ -333,9 +333,9 @@ pub enum JumpTarget {
 impl JumpTarget {
     /// Resolves and returns the referring target address
     #[inline]
-    pub fn read(&self, cpu: &CPU) -> u16 {
+    pub fn read(self, cpu: &CPU) -> u16 {
         match self {
-            JumpTarget::D16(word) => *word,
+            JumpTarget::D16(word) => word,
             JumpTarget::HL => cpu.r.get_hl(),
         }
     }

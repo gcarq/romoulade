@@ -17,7 +17,7 @@ pub struct JoypadInput {
 impl JoypadInput {
     /// Returns true if any button is pressed.
     #[inline]
-    pub fn is_pressed(&self) -> bool {
+    pub const fn is_pressed(self) -> bool {
         self.left
             || self.right
             || self.up
@@ -30,7 +30,7 @@ impl JoypadInput {
 
     /// Resets the state of the D-Pad buttons.
     #[inline]
-    pub fn reset_dpad(&mut self) {
+    pub const fn reset_dpad(&mut self) {
         self.left = false;
         self.right = false;
         self.up = false;
@@ -39,7 +39,7 @@ impl JoypadInput {
 
     /// Resets the state of the Action buttons.
     #[inline]
-    pub fn reset_action(&mut self) {
+    pub const fn reset_action(&mut self) {
         self.a = false;
         self.b = false;
         self.start = false;
@@ -86,12 +86,12 @@ impl Default for Joypad {
 impl Joypad {
     /// Handles the given `JoypadInput` and sets the corresponding button state on the next write.
     #[inline(always)]
-    pub fn handle_input(&mut self, event: JoypadInput) {
+    pub const fn handle_input(&mut self, event: JoypadInput) {
         self.pending_event = event;
     }
 
     /// Reads the Joypad register and returns the current state of the buttons.
-    pub fn read(&self) -> u8 {
+    pub const fn read(&self) -> u8 {
         let mut value = 0b1100_0000;
         value = utils::set_bit(value, 0, !self.a_right);
         value = utils::set_bit(value, 1, !self.b_left);
@@ -104,13 +104,13 @@ impl Joypad {
             }
             SelectedButtons::Action => {
                 value = utils::set_bit(value, 4, true);
-                value = utils::set_bit(value, 5, false)
+                value = utils::set_bit(value, 5, false);
             }
             SelectedButtons::None => {
                 value = utils::set_bit(value, 4, true);
                 value = utils::set_bit(value, 5, true);
             }
-        };
+        }
         value
     }
 
@@ -152,7 +152,7 @@ impl Joypad {
 
     /// Resets the joypad state of the lower nibble
     #[inline]
-    fn reset(&mut self) {
+    const fn reset(&mut self) {
         self.a_right = false;
         self.b_left = false;
         self.select_up = false;

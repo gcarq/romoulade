@@ -1,13 +1,16 @@
 #![allow(clippy::upper_case_acronyms)]
+#![warn(clippy::semicolon_if_nothing_returned)]
+#![warn(clippy::unnecessary_semicolon)]
+#![warn(clippy::missing_const_for_fn)]
+#![warn(clippy::doc_markdown)]
 
 #[macro_use]
 extern crate bitflags;
 extern crate clap;
-use crate::gui::Romoulade;
 use crate::gui::emulator::UPSCALE;
+use crate::gui::Romoulade;
 use clap::Parser;
-use eframe::{HardwareAcceleration, egui};
-use std::error::Error;
+use eframe::{egui, HardwareAcceleration};
 use std::path::PathBuf;
 
 mod gb;
@@ -25,7 +28,7 @@ struct Args {
     fastboot: bool,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let args = Args::parse();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -49,5 +52,4 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     eframe::run_native("Romoulade", options, Box::new(|_| Ok(Box::new(app))))
         .expect("Unable to run egui app");
-    Ok(())
 }

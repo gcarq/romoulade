@@ -13,45 +13,45 @@ pub struct Registers {
 
 impl Registers {
     #[inline(always)]
-    pub fn get_af(&self) -> u16 {
-        ((self.a as u16) << 8) | self.f.bits() as u16
+    pub fn get_af(self) -> u16 {
+        (u16::from(self.a) << 8) | u16::from(self.f.bits())
     }
 
     #[inline(always)]
-    pub fn set_af(&mut self, value: u16) {
+    pub const fn set_af(&mut self, value: u16) {
         self.a = (value >> 8) as u8;
         self.f = FlagsRegister::from_bits_truncate(value as u8);
     }
 
     #[inline(always)]
-    pub fn get_bc(&self) -> u16 {
-        ((self.b as u16) << 8) | self.c as u16
+    pub fn get_bc(self) -> u16 {
+        (u16::from(self.b) << 8) | u16::from(self.c)
     }
 
     #[inline(always)]
-    pub fn set_bc(&mut self, value: u16) {
+    pub const fn set_bc(&mut self, value: u16) {
         self.b = (value >> 8) as u8;
         self.c = value as u8;
     }
 
     #[inline(always)]
-    pub fn get_de(&self) -> u16 {
-        ((self.d as u16) << 8) | self.e as u16
+    pub fn get_de(self) -> u16 {
+        (u16::from(self.d) << 8) | u16::from(self.e)
     }
 
     #[inline(always)]
-    pub fn set_de(&mut self, value: u16) {
+    pub const fn set_de(&mut self, value: u16) {
         self.d = (value >> 8) as u8;
         self.e = value as u8;
     }
 
     #[inline(always)]
-    pub fn get_hl(&self) -> u16 {
-        ((self.h as u16) << 8) | self.l as u16
+    pub fn get_hl(self) -> u16 {
+        (u16::from(self.h) << 8) | u16::from(self.l)
     }
 
     #[inline(always)]
-    pub fn set_hl(&mut self, value: u16) {
+    pub const fn set_hl(&mut self, value: u16) {
         self.h = (value >> 8) as u8;
         self.l = value as u8;
     }

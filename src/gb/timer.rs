@@ -1,6 +1,6 @@
-use crate::gb::SubSystem;
 use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
+use crate::gb::SubSystem;
 
 bitflags! {
     /// Represents the control register TAC at 0xFF07
@@ -14,7 +14,7 @@ bitflags! {
 impl TimerControl {
     /// Returns the counter mask used for edge detection.
     #[inline]
-    pub fn divider_mask(&self) -> u16 {
+    pub fn divider_mask(self) -> u16 {
         match self.bits() & Self::TIMER_FREQ.bits() {
             0b00 => 1 << 7, // 4096 Hz
             0b01 => 1 << 1, // 262144 Hz
@@ -26,13 +26,13 @@ impl TimerControl {
 
     /// Returns whether the timer is enabled.
     #[inline]
-    pub fn is_enabled(&self) -> bool {
+    pub const fn is_enabled(self) -> bool {
         self.contains(Self::TIMER_ENABLE)
     }
 }
 
 /// This struct holds all timer related registers.
-/// See https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
+/// See `<https://gbdev.io/pandocs/Timer_and_Divider_Registers.html>`
 #[derive(Clone)]
 pub struct Timer {
     // DIV. The upper bits of the divider are mapped to memory but the two extra bits
@@ -84,7 +84,7 @@ impl Timer {
 
     /// Increments the counter and handles overflow.
     #[inline]
-    fn increment_counter(&mut self) {
+    const fn increment_counter(&mut self) {
         let (counter, overflow) = self.counter.overflowing_add(1);
         self.counter = counter;
         self.counter_overflow = overflow;
@@ -101,7 +101,7 @@ impl Timer {
 
     /// Writes a value to the counter (TIMA).
     #[inline]
-    fn write_counter(&mut self, value: u8) {
+    const fn write_counter(&mut self, value: u8) {
         if !self.counter_overflow {
             self.counter = value;
         }
@@ -109,7 +109,7 @@ impl Timer {
 
     /// Writes a value to the modulo (TMA).
     #[inline]
-    fn write_modulo(&mut self, value: u8) {
+    const fn write_modulo(&mut self, value: u8) {
         self.modulo = value;
         if self.counter_overflow {
             self.counter = value;

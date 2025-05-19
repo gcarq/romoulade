@@ -9,7 +9,7 @@ use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
 use crate::gb::{Bus, SubSystem};
 use std::sync::Arc;
 
-/// Represents a mock for MemoryBus
+/// Represents a mock for `MemoryBus`
 pub struct MockBus {
     interrupt_enable: InterruptRegister,
     interrupt_flags: InterruptRegister,

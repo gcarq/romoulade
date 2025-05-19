@@ -1,6 +1,6 @@
-use crate::gb::Bus;
 use crate::gb::bus::InterruptRegister;
-use crate::gb::cpu::{CPU, ImeState};
+use crate::gb::cpu::{ImeState, CPU};
+use crate::gb::Bus;
 
 const VBLANK_IRQ_ADDRESS: u16 = 0x0040;
 const LCD_IRQ_ADDRESS: u16 = 0x0048;
@@ -11,7 +11,7 @@ const JOYPAD_IRQ_ADDRESS: u16 = 0x0060;
 /// Handles pending interrupt requests.
 /// Returns true if an interrupt was handled.
 /// TODO: implement HALT instruction bug (Section 4.10):
-///  https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf
+///  `<https://github.com/AntonioND/giibiiadvance/blob/master/docs/TCAGBD.pdf>`
 pub fn handle<T: Bus>(cpu: &mut CPU, bus: &mut T) {
     if !bus.has_irq() {
         return;

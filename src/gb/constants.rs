@@ -105,8 +105,8 @@ pub const TIMER_CTRL: u16 = 0xFF07;
 /// After that Bit 0 will be cleared automatically, and the Game Boy will operate at the 'other' speed.
 pub const CGB_PREPARE_SPEED_SWITCH: u16 = 0xFF4D;
 
-/// In CGB Mode 32 KBytes internal RAM are available.
-/// This memory is divided into 8 banks of 4 KBytes each.
+/// In CGB Mode 32 `KBytes` internal RAM are available.
+/// This memory is divided into 8 banks of 4 `KBytes` each.
 /// Bank 0 is always available in memory at C000-CFFF,
 /// Bank 1-7 can be selected into the address space at D000-DFFF.
 pub const CGB_WRAM_BANK: u16 = 0xFF70;
@@ -133,7 +133,7 @@ pub const INTERRUPT_ENABLE: u16 = 0xFFFF;
 pub const UNDEFINED_READ: u8 = 0xFF;
 
 /// Contains the DMG Bootstrap ROM,
-/// disassembled code is outlined here: https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM.
+/// disassembled code is outlined here: `<https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM>`.
 pub(crate) const BOOT_ROM: [u8; BOOT_SIZE] = [
     0x31, 0xFE, 0xFF, 0xAF, 0x21, 0xFF, 0x9F, 0x32, 0xCB, 0x7C, 0x20, 0xFB, 0x21, 0x26, 0xFF, 0x0E,
     0x11, 0x3E, 0x80, 0x32, 0xE2, 0x0C, 0x3E, 0xF3, 0xE2, 0x32, 0x3E, 0x77, 0x77, 0x3E, 0xFC, 0xE0,

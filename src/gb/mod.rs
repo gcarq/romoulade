@@ -107,15 +107,15 @@ impl Emulator {
         receiver: Receiver<FrontendMessage>,
         cartridge: Cartridge,
         config: EmulatorConfig,
-    ) -> GBResult<Self> {
-        let display = Display::new(sender.clone(), config.upscale)?;
+    ) -> Self {
+        let display = Display::new(sender.clone(), config.upscale);
         let cpu = CPU::default();
         let mut bus = MainBus::with_cartridge(cartridge, Some(display));
         let debugger = match config.debug {
             true => Some(Debugger::new(&cpu, &mut bus, sender.clone())),
             false => None,
         };
-        Ok(Self {
+        Self {
             is_running: true,
             fastboot: config.fastboot,
             cpu,
@@ -123,7 +123,7 @@ impl Emulator {
             debugger,
             sender,
             receiver,
-        })
+        }
     }
 
     /// Runs the emulator loop.
@@ -142,9 +142,9 @@ impl Emulator {
         while self.is_running {
             self.handle_message();
             if let Some(debugger) = &mut self.debugger {
-                debugger.maybe_step(&mut self.cpu, &mut self.bus)
+                debugger.maybe_step(&mut self.cpu, &mut self.bus);
             } else {
-                self.step()
+                self.step();
             }
         }
     }
@@ -152,7 +152,7 @@ impl Emulator {
     /// Attaches a `Debugger` to the emulator.
     #[inline]
     fn attach_debugger(&mut self) {
-        self.debugger = Some(Debugger::new(&self.cpu, &mut self.bus, self.sender.clone()))
+        self.debugger = Some(Debugger::new(&self.cpu, &mut self.bus, self.sender.clone()));
     }
 
     /// Steps the `CPU` once and handles interrupts if any.
@@ -162,7 +162,7 @@ impl Emulator {
     }
 
     /// Fastboot the emulator by setting the CPU registers as if it had booted normally.
-    fn fastboot(&mut self) {
+    const fn fastboot(&mut self) {
         self.cpu.r.set_af(0x01B0);
         self.cpu.r.set_bc(0x0013);
         self.cpu.r.set_de(0x00D8);
@@ -182,7 +182,7 @@ impl Emulator {
                 FrontendMessage::DetachDebugger => self.debugger = None,
                 FrontendMessage::Debug(message) => {
                     if let Some(debugger) = &mut self.debugger {
-                        debugger.handle_message(message)
+                        debugger.handle_message(message);
                     }
                 }
             }

@@ -17,7 +17,7 @@ pub struct Romoulade {
 }
 
 impl Romoulade {
-    pub fn new(config: EmulatorConfig) -> Self {
+    pub const fn new(config: EmulatorConfig) -> Self {
         Self {
             frontend: None,
             cartridge: None,
@@ -78,7 +78,7 @@ impl Romoulade {
                 if let Some(frontend) = &mut self.frontend {
                     frontend.attach_debugger();
                 } else {
-                    self.config.debug = false;
+                    self.config.debug = true;
                     self.run();
                 }
             }

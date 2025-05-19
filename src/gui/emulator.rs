@@ -3,8 +3,8 @@ use crate::gb::joypad::JoypadInput;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
-use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
+use eframe::epaint::ColorImage;
 use egui::{Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
 use spin_sleep::sleep;
 use std::sync::mpsc;
@@ -28,7 +28,7 @@ struct EmulatorChannel {
 
 impl EmulatorChannel {
     #[inline]
-    pub fn new(sender: Sender<FrontendMessage>, receiver: Receiver<EmulatorMessage>) -> Self {
+    pub const fn new(sender: Sender<FrontendMessage>, receiver: Receiver<EmulatorMessage>) -> Self {
         Self { sender, receiver }
     }
 }
@@ -81,8 +81,7 @@ impl EmulatorFrontend {
 
         let thread = thread::spawn(move || {
             let mut emulator =
-                Emulator::new(emulator_sender, frontend_receiver, used_cartridge, config)
-                    .expect("Unable to create GameBoy instance");
+                Emulator::new(emulator_sender, frontend_receiver, used_cartridge, config);
             emulator.run();
         });
         Self {
@@ -190,7 +189,7 @@ impl EmulatorFrontend {
                     Key::ArrowLeft => input.b = true,
                     Key::Enter => input.start = true,
                     Key::Backspace => input.select = true,
-                    _ => continue,
+                    _ => {}
                 }
             }
             if input.is_pressed() {

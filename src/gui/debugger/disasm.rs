@@ -63,7 +63,7 @@ impl Disassembler {
 
     /// Scrolls the disassembly view to the given address.
     #[inline]
-    pub fn scroll_to_address(&mut self, address: u16) {
+    pub const fn scroll_to_address(&mut self, address: u16) {
         self.scroll_to_address = Some(address);
     }
 

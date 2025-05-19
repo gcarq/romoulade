@@ -70,7 +70,7 @@ impl LCDControl {
     /// `LCDControl::WIN_MAP` controls which background map the Window uses for rendering.
     /// When it’s clear (0), the 0x9800 tilemap is used, otherwise it’s the 0x9C00 one.
     #[inline]
-    pub fn window_tile_map_area(&self) -> u16 {
+    pub const fn window_tile_map_area(&self) -> u16 {
         match self.contains(LCDControl::WIN_MAP) {
             true => 0x9C00,
             false => 0x9800,
@@ -80,7 +80,7 @@ impl LCDControl {
     /// `LCDControl::BG_MAP` works similarly to `LCDControl::WIN_MAP`: if the bit is clear (0),
     /// the BG uses tilemap 0x9800, otherwise tilemap 0x9C00.
     #[inline]
-    pub fn bg_tile_map_area(&self) -> u16 {
+    pub const fn bg_tile_map_area(&self) -> u16 {
         match self.contains(LCDControl::BG_MAP) {
             true => 0x9C00,
             false => 0x9800,
@@ -89,20 +89,20 @@ impl LCDControl {
 }
 
 impl LCDState {
-    /// Returns the `PPUMode` based on the first two bits of PPU_STAT.
+    /// Returns the `PPUMode` based on the first two bits of `PPU_STAT`.
     #[inline]
     pub fn mode(&self) -> PPUMode {
         PPUMode::from(self.bits())
     }
 
-    /// Sets the first two bits of PPU_STAT to the given `PPUMode`.
+    /// Sets the first two bits of `PPU_STAT` to the given `PPUMode`.
     #[inline]
     pub fn set_mode(&mut self, mode: PPUMode) {
         *self = LCDState::from_bits_truncate((self.bits() & 0b11111100) | u8::from(mode));
     }
 }
 
-/// Represents the first two bits in LCDState for convenience.
+/// Represents the first two bits in `LCDState` for convenience.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum PPUMode {
     HBlank,     // 0b00
@@ -114,7 +114,7 @@ pub enum PPUMode {
 impl PPUMode {
     /// Returns the number of cycles for the current mode.
     #[inline]
-    pub fn cycles(&self) -> isize {
+    pub const fn cycles(self) -> isize {
         match self {
             PPUMode::AccessOAM => ACCESS_OAM_CYCLES,
             PPUMode::AccessVRAM => ACCESS_VRAM_CYCLES,

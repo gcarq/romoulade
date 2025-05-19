@@ -80,7 +80,7 @@ impl MBC1 {
     /// Updates the ROM banks offsets on the current banking mode.
     /// If the ROM is larger than 32 banks, we also use the upper 2 bits for the bank number,
     /// otherwise we only use the lower 5 bits.
-    fn update_rom_offsets(&mut self) {
+    const fn update_rom_offsets(&mut self) {
         // If all ROM banks can be referenced with 5 bits
         // we don't consider the advanced banking mode
         if self.config.rom_banks < 32 {
@@ -169,7 +169,7 @@ impl BankController for MBC1 {
             }
             CRAM_BANK_BEGIN..=CRAM_BANK_END => {
                 if self.has_ram_access && !self.ram.is_empty() {
-                    self.ram[self.ram_bank_offset + (address - CRAM_BANK_BEGIN) as usize] = value
+                    self.ram[self.ram_bank_offset + (address - CRAM_BANK_BEGIN) as usize] = value;
                 }
             }
             _ => panic!("MBC1: Invalid address for write: {address:#06x}, value: {value:#04x}"),

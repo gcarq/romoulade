@@ -1,5 +1,5 @@
-use crate::gb::GBError;
 use crate::gb::cartridge::controller::BankController;
+use crate::gb::GBError;
 use crate::gb::{GBResult, SubSystem};
 use std::fmt;
 use std::sync::Arc;
@@ -28,7 +28,7 @@ const _CARTRIDGE_CGB_FLAG: u16 = 0x0143;
 /// 0x03  => MBC1 + RAM + Battery
 /// 0x05  => MBC2
 /// ...
-/// See https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type
+/// See `<https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type>`
 const CARTRIDGE_TYPE: u16 = 0x0147;
 
 /// This byte indicates how much ROM is present on the cartridge.
@@ -52,7 +52,7 @@ const RAM_BANK_SIZE: usize = 8192;
 #[derive(PartialEq, Copy, Clone, Debug)]
 #[repr(u8)]
 /// The controller type of the cartridge.
-/// See https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type
+/// See `<https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type>`
 /// TODO: implement remaining modes (and specify battery support?)
 pub enum ControllerType {
     NoMBC,
@@ -134,7 +134,7 @@ impl CartridgeConfig {
 }
 
 /// Contains the cartridge header information.
-/// See https://gbdev.io/pandocs/The_Cartridge_Header.html
+/// See `<https://gbdev.io/pandocs/The_Cartridge_Header.html>`
 #[derive(Clone)]
 pub struct CartridgeHeader {
     pub title: String,

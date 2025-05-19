@@ -10,7 +10,7 @@ use crate::gb::constants::*;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDState, PPUMode, Registers};
 use crate::gb::utils::bit_at;
-use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH, SubSystem};
+use crate::gb::{SubSystem, SCREEN_HEIGHT, SCREEN_WIDTH};
 use display::Display;
 use std::cmp::Ordering;
 
@@ -28,10 +28,10 @@ const PPU_SCX: u16 = 0xFF43;
 
 /// LY indicates the current horizontal line, which might be about to be drawn, being drawn,
 /// or just been drawn. LY can hold any value from 0 to 153, with values from 144 to 153
-/// indicating the VBlank period.
+/// indicating the `VBlank` period.
 const PPU_LY: u16 = 0xFF44;
 
-/// When both PPU_LYC and PPU_LY values are identical, the “LYC=LY” flag in the STAT register is set
+/// When both `PPU_LYC` and `PPU_LY` values are identical, the “LYC=LY” flag in the STAT register is set
 const PPU_LYC: u16 = 0xFF45;
 
 /// Writing to this register requests an OAM DMA transfer, but it’s just a request and the
@@ -83,7 +83,7 @@ pub struct PPU {
     oam: [u8; OAM_SIZE],
     cycles: isize,
     // This line counter determines what window line is to be rendered on the current scanline.
-    // See https://gbdev.io/pandocs/Tile_Maps.html#window
+    // See `<https://gbdev.io/pandocs/Tile_Maps.html#window>`
     wy_internal: Option<u8>,
     display: Option<Display>,
 }
@@ -152,7 +152,7 @@ impl PPU {
             PPUMode::AccessOAM => self.switch_mode(PPUMode::AccessVRAM, int_reg),
             PPUMode::AccessVRAM => {
                 self.draw_line();
-                self.switch_mode(PPUMode::HBlank, int_reg)
+                self.switch_mode(PPUMode::HBlank, int_reg);
             }
             // Nothing much to do here but wait the proper number of clock cycles.
             // A full scanline takes 456 clock cycles to complete. At the end of a
@@ -163,7 +163,7 @@ impl PPU {
             // do stuff that takes time. It takes as many cycles as would be needed
             // to keep displaying scanlines up to line 153.
             PPUMode::VBlank => self.handle_vblank(int_reg),
-        };
+        }
     }
 
     /// Switches the LCD mode and handles interrupts if needed.
@@ -210,7 +210,7 @@ impl PPU {
         }
     }
 
-    /// Handles the HBlank mode, requests an OAM and/or STAT interrupt if needed
+    /// Handles the `HBlank` mode, requests an OAM and/or STAT interrupt if needed
     fn handle_hblank(&mut self, int_reg: &mut InterruptRegister) {
         self.r.ly += 1;
         if is_on_screen_y(self.r.ly) {
@@ -224,7 +224,7 @@ impl PPU {
         self.handle_coincidence_flag(int_reg);
     }
 
-    /// Handles the VBlank mode, requests an VBLANK and/or STAT interrupt if needed
+    /// Handles the `VBlank` mode, requests an VBLANK and/or STAT interrupt if needed
     fn handle_vblank(&mut self, int_reg: &mut InterruptRegister) {
         self.r.ly += 1;
         if self.r.ly > VBLANK_SCAN_LINE_MAX {
@@ -408,7 +408,7 @@ impl PPU {
         pixel_from_line(byte1, byte2, bit)
     }
 
-    /// Writes to the LCD control register (PPU_LCDC).
+    /// Writes to the LCD control register (`PPU_LCDC`).
     fn write_control(&mut self, value: u8) {
         let cur = self.r.lcd_control;
         let new = LCDControl::from_bits_truncate(value);
@@ -428,7 +428,7 @@ impl PPU {
         self.r.lcd_control = new;
     }
 
-    /// Writes to the LCD status register (PPU_STAT),
+    /// Writes to the LCD status register (`PPU_STAT`),
     /// the first two bits are only writable by the PPU.
     #[inline]
     fn write_stat(&mut self, value: u8) {
@@ -519,13 +519,13 @@ impl SubSystem for PPU {
 
 /// Checks whether the given x coordinate is within the `SCREEN_WIDTH`.
 #[inline(always)]
-fn is_on_screen_x(x: u8) -> bool {
+const fn is_on_screen_x(x: u8) -> bool {
     x < SCREEN_WIDTH
 }
 
 /// Checks whether the given y coordinate is within the `SCREEN_HEIGHT`.
 #[inline(always)]
-fn is_on_screen_y(y: u8) -> bool {
+const fn is_on_screen_y(y: u8) -> bool {
     y < SCREEN_HEIGHT
 }
 

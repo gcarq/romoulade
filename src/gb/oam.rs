@@ -40,7 +40,7 @@ impl Default for OamDma {
 impl OamDma {
     /// Requests a new OAM DMA transfer.
     #[inline]
-    pub fn request(&mut self, value: u8) {
+    pub const fn request(&mut self, value: u8) {
         self.requested = Some(value);
     }
 
@@ -55,7 +55,7 @@ impl OamDma {
 
     /// Returns the current source address and increments it by 1.
     #[inline]
-    pub fn transfer(&mut self) -> Option<u16> {
+    pub const fn transfer(&mut self) -> Option<u16> {
         if !self.is_running {
             return None;
         }
