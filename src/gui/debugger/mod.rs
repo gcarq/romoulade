@@ -2,11 +2,11 @@ mod disasm;
 
 mod registers;
 
-use crate::gb::cpu::instruction::Instruction;
+use crate::gb::FrontendMessage;
 use crate::gb::cpu::CPU;
+use crate::gb::cpu::instruction::Instruction;
 use crate::gb::debugger::bus::DebugBus;
 use crate::gb::debugger::{DebugMessage, FrontendDebugMessage};
-use crate::gb::FrontendMessage;
 use crate::gui::debugger::disasm::Disassembler;
 use crate::gui::debugger::registers::Registers;
 use egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};

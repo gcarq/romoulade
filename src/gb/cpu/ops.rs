@@ -1,7 +1,7 @@
+use crate::gb::Bus;
+use crate::gb::cpu::CPU;
 use crate::gb::cpu::instruction::ReallySigned;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::cpu::CPU;
-use crate::gb::Bus;
 use std::fmt;
 use std::fmt::Formatter;
 

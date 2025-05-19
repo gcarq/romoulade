@@ -1,6 +1,6 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::ColoredPixel;
-use crate::gb::{EmulatorMessage, DISPLAY_REFRESH_RATE};
+use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage};
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 

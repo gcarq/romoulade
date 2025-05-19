@@ -7,10 +7,10 @@
 #[macro_use]
 extern crate bitflags;
 extern crate clap;
-use crate::gui::emulator::UPSCALE;
 use crate::gui::Romoulade;
+use crate::gui::emulator::UPSCALE;
 use clap::Parser;
-use eframe::{egui, HardwareAcceleration};
+use eframe::{HardwareAcceleration, egui};
 use std::path::PathBuf;
 
 mod gb;

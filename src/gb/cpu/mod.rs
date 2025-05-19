@@ -3,7 +3,7 @@ use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::ops::WordRegister::HL;
 use crate::gb::cpu::ops::*;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::{utils, Bus};
+use crate::gb::{Bus, utils};
 use registers::Registers;
 
 pub mod instruction;
@@ -52,9 +52,9 @@ impl CPU {
 
         match self.ime {
             // Enabling IME is delayed by one instruction
-            ImeState::Pending => { self.ime = ImeState::Enabled }
+            ImeState::Pending => self.ime = ImeState::Enabled,
             // Handle interrupts if IME is enabled and there is a pending IRQ
-            ImeState::Enabled if bus.has_irq() => { interrupt::handle(self, bus) }
+            ImeState::Enabled if bus.has_irq() => interrupt::handle(self, bus),
             _ => {}
         }
 

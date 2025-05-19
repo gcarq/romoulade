@@ -1,10 +1,10 @@
 pub mod bus;
 
+use crate::gb::EmulatorMessage;
 use crate::gb::bus::MainBus;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::bus::DebugBus;
-use crate::gb::EmulatorMessage;
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
 

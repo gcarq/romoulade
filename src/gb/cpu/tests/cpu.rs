@@ -1,9 +1,9 @@
+use crate::gb::Bus;
 use crate::gb::bus::InterruptRegister;
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::cpu::tests::assert_flags;
-use crate::gb::cpu::{ImeState, CPU};
+use crate::gb::cpu::{CPU, ImeState};
 use crate::gb::tests::MockBus;
-use crate::gb::Bus;
 
 #[test]
 fn test_illegal_opcodes() {

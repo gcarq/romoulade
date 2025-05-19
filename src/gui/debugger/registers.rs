@@ -1,5 +1,5 @@
-use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::cpu::ImeState;
+use crate::gb::cpu::registers::FlagsRegister;
 use crate::gui::debugger::EmulatorState;
 use bitvec::order::Lsb0;
 use bitvec::view::BitView;

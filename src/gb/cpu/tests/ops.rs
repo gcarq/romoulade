@@ -1,12 +1,12 @@
+use crate::gb::Bus;
+use crate::gb::cpu::CPU;
 use crate::gb::cpu::ops::Register::{A, B, C, D, E, H, L};
 use crate::gb::cpu::ops::WordRegister::{AF, BC, DE, HL, SP};
 use crate::gb::cpu::ops::{
     ByteRef, ByteSource, ByteTarget, JumpCondition, JumpTarget, Load, ResetCode, WordSource,
 };
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::cpu::CPU;
 use crate::gb::tests::MockBus;
-use crate::gb::Bus;
 
 #[test]
 fn test_register_a() {
