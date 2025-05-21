@@ -33,7 +33,6 @@ pub struct MainBus {
     pub interrupt_enable: InterruptRegister,
     pub interrupt_flag: InterruptRegister,
     wram: [u8; WRAM_SIZE],
-    eram: [u8; ERAM_SIZE],
     hram: [u8; HRAM_SIZE],
 }
 
@@ -54,7 +53,6 @@ impl MainBus {
             interrupt_flag: InterruptRegister::empty(),
             timer: Timer::default(),
             wram: [0u8; WRAM_SIZE],
-            eram: [0u8; ERAM_SIZE],
             hram: [0u8; HRAM_SIZE],
         }
     }
@@ -66,13 +64,6 @@ impl MainBus {
             BOOT_BEGIN..=BOOT_END if self.is_boot_rom_active => BOOT_ROM[address as usize],
             _ => self.cartridge.read(address),
         }
-    }
-
-    /// Writes to Echo RAM, effectively mirroring to Working RAM
-    #[inline]
-    const fn write_eram(&mut self, address: u16, value: u8) {
-        self.eram[(address - ERAM_BEGIN) as usize] = value;
-        self.wram[(address - ERAM_SIZE as u16 - WRAM_BEGIN) as usize] = value;
     }
 
     /// Handles all writes to the I/O registers (0xFF00-0xFF7F)
@@ -165,10 +156,11 @@ impl SubSystem for MainBus {
             ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END => self.cartridge.write(address, value),
             VRAM_BEGIN..=VRAM_END => self.ppu.write(address, value),
             CRAM_BANK_BEGIN..=CRAM_BANK_END => self.cartridge.write(address, value),
-            WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize] = value,
-            ERAM_BEGIN..=ERAM_END => self.write_eram(address, value),
+            WRAM_BEGIN..=WRAM_END => self.wram[(address & 0x1FFF) as usize] = value,
+            // Writes to Echo RAM, effectively mirroring to Working RAM
+            ERAM_BEGIN..=ERAM_END => self.wram[(address & 0x1FFF) as usize] = value,
             OAM_BEGIN..=OAM_END => match self.ppu.r.oam_dma.is_running {
-                // Writes are ignored while OAM DMA transfer is running.
+                // Writes during OAM DMA transfer are ignored
                 true => {}
                 false => self.ppu.write(address, value),
             },
@@ -184,10 +176,11 @@ impl SubSystem for MainBus {
             ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END => self.read_cartridge(address),
             VRAM_BEGIN..=VRAM_END => self.ppu.read(address),
             CRAM_BANK_BEGIN..=CRAM_BANK_END => self.read_cartridge(address),
-            WRAM_BEGIN..=WRAM_END => self.wram[(address - WRAM_BEGIN) as usize],
-            ERAM_BEGIN..=ERAM_END => self.eram[(address - ERAM_BEGIN) as usize],
-            // During OAM DMA transfer the OAM is not accessible.
+            WRAM_BEGIN..=WRAM_END => self.wram[(address & 0x1FFF) as usize],
+            // Reads from Echo RAM, effectively mirroring to Working RAM
+            ERAM_BEGIN..=ERAM_END => self.wram[(address & 0x1FFF) as usize],
             OAM_BEGIN..=OAM_END => match self.ppu.r.oam_dma.is_running {
+                // During OAM DMA transfer the OAM is not accessible
                 true => UNDEFINED_READ,
                 false => self.ppu.read(address),
             },

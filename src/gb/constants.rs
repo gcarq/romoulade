@@ -41,7 +41,6 @@ pub const WRAM_SIZE: usize = (WRAM_END - WRAM_BEGIN + 1) as usize;
 /// memory and as such we can just pretend it doesn't exist.
 pub const ERAM_BEGIN: u16 = 0xE000;
 pub const ERAM_END: u16 = 0xFDFF;
-pub const ERAM_SIZE: usize = (ERAM_END - ERAM_BEGIN + 1) as usize;
 
 /// This area of memory contains the description of graphical sprites.
 /// The tiles we talked about above were used for backgrounds and levels but not for characters,
