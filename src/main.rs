@@ -69,7 +69,6 @@ fn gui_mode(config: EmulatorConfig) {
             .with_resizable(false)
             .with_inner_size([503.0, 475.0]),
         hardware_acceleration: HardwareAcceleration::Preferred,
-        renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
 

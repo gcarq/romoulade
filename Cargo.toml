@@ -9,7 +9,7 @@ edition = "2024"
 [dependencies]
 bitflags = "2.9.1"
 clap = { version = "4.5.38", default-features = false, features = ["derive", "error-context", "help", "std", "usage"] }
-eframe = { version = "0.31.1", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+eframe = { version = "0.31.1", default-features = false, features = ["default_fonts", "wgpu", "wayland", "x11"] }
 egui_extras = { version = "0.31.1", default-features = false }
 rfd = { version = "0.15.3", default-features = false, features = ["xdg-portal", "async-std"] }
 bitvec = { version = "1.0.1", default-features = false, features = [] }
