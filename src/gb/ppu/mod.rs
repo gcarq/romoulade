@@ -433,9 +433,15 @@ impl PPU {
     /// Writes to the LCD status register (`PPU_STAT`).
     #[inline]
     fn write_stat(&mut self, value: u8) {
-        let mode = self.r.lcd_stat.mode();
-        // The first two bits are not writable
-        self.r.lcd_stat = LCDState::from_bits_truncate(value & 0b1111_1100 | mode as u8);
+        let new_stat = LCDState::from_bits_truncate(value);
+        // The first 3 bits, PPU Mode and LYC_STAT, are read-only
+        self.r.lcd_stat = self.r.lcd_stat & LCDState::PPU_MODE1
+            | self.r.lcd_stat & LCDState::PPU_MODE2
+            | self.r.lcd_stat & LCDState::LYC_STAT
+            | new_stat & LCDState::H_BLANK_INT
+            | new_stat & LCDState::V_BLANK_INT
+            | new_stat & LCDState::OAM_INT
+            | new_stat & LCDState::LY_INT;
     }
 
     /// Reads the LCD status register (`PPU_STAT`).
