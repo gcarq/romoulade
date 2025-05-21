@@ -1,12 +1,14 @@
 pub mod bus;
 
-use crate::gb::EmulatorMessage;
 use crate::gb::bus::MainBus;
 use crate::gb::constants::BOOT_END;
+use crate::gb::cpu::instruction::Instruction;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::bus::DebugBus;
+use crate::gb::EmulatorMessage;
 use std::collections::HashSet;
 use std::sync::mpsc::Sender;
+use std::sync::Arc;
 
 /// This enum defines the possible debug messages that can be sent from
 /// the frontend to the emulator.
@@ -30,6 +32,24 @@ impl DebugMessage {
         Self {
             cpu: cpu.clone(),
             bus: DebugBus::from(bus.clone()),
+        }
+    }
+}
+
+/// Represents a single instruction with context information for the disassembler.
+pub struct AnnotatedInstr {
+    pub address: u16,     // address of the opcode
+    pub bytes: Arc<[u8]>, // all raw bytes of the instruction
+    pub instruction: Instruction,
+}
+
+impl AnnotatedInstr {
+    #[inline]
+    pub const fn new(address: u16, bytes: Arc<[u8]>, instruction: Instruction) -> Self {
+        Self {
+            address,
+            bytes,
+            instruction,
         }
     }
 }

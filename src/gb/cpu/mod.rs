@@ -220,7 +220,6 @@ impl CPU {
     }
 
     /// Handles AND instructions
-    #[inline]
     fn handle_and<T: Bus>(&mut self, source: ByteSource, bus: &mut T) -> u16 {
         let value = source.read(self, bus);
         self.r.a &= value;

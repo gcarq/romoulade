@@ -4,7 +4,8 @@ use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
 use eframe::egui;
-use eframe::egui::{Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
+use eframe::egui::load::SizedTexture;
+use eframe::egui::{Color32, Key, TextureHandle, Ui, ViewportBuilder, ViewportId};
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
 use spin_sleep::sleep;
@@ -18,6 +19,8 @@ pub const SCREEN_HEIGHT: usize = 144;
 
 // TODO: make this configurable
 pub const UPSCALE: usize = 3;
+
+const FRAME_DIMENSIONS: [usize; 2] = [SCREEN_WIDTH * UPSCALE, SCREEN_HEIGHT * UPSCALE];
 
 /// A channel to communicate between the emulator and the frontend.
 /// The frontend can send messages with `sender`
@@ -39,15 +42,38 @@ impl EmulatorChannel {
 pub struct EmulatorFrontend {
     thread: JoinHandle<()>,
     channel: EmulatorChannel,
-    frame: Option<TextureHandle>,
+    frame: TextureHandle,
     debugger: Option<DebuggerFrontend>,
 }
 
 impl EmulatorFrontend {
+    /// Starts the emulator with the given cartridge.
+    pub fn start(ctx: &egui::Context, cartridge: &Cartridge, config: EmulatorConfig) -> Self {
+        let (emulator_sender, emulator_receiver) = mpsc::channel();
+        let (frontend_sender, frontend_receiver) = mpsc::channel();
+        let cartridge = cartridge.clone();
+
+        let thread = thread::spawn(move || {
+            let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
+            emulator.run();
+        });
+
+        // Create initial TextureHandle for the frame buffer
+        let image = ColorImage::new(FRAME_DIMENSIONS, Color32::TRANSPARENT);
+        let frame = ctx.load_texture("frame", image, TextureOptions::LINEAR);
+
+        Self {
+            channel: EmulatorChannel::new(frontend_sender, emulator_receiver),
+            debugger: None,
+            frame,
+            thread,
+        }
+    }
+
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut Ui) {
         self.handle_user_input(ui);
-        self.recv_message(ctx);
-        self.draw_emulator_frame(ctx, ui);
+        self.recv_message();
+        self.draw_emulator_frame(ui);
 
         let mut stop_debugger = false;
         if let Some(debugger) = &mut self.debugger {
@@ -69,34 +95,12 @@ impl EmulatorFrontend {
         }
     }
 
-    /// Starts the emulator with the given cartridge.
-    pub fn start(cartridge: &Cartridge, config: EmulatorConfig) -> Self {
-        let (emulator_sender, emulator_receiver) = mpsc::channel();
-        let (frontend_sender, frontend_receiver) = mpsc::channel();
-        let cartridge = cartridge.clone();
-
-        let debugger = config
-            .debug
-            .then_some(DebuggerFrontend::new(frontend_sender.clone()));
-
-        let thread = thread::spawn(move || {
-            let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
-            emulator.run();
-        });
-        Self {
-            channel: EmulatorChannel::new(frontend_sender, emulator_receiver),
-            frame: None,
-            thread,
-            debugger,
-        }
-    }
-
     /// Shuts the emulator down by sending a reset message and waiting for it to finish.
     pub fn shutdown(&self) {
         println!("Stopping emulator ...");
         self.send_message(FrontendMessage::Stop);
+        // Wait for the emulator to finish
         while !self.thread.is_finished() {
-            // Wait for the emulator to finish
             sleep(std::time::Duration::from_millis(15));
         }
     }
@@ -124,42 +128,31 @@ impl EmulatorFrontend {
 
     /// Draws the latest frame from the emulator to the screen
     #[inline]
-    fn draw_emulator_frame(&self, ctx: &egui::Context, ui: &mut Ui) {
-        if let Some(frame) = &self.frame {
-            let size = Vec2::new(
-                (SCREEN_WIDTH * UPSCALE) as f32,
-                (SCREEN_HEIGHT * UPSCALE) as f32,
-            );
-            ui.image((frame.id(), size));
-            ctx.request_repaint();
-        }
+    fn draw_emulator_frame(&self, ui: &mut Ui) {
+        ui.image(SizedTexture::from_handle(&self.frame));
+        ui.ctx().request_repaint();
     }
 
     /// Sets the frame texture to the given `FrameBuffer`.
-    fn set_frame_texture(&mut self, frame: FrameBuffer, ctx: &egui::Context) {
+    fn set_frame_texture(&mut self, frame: FrameBuffer) {
         let image = ColorImage {
-            size: [SCREEN_WIDTH * UPSCALE, SCREEN_HEIGHT * UPSCALE],
+            size: FRAME_DIMENSIONS,
             pixels: frame.buffer,
         };
-        let options = TextureOptions::LINEAR;
-
-        // Set the new frame to the texture or create a new one if it doesn't exist
-        if let Some(frame) = &mut self.frame {
-            frame.set(image, options);
-        } else {
-            self.frame = Some(ctx.load_texture("frame", image, options));
-        }
+        self.frame.set(image, TextureOptions::LINEAR);
     }
 
     /// Checks for messages from the emulator and updates the state if necessary.
-    fn recv_message(&mut self, ctx: &egui::Context) {
+    fn recv_message(&mut self) {
         // TODO: consider checking if there are multiple messages
         if let Ok(msg) = self.channel.receiver.try_recv() {
             match msg {
-                EmulatorMessage::Frame(frame) => self.set_frame_texture(frame, ctx),
+                EmulatorMessage::Frame(frame) => self.set_frame_texture(frame),
                 EmulatorMessage::Debug(message) => {
                     if let Some(debugger) = &mut self.debugger {
                         debugger.handle_message(*message);
+                    } else {
+                        eprintln!("Got debugger message, but frontend is not running");
                     }
                 }
             }

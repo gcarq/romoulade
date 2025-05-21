@@ -1,6 +1,7 @@
 use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::constants::*;
 use crate::gb::cpu::instruction::Instruction;
+use crate::gb::debugger::AnnotatedInstr;
 use crate::gb::{Bus, SubSystem};
 use std::ops::RangeInclusive;
 
@@ -12,7 +13,7 @@ pub struct DebugBus {
 impl DebugBus {
     /// Prefetch all instructions from ROM bank 0.
     /// TODO: adapt for banking
-    pub fn fetch_instructions(&mut self) -> Vec<(u16, Vec<u8>, Instruction)> {
+    pub fn fetch_instructions(&mut self) -> Vec<AnnotatedInstr> {
         let mut instructions = Vec::with_capacity(1000);
         instructions.extend(self.instructions_from_range(ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END));
         instructions.extend(self.instructions_from_range(CRAM_BANK_BEGIN..=CRAM_BANK_END));
@@ -22,18 +23,15 @@ impl DebugBus {
     }
 
     /// Fetches all instructions from the specified range.
-    fn instructions_from_range(
-        &mut self,
-        range: RangeInclusive<u16>,
-    ) -> Vec<(u16, Vec<u8>, Instruction)> {
+    fn instructions_from_range(&mut self, range: RangeInclusive<u16>) -> Vec<AnnotatedInstr> {
         let mut instructions = Vec::new();
         let mut pc = *range.start();
 
         while pc <= *range.end() {
             let old_pc = pc;
             let (instruction, next_pc) = Instruction::from_opcode(self.read(pc), pc + 1, self);
-            let opcodes = (old_pc..next_pc).map(|addr| self.read(addr)).collect();
-            instructions.push((pc, opcodes, instruction));
+            let bytes = (old_pc..next_pc).map(|addr| self.read(addr)).collect();
+            instructions.push(AnnotatedInstr::new(pc, bytes, instruction));
             pc = next_pc;
         }
         instructions

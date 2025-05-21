@@ -97,7 +97,7 @@ impl LCDState {
 
     /// Sets the first two bits of `PPU_STAT` to the given `PPUMode`.
     #[inline]
-    pub fn set_mode(&mut self, mode: PPUMode) {
+    pub const fn set_mode(&mut self, mode: PPUMode) {
         *self = LCDState::from_bits_truncate((self.bits() & 0b1111_1100) | mode as u8);
     }
 }

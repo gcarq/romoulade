@@ -418,7 +418,11 @@ impl PPU {
             self.cycles = PPUMode::AccessOAM.cycles();
             self.r.lcd_stat.insert(LCDState::LYC_STAT);
         } else if !new.contains(LCDControl::LCD_EN) && cur.contains(LCDControl::LCD_EN) {
-            debug_assert_eq!(self.r.lcd_stat.mode(), PPUMode::VBlank, "LCD off, but not in VBlank");
+            debug_assert_eq!(
+                self.r.lcd_stat.mode(),
+                PPUMode::VBlank,
+                "LCD off, but not in VBlank"
+            );
             // LCD is being turned off, reset the LY register to 0.
             self.r.ly = 0;
             self.wy_internal = None;
@@ -436,7 +440,7 @@ impl PPU {
 
     /// Reads the LCD status register (`PPU_STAT`).
     #[inline]
-    fn read_stat(&self) -> u8 {
+    const fn read_stat(&self) -> u8 {
         if self.r.lcd_control.contains(LCDControl::LCD_EN) {
             self.r.lcd_stat.bits() | 0b1000_0000
         } else {

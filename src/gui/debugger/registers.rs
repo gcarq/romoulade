@@ -1,7 +1,7 @@
 use crate::gb::cpu::ImeState;
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gui::debugger::EmulatorState;
-use bitvec::order::Lsb0;
+use bitvec::order::Msb0;
 use bitvec::view::BitView;
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{FontId, TextFormat, Ui};
@@ -128,7 +128,7 @@ impl Registers {
 
     /// Draws an integer value in binary format with colored bits.
     fn draw_bits<T: BitView>(&self, ui: &mut Ui, value: T) {
-        let bits = value.view_bits::<Lsb0>();
+        let bits = value.view_bits::<Msb0>();
         let mut job = LayoutJob::default();
         for (i, chunk) in bits.chunks(4).enumerate() {
             if i > 0 {

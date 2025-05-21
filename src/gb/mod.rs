@@ -87,7 +87,6 @@ pub enum FrontendMessage {
 pub struct EmulatorConfig {
     pub rom: Option<PathBuf>, // Path to the ROM file
     pub upscale: usize,       // Scale factor for the display
-    pub debug: bool,          // Enable debugger
     pub fastboot: bool,       // Skip boot ROM
     pub print_serial: bool,   // Print serial data to stdout
     pub headless: bool,       // Run in headless mode (no display)
@@ -98,7 +97,6 @@ impl Default for EmulatorConfig {
         Self {
             rom: None,
             upscale: 3,
-            debug: false,
             fastboot: false,
             print_serial: false,
             headless: false,
@@ -129,18 +127,12 @@ impl Emulator {
         let display = (!config.headless).then_some(Display::new(sender.clone(), config.upscale));
         let bus = MainBus::with_cartridge(cartridge, config.clone(), display);
 
-        let debugger = if config.debug {
-            Some(initialize_debugger(&cpu, &bus, sender.clone()))
-        } else {
-            None
-        };
-
         Self {
             is_running: true,
             fastboot: config.fastboot,
+            debugger: None,
             cpu,
             bus,
-            debugger,
             sender,
             receiver,
         }
@@ -186,19 +178,20 @@ impl Emulator {
         self.bus.is_boot_rom_active = false;
     }
 
+    /// Initializes the debugger and sends the initial state to the frontend.
+    fn attach_debugger(&mut self) {
+        let debugger = Debugger::new(self.sender.clone());
+        debugger.send_message(DebugMessage::new(&self.cpu, &self.bus));
+        self.debugger = Some(debugger);
+    }
+
     /// Checks for a new `FrontendMessage` and handles it.
     fn handle_message(&mut self) {
         if let Ok(message) = self.receiver.try_recv() {
             match message {
                 FrontendMessage::Stop => self.is_running = false,
                 FrontendMessage::Input(input) => self.bus.joypad.handle_input(input),
-                FrontendMessage::AttachDebugger => {
-                    self.debugger = Some(initialize_debugger(
-                        &self.cpu,
-                        &self.bus,
-                        self.sender.clone(),
-                    ));
-                }
+                FrontendMessage::AttachDebugger => self.attach_debugger(),
                 FrontendMessage::DetachDebugger => self.debugger = None,
                 FrontendMessage::Debug(message) => {
                     if let Some(debugger) = &mut self.debugger {
@@ -208,11 +201,4 @@ impl Emulator {
             }
         }
     }
-}
-
-/// Initializes the debugger and sends the initial state to the frontend.
-fn initialize_debugger(cpu: &CPU, bus: &MainBus, sender: Sender<EmulatorMessage>) -> Debugger {
-    let debugger = Debugger::new(sender.clone());
-    debugger.send_message(DebugMessage::new(cpu, bus));
-    debugger
 }

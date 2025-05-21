@@ -99,9 +99,9 @@ bitflags! {
 
 impl FlagsRegister {
     #[inline(always)]
-    pub fn update(&mut self, zero: bool, negative: bool, half_carry: bool, carry: bool) {
+    pub fn update(&mut self, zero: bool, subtraction: bool, half_carry: bool, carry: bool) {
         self.set(FlagsRegister::ZERO, zero);
-        self.set(FlagsRegister::SUBTRACTION, negative);
+        self.set(FlagsRegister::SUBTRACTION, subtraction);
         self.set(FlagsRegister::HALF_CARRY, half_carry);
         self.set(FlagsRegister::CARRY, carry);
     }

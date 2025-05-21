@@ -21,14 +21,8 @@ impl Romoulade {
             Some(rom) => Some(Cartridge::try_from(rom.as_path())?),
             None => None,
         };
-
-        // Initialize the emulator frontend if a cartridge is loaded
-        let frontend = cartridge
-            .as_ref()
-            .map(|cartridge| EmulatorFrontend::start(cartridge, config.clone()));
-
         Ok(Self {
-            frontend,
+            frontend: None,
             cartridge,
             config,
         })
@@ -50,9 +44,13 @@ impl Romoulade {
 
     /// Starts the `Emulator` with the loaded `Cartridge`.
     #[inline]
-    fn run(&mut self) {
+    fn run(&mut self, ui: &Ui) {
         if let Some(cartridge) = &self.cartridge {
-            self.frontend = Some(EmulatorFrontend::start(cartridge, self.config.clone()));
+            self.frontend = Some(EmulatorFrontend::start(
+                ui.ctx(),
+                cartridge,
+                self.config.clone(),
+            ));
         }
     }
 
@@ -76,29 +74,32 @@ impl Romoulade {
             ui.separator();
             if ui.button("Run").clicked() {
                 self.shutdown();
-                self.config.debug = false;
-                self.run();
+                self.run(ui);
             }
             if ui.button("Attach Debugger").clicked() {
+                if self.frontend.is_none() {
+                    self.run(ui);
+                }
                 if let Some(frontend) = &mut self.frontend {
                     frontend.attach_debugger();
-                } else {
-                    self.config.debug = true;
-                    self.run();
                 }
             }
             if ui.button("Stop").clicked() {
                 self.shutdown();
             }
             ui.separator();
-            if let Some(cartridge) = &self.cartridge {
-                Label::new(RichText::new(format!("{cartridge}")).color(Color32::ORANGE))
-                    .selectable(false)
-                    .ui(ui);
-            } else {
-                Label::new("No ROM loaded").selectable(false).ui(ui);
-            }
+            self.draw_cartridge_info(ui);
         });
+    }
+
+    /// Displays the cartridge information in the top panel.
+    fn draw_cartridge_info(&self, ui: &mut Ui) {
+        let label = if let Some(cartridge) = &self.cartridge {
+            Label::new(RichText::new(format!("{cartridge}")).color(Color32::ORANGE))
+        } else {
+            Label::new("No ROM loaded")
+        };
+        label.selectable(false).ui(ui);
     }
 }
 

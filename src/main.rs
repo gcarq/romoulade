@@ -49,7 +49,6 @@ fn main() {
     let config = EmulatorConfig {
         rom: args.rom,
         upscale: UPSCALE, // TODO: make this configurable
-        debug: args.debug,
         fastboot: args.fastboot,
         print_serial: args.print_serial,
         headless: args.headless,

@@ -4,9 +4,8 @@ mod registers;
 
 use crate::gb::FrontendMessage;
 use crate::gb::cpu::CPU;
-use crate::gb::cpu::instruction::Instruction;
 use crate::gb::debugger::bus::DebugBus;
-use crate::gb::debugger::{DebugMessage, FrontendDebugMessage};
+use crate::gb::debugger::{AnnotatedInstr, DebugMessage, FrontendDebugMessage};
 use crate::gui::debugger::disasm::Disassembler;
 use crate::gui::debugger::registers::Registers;
 use eframe::egui;
@@ -15,21 +14,19 @@ use egui_extras::{Size, StripBuilder};
 use std::sync::mpsc::Sender;
 
 /// Holds the current state of the emulator that is relevant for debugging.
-#[derive(Clone)]
 struct EmulatorState {
     pub cpu: CPU,
     pub bus: DebugBus,
-    pub instructions: Vec<(u16, Vec<u8>, Instruction)>,
+    pub instructions: Vec<AnnotatedInstr>,
 }
 
 impl EmulatorState {
     pub fn new(cpu: CPU, bus: DebugBus) -> Self {
         let mut bus = bus;
-        let instructions = bus.fetch_instructions();
         Self {
+            instructions: bus.fetch_instructions(),
             cpu,
             bus,
-            instructions,
         }
     }
 }
@@ -45,10 +42,10 @@ impl DebuggerFrontend {
     #[inline]
     pub fn new(sender: Sender<FrontendMessage>) -> Self {
         Self {
-            sender,
             state: None,
             disassembler: Disassembler::default(),
             registers: Registers,
+            sender,
         }
     }
 
