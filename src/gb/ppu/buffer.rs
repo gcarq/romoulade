@@ -14,7 +14,7 @@ impl FrameBuffer {
     pub fn new(upscale: usize) -> Self {
         Self {
             buffer: vec![
-                Color32::DARK_BLUE;
+                Color32::WHITE;
                 SCREEN_WIDTH as usize * upscale * SCREEN_HEIGHT as usize * upscale
             ],
             upscale,
@@ -37,10 +37,10 @@ impl FrameBuffer {
     #[inline]
     const fn translate_color(&self, color: ColoredPixel) -> Color32 {
         match color {
-            ColoredPixel::White => Color32::from_rgb(0xff, 0xff, 0xff),
+            ColoredPixel::White => Color32::WHITE,
             ColoredPixel::LightGrey => Color32::from_rgb(0xab, 0xab, 0xab),
             ColoredPixel::DarkGrey => Color32::from_rgb(0x55, 0x55, 0x55),
-            ColoredPixel::Black => Color32::from_rgb(0x00, 0x00, 0x00),
+            ColoredPixel::Black => Color32::BLACK,
         }
     }
 }

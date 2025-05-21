@@ -10,7 +10,7 @@ use crate::gb::constants::*;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDState, PPUMode, Registers};
 use crate::gb::utils::bit_at;
-use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH, SubSystem};
+use crate::gb::{SubSystem, SCREEN_HEIGHT, SCREEN_WIDTH};
 use display::Display;
 use std::cmp::Ordering;
 

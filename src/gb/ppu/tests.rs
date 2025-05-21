@@ -76,7 +76,7 @@ fn test_frame_buffer_with_upscale() {
     // Check that the pixels are written correctly
     assert_eq!(frame.buffer[0], Color32::from_rgb(0x00, 0x00, 0x00));
     assert_eq!(frame.buffer[1], Color32::from_rgb(0x00, 0x00, 0x00));
-    assert_eq!(frame.buffer[2], Color32::DARK_BLUE);
+    assert_eq!(frame.buffer[2], Color32::WHITE);
 
     assert_eq!(
         frame.buffer[screen_width * 2],
@@ -86,10 +86,10 @@ fn test_frame_buffer_with_upscale() {
         frame.buffer[screen_width * 2 + 1],
         Color32::from_rgb(0x00, 0x00, 0x00)
     );
-    assert_eq!(frame.buffer[screen_width * 2 + 2], Color32::DARK_BLUE);
+    assert_eq!(frame.buffer[screen_width * 2 + 2], Color32::WHITE);
 
-    assert_eq!(frame.buffer[screen_width * 3], Color32::DARK_BLUE);
-    assert_eq!(frame.buffer[screen_width * 3 + 1], Color32::DARK_BLUE);
+    assert_eq!(frame.buffer[screen_width * 3], Color32::WHITE);
+    assert_eq!(frame.buffer[screen_width * 3 + 1], Color32::WHITE);
 }
 
 #[test]

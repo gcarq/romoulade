@@ -25,9 +25,7 @@ impl Display {
     /// Sends the current frame to the frontend and syncs the frame rate.
     pub fn send_frame(&mut self) {
         let buffer = self.buffer.clone();
-        self.sender
-            .send(EmulatorMessage::Frame(buffer))
-            .expect("Failed to send frame to frontend");
+        self.sender.send(EmulatorMessage::Frame(buffer)).ok();
         self.frame_limiter.wait();
     }
 

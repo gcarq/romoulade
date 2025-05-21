@@ -98,17 +98,18 @@ impl LCDState {
     /// Sets the first two bits of `PPU_STAT` to the given `PPUMode`.
     #[inline]
     pub fn set_mode(&mut self, mode: PPUMode) {
-        *self = LCDState::from_bits_truncate((self.bits() & 0b11111100) | u8::from(mode));
+        *self = LCDState::from_bits_truncate((self.bits() & 0b1111_1100) | mode as u8);
     }
 }
 
 /// Represents the first two bits in `LCDState` for convenience.
 #[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(u8)]
 pub enum PPUMode {
-    HBlank,     // 0b00
-    VBlank,     // 0b01
-    AccessOAM,  // 0b10
-    AccessVRAM, // 0b11
+    HBlank = 0b00,
+    VBlank = 0b01,
+    AccessOAM = 0b10,
+    AccessVRAM = 0b11,
 }
 
 impl PPUMode {
@@ -120,18 +121,6 @@ impl PPUMode {
             PPUMode::AccessVRAM => ACCESS_VRAM_CYCLES,
             PPUMode::HBlank => HBLANK_CYCLES,
             PPUMode::VBlank => VBLANK_LINE_CYCLES,
-        }
-    }
-}
-
-impl From<PPUMode> for u8 {
-    #[inline]
-    fn from(value: PPUMode) -> u8 {
-        match value {
-            PPUMode::HBlank => 0b00,
-            PPUMode::VBlank => 0b01,
-            PPUMode::AccessOAM => 0b10,
-            PPUMode::AccessVRAM => 0b11,
         }
     }
 }
