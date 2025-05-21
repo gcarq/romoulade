@@ -418,25 +418,30 @@ impl PPU {
             self.cycles = PPUMode::AccessOAM.cycles();
             self.r.lcd_stat.insert(LCDState::LYC_STAT);
         } else if !new.contains(LCDControl::LCD_EN) && cur.contains(LCDControl::LCD_EN) {
+            debug_assert_eq!(self.r.lcd_stat.mode(), PPUMode::VBlank, "LCD off, but not in VBlank");
             // LCD is being turned off, reset the LY register to 0.
-            if self.r.lcd_stat.mode() != PPUMode::VBlank {
-                eprintln!("FIXME: LCD off, but not in VBlank");
-            }
             self.r.ly = 0;
             self.wy_internal = None;
         }
         self.r.lcd_control = new;
     }
 
-    /// Writes to the LCD status register (`PPU_STAT`),
-    /// the first two bits are only writable by the PPU.
+    /// Writes to the LCD status register (`PPU_STAT`).
     #[inline]
     fn write_stat(&mut self, value: u8) {
-        let cur = self.r.lcd_stat;
-        let mut new = LCDState::from_bits_truncate(value);
-        new.set(LCDState::PPU_MODE1, cur.contains(LCDState::PPU_MODE1));
-        new.set(LCDState::PPU_MODE2, cur.contains(LCDState::PPU_MODE2));
-        self.r.lcd_stat = new;
+        let mode = self.r.lcd_stat.mode();
+        // The first two bits are not writable
+        self.r.lcd_stat = LCDState::from_bits_truncate(value & 0b1111_1100 | mode as u8);
+    }
+
+    /// Reads the LCD status register (`PPU_STAT`).
+    #[inline]
+    fn read_stat(&self) -> u8 {
+        if self.r.lcd_control.contains(LCDControl::LCD_EN) {
+            self.r.lcd_stat.bits() | 0b1000_0000
+        } else {
+            0b1000_0000
+        }
     }
 
     /// Reads from the OAM (Object Attribute Memory) region.
@@ -501,7 +506,7 @@ impl SubSystem for PPU {
             VRAM_BEGIN..=VRAM_END => self.read_vram(address),
             OAM_BEGIN..=OAM_END => self.read_oam(address),
             PPU_LCDC => self.r.lcd_control.bits(),
-            PPU_STAT => self.r.lcd_stat.bits() | 0b1000_0000, // Undocumented bit should be 1
+            PPU_STAT => self.read_stat(),
             PPU_SCY => self.r.scy,
             PPU_SCX => self.r.scx,
             PPU_LY => self.r.ly,
