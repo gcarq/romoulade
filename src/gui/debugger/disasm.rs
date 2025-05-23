@@ -45,7 +45,7 @@ impl Disassembler {
                 });
                 // Draw address column
                 row.col(|ui| {
-                    let text = RichText::new(format!("{:#06x}", ctx.address));
+                    let text = RichText::new(format!("{:#06X}", ctx.address));
                     let color = match ctx.address == state.cpu.r.pc {
                         true => Color32::LIGHT_RED,
                         false => Color32::LIGHT_GREEN,

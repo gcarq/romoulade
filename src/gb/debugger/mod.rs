@@ -1,14 +1,14 @@
 pub mod bus;
 
+use crate::gb::EmulatorMessage;
 use crate::gb::bus::MainBus;
 use crate::gb::constants::BOOT_END;
-use crate::gb::cpu::instruction::Instruction;
 use crate::gb::cpu::CPU;
+use crate::gb::cpu::instruction::Instruction;
 use crate::gb::debugger::bus::DebugBus;
-use crate::gb::EmulatorMessage;
 use std::collections::HashSet;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
+use std::sync::mpsc::Sender;
 
 /// This enum defines the possible debug messages that can be sent from
 /// the frontend to the emulator.

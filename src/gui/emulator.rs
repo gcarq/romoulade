@@ -5,7 +5,7 @@ use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
 use eframe::egui;
 use eframe::egui::load::SizedTexture;
-use eframe::egui::{Color32, Key, TextureHandle, Ui, ViewportBuilder, ViewportId};
+use eframe::egui::{Color32, Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
 use spin_sleep::sleep;
@@ -79,10 +79,11 @@ impl EmulatorFrontend {
         if let Some(debugger) = &mut self.debugger {
             ctx.show_viewport_immediate(
                 ViewportId::from_hash_of("debugger"),
-                ViewportBuilder::default().with_title("Debugger"),
+                ViewportBuilder::default()
+                    .with_title("Debugger")
+                    .with_inner_size(Vec2::new(1130.0, 780.0)),
                 |ctx, _| {
                     debugger.update(ctx);
-
                     // Check if the debugger window is closed
                     if ctx.input(|i| i.viewport().close_requested()) {
                         stop_debugger = true;

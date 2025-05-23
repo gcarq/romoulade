@@ -10,46 +10,46 @@ use crate::gb::constants::*;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDState, PPUMode, Registers};
 use crate::gb::utils::bit_at;
-use crate::gb::{SubSystem, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH, SubSystem};
 use display::Display;
 use std::cmp::Ordering;
 
 /// LCDC is the main LCD Control register.
 /// Its bits toggle what elements are displayed on the screen, and how.
-const PPU_LCDC: u16 = 0xFF40;
+pub const PPU_LCDC: u16 = 0xFF40;
 
 /// LCD Status register.
-const PPU_STAT: u16 = 0xFF41;
+pub const PPU_STAT: u16 = 0xFF41;
 
 /// These two registers specify the top-left coordinates of the visible 160×144 pixel
 /// area within the 256×256 pixels BG map.
-const PPU_SCY: u16 = 0xFF42;
-const PPU_SCX: u16 = 0xFF43;
+pub const PPU_SCY: u16 = 0xFF42;
+pub const PPU_SCX: u16 = 0xFF43;
 
 /// LY indicates the current horizontal line, which might be about to be drawn, being drawn,
 /// or just been drawn. LY can hold any value from 0 to 153, with values from 144 to 153
 /// indicating the `VBlank` period.
-const PPU_LY: u16 = 0xFF44;
+pub const PPU_LY: u16 = 0xFF44;
 
 /// When both `PPU_LYC` and `PPU_LY` values are identical, the “LYC=LY” flag in the STAT register is set
-const PPU_LYC: u16 = 0xFF45;
+pub const PPU_LYC: u16 = 0xFF45;
 
 /// Writing to this register requests an OAM DMA transfer, but it’s just a request and the
 /// actual DMA transfer starts with a delay.
-const PPU_DMA: u16 = 0xFF46;
+pub const PPU_DMA: u16 = 0xFF46;
 
 /// This register assigns gray shades to the color indices of the BG and Window tiles.
-const PPU_BGP: u16 = 0xFF47;
+pub const PPU_BGP: u16 = 0xFF47;
 
 /// These registers assigns gray shades to the color indexes of the OBJs that use the corresponding
 /// palette. They work exactly like BGP, except that the lower two bits are ignored because color
 /// index 0 is transparent for OBJs.
-const PPU_OBP0: u16 = 0xFF48;
-const PPU_OBP1: u16 = 0xFF49;
+pub const PPU_OBP0: u16 = 0xFF48;
+pub const PPU_OBP1: u16 = 0xFF49;
 
 /// These two registers specify the on-screen coordinates of the Window’s top-left pixel.
-const PPU_WY: u16 = 0xFF4A;
-const PPU_WX: u16 = 0xFF4B;
+pub const PPU_WY: u16 = 0xFF4A;
+pub const PPU_WX: u16 = 0xFF4B;
 
 const ACCESS_OAM_CYCLES: isize = 21;
 const ACCESS_VRAM_CYCLES: isize = 43;
@@ -447,10 +447,11 @@ impl PPU {
     /// Reads the LCD status register (`PPU_STAT`).
     #[inline]
     const fn read_stat(&self) -> u8 {
+        let unused = 0b1000_0000;
         if self.r.lcd_control.contains(LCDControl::LCD_EN) {
-            self.r.lcd_stat.bits() | 0b1000_0000
+            self.r.lcd_stat.bits() | unused
         } else {
-            0b1000_0000
+            LCDControl::empty().bits() | unused
         }
     }
 

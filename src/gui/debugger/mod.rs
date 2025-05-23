@@ -1,12 +1,15 @@
 mod disasm;
-
+mod memory;
 mod registers;
+#[macro_use]
+mod macros;
 
 use crate::gb::FrontendMessage;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::bus::DebugBus;
 use crate::gb::debugger::{AnnotatedInstr, DebugMessage, FrontendDebugMessage};
 use crate::gui::debugger::disasm::Disassembler;
+use crate::gui::debugger::memory::MemoryMap;
 use crate::gui::debugger::registers::Registers;
 use eframe::egui;
 use eframe::egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};
@@ -36,6 +39,7 @@ pub struct DebuggerFrontend {
     state: Option<EmulatorState>,
     disassembler: Disassembler,
     registers: Registers,
+    memory: MemoryMap,
 }
 
 impl DebuggerFrontend {
@@ -44,6 +48,7 @@ impl DebuggerFrontend {
         Self {
             state: None,
             disassembler: Disassembler::default(),
+            memory: MemoryMap::default(),
             registers: Registers,
             sender,
         }
@@ -68,15 +73,20 @@ impl DebuggerFrontend {
                     }
                 }
             });
+        SidePanel::right("memory").resizable(false).show(ctx, |ui| {
+            if let Some(state) = &mut self.state {
+                self.memory.update(state, ui);
+            }
+        });
         CentralPanel::default().show(ctx, |ui| {
             StripBuilder::new(ui)
-                .size(Size::exact(145.0))
+                .size(Size::exact(150.0))
                 .size(Size::remainder())
                 .horizontal(|mut strip| {
                     strip.strip(|builder| {
                         builder.sizes(Size::remainder(), 1).horizontal(|mut strip| {
                             strip.cell(|ui| {
-                                if let Some(state) = &self.state {
+                                if let Some(state) = &mut self.state {
                                     self.registers.update(state, ui);
                                 }
                             });
