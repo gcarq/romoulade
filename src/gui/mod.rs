@@ -72,21 +72,32 @@ impl Romoulade {
                 }
             }
             ui.separator();
-            if ui.button("Run").clicked() {
-                self.shutdown();
-                self.run(ui);
-            }
-            if ui.button("Attach Debugger").clicked() {
-                if self.frontend.is_none() {
+            ui.add_enabled_ui(self.cartridge.is_some(), |ui| {
+                let text = match self.frontend {
+                    Some(_) => "Reset",
+                    None => "Run",
+                };
+                if ui.button(text).clicked() {
+                    self.shutdown();
                     self.run(ui);
                 }
-                if let Some(frontend) = &mut self.frontend {
-                    frontend.attach_debugger();
+            });
+            ui.add_enabled_ui(self.frontend.is_some(), |ui| {
+                if ui.button("Stop").clicked() {
+                    self.shutdown();
                 }
-            }
-            if ui.button("Stop").clicked() {
-                self.shutdown();
-            }
+            });
+            ui.separator();
+            ui.add_enabled_ui(self.cartridge.is_some(), |ui| {
+                if ui.button("Attach Debugger").clicked() {
+                    if self.frontend.is_none() {
+                        self.run(ui);
+                    }
+                    if let Some(frontend) = &mut self.frontend {
+                        frontend.attach_debugger();
+                    }
+                }
+            });
             ui.separator();
             self.draw_cartridge_info(ui);
         });

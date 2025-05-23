@@ -1,8 +1,8 @@
-use crate::gb::constants::*;
-use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::cpu::ImeState;
-use crate::gb::ppu::*;
 use crate::gb::SubSystem;
+use crate::gb::constants::*;
+use crate::gb::cpu::ImeState;
+use crate::gb::cpu::registers::FlagsRegister;
+use crate::gb::ppu::*;
 use crate::gui::debugger::EmulatorState;
 use crate::monospace_append;
 use bitvec::order::Msb0;
@@ -93,13 +93,7 @@ impl Registers {
 
     /// Updates the input register in the UI.
     fn update_input(&self, state: &mut EmulatorState, ui: &mut Ui) {
-        self.draw_io_registers(
-            "INPUT",
-            ui,
-            &[
-                (JOYPAD, "JOYP", state.bus.read(JOYPAD)),
-            ],
-        );
+        self.draw_io_registers("INPUT", ui, &[(JOYPAD, "JOYP", state.bus.read(JOYPAD))]);
     }
 
     /// Updates the CPUS flags in the UI (lower 8 bits of AF register).
