@@ -46,14 +46,15 @@ struct FrameLimiter {
 impl FrameLimiter {
     /// Creates a new frame limiter with the given refresh rate.
     #[inline]
-    pub fn new(refresh_rate: u32) -> Self {
+    pub fn new(refresh_rate: f64) -> Self {
         Self {
-            frame_duration: Duration::from_secs(1) / refresh_rate,
+            frame_duration: Duration::from_secs_f64(1.0 / refresh_rate),
             last_call: Instant::now(),
         }
     }
 
     /// Blocks the current thread until the allotted frame time has passed.
+    #[inline]
     pub fn wait(&mut self) {
         let elapsed = self.last_call.elapsed();
         if elapsed < self.frame_duration {

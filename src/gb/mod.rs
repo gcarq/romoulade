@@ -25,7 +25,7 @@ pub mod tests;
 pub mod timer;
 mod utils;
 
-pub const DISPLAY_REFRESH_RATE: u32 = 60; // TODO: exact refresh rate is 59.7
+pub const DISPLAY_REFRESH_RATE: f64 = 59.727500569606;
 
 pub const SCREEN_WIDTH: u8 = 160;
 pub const SCREEN_HEIGHT: u8 = 144;
