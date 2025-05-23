@@ -59,7 +59,6 @@ impl Registers {
     }
 }
 
-
 bitflags! {
     /// Represents the special purpose "flags" register.
     /// Only the upper 4 bits are used.

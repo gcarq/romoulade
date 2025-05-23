@@ -1,5 +1,5 @@
 use crate::gb::cartridge::controller::BankController;
-use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, rom_bank_mask};
+use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, bank_mask};
 use crate::gb::constants::*;
 use std::sync::Arc;
 
@@ -85,7 +85,7 @@ impl MBC1 {
         // we don't consider the advanced banking mode
         if self.config.rom_banks < 32 {
             self.low_rom_bank_offset = 0;
-            self.bank_low_bits &= rom_bank_mask(self.config.rom_banks) as u8;
+            self.bank_low_bits &= bank_mask(self.config.rom_banks) as u8;
             self.high_rom_bank_offset = ROM_BANK_SIZE * self.bank_low_bits as usize;
             return;
         }

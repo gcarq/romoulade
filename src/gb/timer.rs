@@ -1,6 +1,6 @@
+use crate::gb::SubSystem;
 use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
-use crate::gb::SubSystem;
 
 bitflags! {
     /// Represents the control register TAC at 0xFF07

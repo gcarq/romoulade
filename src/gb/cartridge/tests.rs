@@ -1,6 +1,6 @@
 use crate::gb::cartridge::{
     CARTRIDGE_GLOBAL_CHECKSUM1, CARTRIDGE_GLOBAL_CHECKSUM2, CartridgeConfig, ControllerType,
-    calculate_global_checksum, rom_bank_mask, verify_checksum,
+    bank_mask, calculate_global_checksum, verify_checksum,
 };
 
 #[test]
@@ -48,12 +48,12 @@ fn test_cartridge_config() {
 }
 
 #[test]
-fn test_rom_bank_mask() {
-    assert_eq!(rom_bank_mask(2), 0b11);
-    assert_eq!(rom_bank_mask(4), 0b111);
-    assert_eq!(rom_bank_mask(8), 0b1111);
-    assert_eq!(rom_bank_mask(16), 0b11111);
-    assert_eq!(rom_bank_mask(32), 0b111111);
-    assert_eq!(rom_bank_mask(64), 0b1111111);
-    assert_eq!(rom_bank_mask(128), 0b11111111);
+fn test_bank_mask() {
+    assert_eq!(bank_mask(2), 0b11);
+    assert_eq!(bank_mask(4), 0b111);
+    assert_eq!(bank_mask(8), 0b1111);
+    assert_eq!(bank_mask(16), 0b11111);
+    assert_eq!(bank_mask(32), 0b111111);
+    assert_eq!(bank_mask(64), 0b1111111);
+    assert_eq!(bank_mask(128), 0b11111111);
 }

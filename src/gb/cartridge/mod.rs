@@ -1,5 +1,5 @@
-use crate::gb::cartridge::controller::BankController;
 use crate::gb::GBError;
+use crate::gb::cartridge::controller::BankController;
 use crate::gb::{GBResult, SubSystem};
 use std::path::Path;
 use std::sync::Arc;
@@ -7,6 +7,7 @@ use std::{fmt, fs};
 
 mod controller;
 mod mbc1;
+mod mbc3;
 mod mbc5;
 mod nombc;
 #[cfg(test)]
@@ -59,7 +60,11 @@ const RAM_BANK_SIZE: usize = 8192;
 pub enum ControllerType {
     NoMBC,
     MBC1,
+    MBC2,
+    MBC3,
     MBC5,
+    MBC6,
+    MBC7,
 }
 
 impl TryFrom<u8> for ControllerType {
@@ -68,7 +73,11 @@ impl TryFrom<u8> for ControllerType {
         let mode = match value {
             0x00 | 0x08 | 0x09 => ControllerType::NoMBC,
             0x01..=0x03 => ControllerType::MBC1,
+            0x05 | 0x06 => ControllerType::MBC2,
+            0x0F..=0x13 => ControllerType::MBC3,
             0x19..=0x1E => ControllerType::MBC5,
+            0x20 => ControllerType::MBC6,
+            0x22 => ControllerType::MBC7,
             _ => return Err(format!("Cartridge type {value:#04x} not implemented").into()),
         };
         Ok(mode)
@@ -80,7 +89,11 @@ impl fmt::Display for ControllerType {
         let name = match self {
             ControllerType::NoMBC => "NoMBC",
             ControllerType::MBC1 => "MBC1",
+            ControllerType::MBC2 => "MBC2",
+            ControllerType::MBC3 => "MBC3",
             ControllerType::MBC5 => "MBC5",
+            ControllerType::MBC6 => "MBC6",
+            ControllerType::MBC7 => "MBC7",
         };
         write!(f, "{name}")
     }
@@ -257,7 +270,7 @@ fn calculate_global_checksum(buf: &[u8]) -> u16 {
 
 /// This function masks the ROM Bank Number to the number of banks in the cartridge.
 #[inline]
-const fn rom_bank_mask(rom_banks: u16) -> u32 {
+const fn bank_mask(rom_banks: u16) -> u32 {
     let mask = u16::BITS - rom_banks.leading_zeros();
     (1 << mask) - 1
 }

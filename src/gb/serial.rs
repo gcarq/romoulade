@@ -1,5 +1,5 @@
-use crate::gb::constants::*;
 use crate::gb::SubSystem;
+use crate::gb::constants::*;
 
 bitflags! {
     /// Represents the Serial transfer control register at 0xFF02

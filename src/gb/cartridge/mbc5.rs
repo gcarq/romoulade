@@ -1,5 +1,5 @@
 use crate::gb::cartridge::controller::BankController;
-use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, rom_bank_mask};
+use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, bank_mask};
 use crate::gb::constants::*;
 use std::sync::Arc;
 
@@ -31,8 +31,8 @@ pub struct MBC5 {
     config: CartridgeConfig,
     rom: Arc<[u8]>,
     ram: Vec<u8>,
-    rom_bank_number: u16, // current selected ROM bank number for 0x4000 - 0x7FFF
-    ram_bank_number: u8,  // current selected RAM bank number for 0xA000 - 0xBFFF
+    rom_bank_number: u16, // Mapped ROM bank number for 0x4000 - 0x7FFF
+    ram_bank_number: u8,  // Mapped RAM bank number for 0xA000 - 0xBFFF
     has_ram_access: bool,
 }
 
@@ -80,12 +80,12 @@ impl BankController for MBC5 {
             // Sets the lower 8 bits of the ROM bank number.
             ROM_BANK_LOW_BITS_BEGIN..=ROM_BANK_LOW_BITS_END => {
                 self.rom_bank_number = (self.rom_bank_number & 0xFF00) | (value as u16 & 0x00FF);
-                self.rom_bank_number &= rom_bank_mask(self.config.rom_banks) as u16;
+                self.rom_bank_number &= bank_mask(self.config.rom_banks) as u16;
             }
             // Sets the upper 1 bit of the ROM bank number.
             ROM_BANK_HIGH_BIT_BEGIN..=ROM_BANK_HIGH_BIT_END => {
                 self.rom_bank_number |= u16::from(value & 0b1) << 8;
-                self.rom_bank_number &= rom_bank_mask(self.config.rom_banks) as u16;
+                self.rom_bank_number &= bank_mask(self.config.rom_banks) as u16;
             }
             RAM_BANK_NUMBER_BEGIN..=RAM_BANK_NUMBER_END => {
                 self.ram_bank_number = value & 0b0000_1111;
