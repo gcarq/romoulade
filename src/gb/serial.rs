@@ -1,9 +1,9 @@
-use crate::gb::SubSystem;
 use crate::gb::constants::*;
+use crate::gb::SubSystem;
 
 bitflags! {
     /// Represents the Serial transfer control register at 0xFF02
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Default)]
     pub struct Control: u8 {
         // 0 = External clock, 1 = Internal clock.
         const CLOCK_SELECT    = 0b0000_0001;
@@ -15,7 +15,7 @@ bitflags! {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SerialTransfer {
     /// The transfer control register.
     pub control: Control,
@@ -43,16 +43,6 @@ impl SerialTransfer {
             } else {
                 print!("?");
             }
-        }
-    }
-}
-
-impl Default for SerialTransfer {
-    fn default() -> Self {
-        Self {
-            control: Control::empty(),
-            data: 0,
-            print_serial: false,
         }
     }
 }

@@ -1,5 +1,5 @@
 /// Holds all CPU registers
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Registers {
     pub pc: u16,
     pub sp: u16,
@@ -59,23 +59,6 @@ impl Registers {
     }
 }
 
-impl Default for Registers {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            pc: 0x0000,
-            sp: 0x0000,
-            a: 0,
-            b: 0,
-            c: 0,
-            d: 0,
-            e: 0,
-            f: FlagsRegister::empty(),
-            h: 0,
-            l: 0,
-        }
-    }
-}
 
 bitflags! {
     /// Represents the special purpose "flags" register.
@@ -88,7 +71,7 @@ bitflags! {
     /// | |
     /// └-+> Zero
     ///   └-> Half Carry
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Default)]
     pub struct FlagsRegister: u8 {
         const ZERO = 0b1000_0000;
         const SUBTRACTION = 0b0100_0000;

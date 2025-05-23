@@ -3,7 +3,7 @@ use crate::gb::ppu::misc::Palette;
 use crate::gb::ppu::{ACCESS_OAM_CYCLES, ACCESS_VRAM_CYCLES, HBLANK_CYCLES, VBLANK_LINE_CYCLES};
 
 /// Holds all PPU Registers
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Registers {
     pub lcd_control: LCDControl, // PPU_LCDC
     pub lcd_stat: LCDState,      // PPU_STAT
@@ -19,29 +19,9 @@ pub struct Registers {
     pub wx: u8,                  // PPU_WX
 }
 
-impl Default for Registers {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            lcd_control: LCDControl::empty(),
-            lcd_stat: LCDState::empty(),
-            ly: 0,
-            lyc: 0,
-            oam_dma: OamDma::default(),
-            scy: 0,
-            scx: 0,
-            bg_palette: Palette::default(),
-            obj_palette0: Palette::default(),
-            obj_palette1: Palette::default(),
-            wy: 0,
-            wx: 0,
-        }
-    }
-}
-
 bitflags! {
     /// Represents PPU_LCDC at 0xFF40
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Default)]
     pub struct LCDControl: u8 {
         const BG_EN    = 0b00000001; // BG Enable
         const OBJ_EN   = 0b00000010; // OBJ Enable
@@ -54,7 +34,7 @@ bitflags! {
     }
 
     /// Represents PPU_STAT at 0xFF41
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Default)]
     pub struct LCDState: u8 {
         const PPU_MODE1   = 0b00000001; // Indicates the PPUs current status
         const PPU_MODE2   = 0b00000010; // Indicates the PPUs current status

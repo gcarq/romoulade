@@ -1,5 +1,5 @@
-use crate::gb::GBError;
 use crate::gb::cartridge::controller::BankController;
+use crate::gb::GBError;
 use crate::gb::{GBResult, SubSystem};
 use std::path::Path;
 use std::sync::Arc;

@@ -1,10 +1,10 @@
-use crate::gb::SubSystem;
 use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::{TIMER_COUNTER, TIMER_CTRL, TIMER_DIVIDER, TIMER_MODULO};
+use crate::gb::SubSystem;
 
 bitflags! {
     /// Represents the control register TAC at 0xFF07
-    #[derive(Copy, Clone, PartialEq)]
+    #[derive(Copy, Clone, Default, PartialEq)]
     pub struct TimerControl: u8 {
         const TIMER_FREQ   = 0b0000_0011; // Frequency select
         const TIMER_ENABLE = 0b0000_0100; // Enable timer
@@ -33,7 +33,7 @@ impl TimerControl {
 
 /// This struct holds all timer related registers.
 /// See https://gbdev.io/pandocs/Timer_and_Divider_Registers.html
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Timer {
     // DIV. The upper bits of the divider are mapped to memory but the two extra bits
     // at the top are not visible. Hence, we need to right shift the divider by 6 bits.
@@ -42,19 +42,6 @@ pub struct Timer {
     pub modulo: u8,            // TMA
     pub control: TimerControl, // TAC
     counter_overflow: bool,    // Indicates whether the counter overflowed during the last cycle
-}
-
-impl Default for Timer {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            divider: 0,
-            counter: 0,
-            modulo: 0,
-            control: TimerControl::empty(),
-            counter_overflow: false,
-        }
-    }
 }
 
 impl Timer {
