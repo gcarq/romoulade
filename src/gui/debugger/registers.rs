@@ -1,8 +1,8 @@
-use crate::gb::SubSystem;
 use crate::gb::constants::*;
-use crate::gb::cpu::ImeState;
 use crate::gb::cpu::registers::FlagsRegister;
+use crate::gb::cpu::ImeState;
 use crate::gb::ppu::*;
+use crate::gb::SubSystem;
 use crate::gui::debugger::EmulatorState;
 use crate::monospace_append;
 use bitvec::order::Msb0;
@@ -24,17 +24,23 @@ impl Registers {
         self.update_ppu(state, ui);
         ui.separator();
         self.update_timer(state, ui);
+        ui.separator();
+        self.update_input(state, ui);
     }
 
     /// Updates all relevant parts of the CPU in the UI.
     fn update_cpu(&self, state: &mut EmulatorState, ui: &mut Ui) {
-        ui.label(RichText::new("CPU").monospace().color(Color32::CYAN));
         self.update_cpu_registers(state, ui);
         ui.separator();
         ui.horizontal(|ui| {
-            self.draw_flag(ui, "IME", state.cpu.ime == ImeState::Enabled);
-            ui.separator();
-            self.draw_flag(ui, "HALT", state.cpu.is_halted);
+            ui.columns(2, |columns| {
+                columns[0].vertical_centered_justified(|ui| {
+                    self.draw_flag(ui, "IME", state.cpu.ime == ImeState::Enabled);
+                });
+                columns[1].vertical_centered_justified(|ui| {
+                    self.draw_flag(ui, "HALT", state.cpu.is_halted);
+                });
+            });
         });
     }
 
@@ -85,18 +91,39 @@ impl Registers {
         );
     }
 
+    /// Updates the input register in the UI.
+    fn update_input(&self, state: &mut EmulatorState, ui: &mut Ui) {
+        self.draw_io_registers(
+            "INPUT",
+            ui,
+            &[
+                (JOYPAD, "JOYP", state.bus.read(JOYPAD)),
+            ],
+        );
+    }
+
     /// Updates the CPUS flags in the UI (lower 8 bits of AF register).
     fn update_cpu_flags(&self, state: &EmulatorState, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            self.draw_flag(ui, "Z", state.cpu.r.f.contains(FlagsRegister::ZERO));
-            ui.separator();
-            self.draw_flag(ui, "N", state.cpu.r.f.contains(FlagsRegister::SUBTRACTION));
+            ui.columns(2, |columns| {
+                columns[0].vertical_centered_justified(|ui| {
+                    self.draw_flag(ui, "Z", state.cpu.r.f.contains(FlagsRegister::ZERO));
+                });
+                columns[1].vertical_centered_justified(|ui| {
+                    self.draw_flag(ui, "N", state.cpu.r.f.contains(FlagsRegister::SUBTRACTION));
+                });
+            });
         });
         ui.separator();
         ui.horizontal(|ui| {
-            self.draw_flag(ui, "H", state.cpu.r.f.contains(FlagsRegister::HALF_CARRY));
-            ui.separator();
-            self.draw_flag(ui, "C", state.cpu.r.f.contains(FlagsRegister::CARRY));
+            ui.columns(2, |columns| {
+                columns[0].vertical_centered_justified(|ui| {
+                    self.draw_flag(ui, "H", state.cpu.r.f.contains(FlagsRegister::HALF_CARRY));
+                });
+                columns[1].vertical_centered_justified(|ui| {
+                    self.draw_flag(ui, "C", state.cpu.r.f.contains(FlagsRegister::CARRY));
+                });
+            });
         });
     }
 
@@ -105,27 +132,47 @@ impl Registers {
         self.update_cpu_flags(state, ui);
         ui.separator();
         ui.horizontal(|ui| {
-            self.draw_cpu_register(ui, "A", state.cpu.r.a);
-            ui.separator();
-            self.draw_cpu_register(ui, "F", state.cpu.r.f.bits());
+            ui.columns(2, |columns| {
+                columns[0].vertical_centered_justified(|ui| {
+                    self.draw_cpu_register(ui, "A", state.cpu.r.a);
+                });
+                columns[1].vertical_centered_justified(|ui| {
+                    self.draw_cpu_register(ui, "F", state.cpu.r.f.bits());
+                });
+            });
         });
         ui.separator();
         ui.horizontal(|ui| {
-            self.draw_cpu_register(ui, "B", state.cpu.r.b);
-            ui.separator();
-            self.draw_cpu_register(ui, "C", state.cpu.r.c);
+            ui.columns(2, |columns| {
+                columns[0].vertical_centered_justified(|ui| {
+                    self.draw_cpu_register(ui, "B", state.cpu.r.b);
+                });
+                columns[1].vertical_centered_justified(|ui| {
+                    self.draw_cpu_register(ui, "C", state.cpu.r.c);
+                });
+            });
         });
         ui.separator();
         ui.horizontal(|ui| {
-            self.draw_cpu_register(ui, "D", state.cpu.r.d);
-            ui.separator();
-            self.draw_cpu_register(ui, "E", state.cpu.r.e);
+            ui.columns(2, |columns| {
+                columns[0].vertical_centered_justified(|ui| {
+                    self.draw_cpu_register(ui, "D", state.cpu.r.d);
+                });
+                columns[1].vertical_centered_justified(|ui| {
+                    self.draw_cpu_register(ui, "E", state.cpu.r.e);
+                });
+            });
         });
         ui.separator();
         ui.horizontal(|ui| {
-            self.draw_cpu_register(ui, "H", state.cpu.r.h);
-            ui.separator();
-            self.draw_cpu_register(ui, "L", state.cpu.r.l);
+            ui.columns(2, |columns| {
+                columns[0].vertical_centered_justified(|ui| {
+                    self.draw_cpu_register(ui, "H", state.cpu.r.h);
+                });
+                columns[1].vertical_centered_justified(|ui| {
+                    self.draw_cpu_register(ui, "L", state.cpu.r.l);
+                });
+            });
         });
         ui.separator();
         self.draw_u16_register(ui, "SP", state.cpu.r.sp);
@@ -187,7 +234,7 @@ impl Registers {
 
     /// Draws a `u8` register with its name and value.
     fn draw_cpu_register(&self, ui: &mut Ui, name: &str, value: u8) {
-        ui.vertical(|ui| {
+        ui.vertical_centered(|ui| {
             let mut job = LayoutJob::default();
             monospace_append!(job, name, Color32::ORANGE);
             monospace_append!(job, &format!(" = {value:#04X}\n"), Color32::WHITE);

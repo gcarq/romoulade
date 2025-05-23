@@ -13,7 +13,6 @@ use crate::gui::debugger::memory::MemoryMap;
 use crate::gui::debugger::registers::Registers;
 use eframe::egui;
 use eframe::egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};
-use egui_extras::{Size, StripBuilder};
 use std::sync::mpsc::Sender;
 
 /// Holds the current state of the emulator that is relevant for debugging.
@@ -79,20 +78,9 @@ impl DebuggerFrontend {
             }
         });
         CentralPanel::default().show(ctx, |ui| {
-            StripBuilder::new(ui)
-                .size(Size::exact(150.0))
-                .size(Size::remainder())
-                .horizontal(|mut strip| {
-                    strip.strip(|builder| {
-                        builder.sizes(Size::remainder(), 1).horizontal(|mut strip| {
-                            strip.cell(|ui| {
-                                if let Some(state) = &mut self.state {
-                                    self.registers.update(state, ui);
-                                }
-                            });
-                        });
-                    });
-                });
+            if let Some(state) = &mut self.state {
+                self.registers.update(state, ui);
+            }
         });
     }
 

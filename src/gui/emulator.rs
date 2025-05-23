@@ -6,8 +6,8 @@ use crate::gui::debugger::DebuggerFrontend;
 use eframe::egui;
 use eframe::egui::load::SizedTexture;
 use eframe::egui::{Color32, Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
-use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
+use eframe::epaint::ColorImage;
 use spin_sleep::sleep;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
@@ -81,7 +81,8 @@ impl EmulatorFrontend {
                 ViewportId::from_hash_of("debugger"),
                 ViewportBuilder::default()
                     .with_title("Debugger")
-                    .with_inner_size(Vec2::new(1130.0, 780.0)),
+                    .with_inner_size(Vec2::new(1130.0, 790.0))
+                    .with_resizable(false),
                 |ctx, _| {
                     debugger.update(ctx);
                     // Check if the debugger window is closed
