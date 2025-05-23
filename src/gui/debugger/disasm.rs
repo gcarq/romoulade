@@ -1,7 +1,5 @@
-use crate::gb::cpu::instruction::Instruction;
 use crate::gui::debugger::EmulatorState;
-use eframe::egui::text::LayoutJob;
-use eframe::egui::{Align, Color32, FontId, Label, Sense, TextFormat, Ui, Widget};
+use eframe::egui::{Align, Color32, RichText, Sense, Ui};
 use egui_extras::{Column, TableBuilder};
 use itertools::Itertools;
 use std::collections::HashSet;
@@ -22,7 +20,10 @@ impl Disassembler {
 
         let mut table = TableBuilder::new(ui)
             .resizable(false)
-            .column(Column::auto().at_least(310.0))
+            .column(Column::exact(16.0))
+            .column(Column::exact(60.0))
+            .column(Column::exact(76.0))
+            .column(Column::exact(140.0))
             .sense(Sense::click());
 
         let instructions = state.instructions.as_slice();
@@ -36,8 +37,39 @@ impl Disassembler {
             body.rows(text_height, instructions.len(), |mut row| {
                 let ctx = &instructions[row.index()];
                 row.set_selected(self.breakpoints.contains(&ctx.address));
+                // Draw PC indicator
                 row.col(|ui| {
-                    Self::row_label(state, ctx.address, &ctx.bytes, &ctx.instruction).ui(ui);
+                    if ctx.address == state.cpu.r.pc {
+                        ui.label(RichText::new("->").monospace().color(Color32::LIGHT_RED));
+                    }
+                });
+                // Draw address column
+                row.col(|ui| {
+                    let text = RichText::new(format!("{:#06x}", ctx.address));
+                    let color = match ctx.address == state.cpu.r.pc {
+                        true => Color32::LIGHT_RED,
+                        false => Color32::LIGHT_GREEN,
+                    };
+                    ui.label(text.monospace().color(color));
+                });
+                // Draw raw bytes column
+                row.col(|ui| {
+                    let text =
+                        RichText::new(ctx.bytes.iter().map(|b| format!("{b:02x}")).join(" "));
+                    let color = match ctx.address == state.cpu.r.pc {
+                        true => Color32::LIGHT_RED,
+                        false => Color32::GRAY,
+                    };
+                    ui.label(text.monospace().color(color));
+                });
+                // Draw instruction column
+                row.col(|ui| {
+                    let text = RichText::new(ctx.instruction.to_string()).monospace();
+                    let color = match ctx.address == state.cpu.r.pc {
+                        true => Color32::LIGHT_RED,
+                        false => Color32::WHITE,
+                    };
+                    ui.label(text.monospace().color(color));
                 });
                 if row.response().clicked() {
                     self.toggle_breakpoint(ctx.address);
@@ -54,47 +86,6 @@ impl Disassembler {
         self.scroll_to_address = Some(address);
     }
 
-    /// Creates a row label for the disassembly view.
-    fn row_label(
-        state: &EmulatorState,
-        address: u16,
-        bytes: &[u8],
-        instruction: &Instruction,
-    ) -> Label {
-        let bytes = bytes.iter().map(|b| format!("{b:02x}")).join(" ");
-        let mut job = LayoutJob::default();
-        if address == state.cpu.r.pc {
-            job.append(
-                &format!("-> {address:#06x}    "),
-                0.0,
-                text_format(Color32::LIGHT_RED),
-            );
-        } else {
-            job.append(
-                &format!("   {address:#06x}    "),
-                0.0,
-                text_format(Color32::LIGHT_GREEN),
-            );
-        }
-        job.append(
-            &format!("{bytes:<12}"),
-            0.0,
-            text_format(match address == state.cpu.r.pc {
-                true => Color32::LIGHT_RED,
-                false => Color32::GRAY,
-            }),
-        );
-        job.append(
-            &format!("{instruction}"),
-            0.0,
-            text_format(match address == state.cpu.r.pc {
-                true => Color32::LIGHT_RED,
-                false => Color32::WHITE,
-            }),
-        );
-        Label::new(job).selectable(false)
-    }
-
     /// Toggles a breakpoint at the given address.
     #[inline]
     fn toggle_breakpoint(&mut self, address: u16) {
@@ -103,14 +94,5 @@ impl Disassembler {
         } else {
             self.breakpoints.insert(address);
         }
-    }
-}
-
-/// Returns a `TextFormat` that will be used for each row.
-fn text_format(color: Color32) -> TextFormat {
-    TextFormat {
-        font_id: FontId::monospace(12.0),
-        color,
-        ..Default::default()
     }
 }
