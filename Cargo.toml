@@ -1,6 +1,6 @@
 [package]
 name = "romoulade"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["gcarq <egger.m@protonmail.com>"]
 edition = "2024"
 
