@@ -3,7 +3,7 @@ use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::ops::WordRegister::HL;
 use crate::gb::cpu::ops::*;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::{Bus, utils};
+use crate::gb::{utils, Bus};
 use registers::Registers;
 
 pub mod instruction;

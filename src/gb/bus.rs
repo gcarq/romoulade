@@ -2,8 +2,8 @@ use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
 use crate::gb::joypad::Joypad;
-use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
+use crate::gb::ppu::PPU;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
 use crate::gb::{Bus, EmulatorConfig, SubSystem};
@@ -17,6 +17,14 @@ bitflags! {
         const TIMER  = 0b00000100; // Timer Overflow Interrupt
         const SERIAL = 0b00001000; // Serial Transfer Completion Interrupt
         const JOYPAD = 0b00010000; // Joypad Input Interrupt
+    }
+}
+
+impl InterruptRegister {
+    /// Returns the interrupt with the highest priority.
+    #[inline]
+    pub fn highest_prio(&self) -> Option<InterruptRegister> {
+        self.iter_names().map(|(_, irq)| irq).next()
     }
 }
 

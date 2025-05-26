@@ -1,6 +1,6 @@
-use crate::gb::Bus;
 use crate::gb::bus::InterruptRegister;
-use crate::gb::cpu::{CPU, ImeState};
+use crate::gb::cpu::{ImeState, CPU};
+use crate::gb::Bus;
 
 const VBLANK_IRQ_ADDRESS: u16 = 0x0040;
 const LCD_IRQ_ADDRESS: u16 = 0x0048;
@@ -14,32 +14,35 @@ pub fn handle<T: Bus>(cpu: &mut CPU, bus: &mut T) {
     debug_assert_eq!(cpu.ime, ImeState::Enabled);
     debug_assert!(!cpu.is_halted);
 
-    let mut int_flags = bus.get_if();
-    for irq in InterruptRegister::all().iter() {
-        if bus.get_ie().contains(irq) && int_flags.contains(irq) {
-            int_flags.remove(irq);
-            bus.set_if(int_flags);
-            let address = match irq {
-                InterruptRegister::VBLANK => VBLANK_IRQ_ADDRESS,
-                InterruptRegister::STAT => LCD_IRQ_ADDRESS,
-                InterruptRegister::TIMER => TIMER_IRQ_ADDRESS,
-                InterruptRegister::SERIAL => SERIAL_IRQ_ADDRESS,
-                InterruptRegister::JOYPAD => JOYPAD_IRQ_ADDRESS,
-                _ => unreachable!(),
-            };
-            interrupt(cpu, bus, address);
-            return;
-        }
-    }
-}
-
-/// Handles interrupt request
-#[inline]
-fn interrupt<T: Bus>(cpu: &mut CPU, bus: &mut T, address: u16) {
     cpu.ime = ImeState::Disabled;
     bus.cycle();
     bus.cycle();
+
     // Save current execution address by pushing it onto the stack
-    cpu.push(cpu.r.pc, bus);
-    cpu.r.pc = address;
+    let [low, high] = cpu.r.pc.to_le_bytes();
+
+    cpu.r.sp = cpu.r.sp.wrapping_sub(1);
+    bus.cycle_write(cpu.r.sp, high);
+
+    let int_flags = bus.get_if();
+    // After the high byte push it's possible that the interrupt flag register has changed
+    let irq = (bus.get_ie() & int_flags).highest_prio();
+
+    // The low byte push is not fast enough to modify the pending IRQ
+    cpu.r.sp = cpu.r.sp.wrapping_sub(1);
+    bus.cycle_write(cpu.r.sp, low);
+
+    // Clear the flag for the request that is being handled
+    if let Some(irq) = irq {
+        bus.set_if(int_flags - irq);
+    }
+
+    cpu.r.pc = match irq {
+        Some(InterruptRegister::VBLANK) => VBLANK_IRQ_ADDRESS,
+        Some(InterruptRegister::STAT) => LCD_IRQ_ADDRESS,
+        Some(InterruptRegister::TIMER) => TIMER_IRQ_ADDRESS,
+        Some(InterruptRegister::SERIAL) => SERIAL_IRQ_ADDRESS,
+        Some(InterruptRegister::JOYPAD) => JOYPAD_IRQ_ADDRESS,
+        _ => 0x0000,
+    };
 }
