@@ -134,23 +134,22 @@ impl CPU {
     /// Push an u16 value onto the stack.
     pub fn push<T: Bus>(&mut self, value: u16, bus: &mut T) {
         bus.cycle();
+        let [low, high] = value.to_le_bytes();
         self.r.sp = self.r.sp.wrapping_sub(1);
-        // Write the most significant byte
-        bus.cycle_write(self.r.sp, (value >> 8) as u8);
+        bus.cycle_write(self.r.sp, high);
+
         self.r.sp = self.r.sp.wrapping_sub(1);
-        // Write the least significant byte
-        bus.cycle_write(self.r.sp, value as u8);
+        bus.cycle_write(self.r.sp, low);
     }
 
     /// Pop an u16 value from the stack.
     fn pop<T: Bus>(&mut self, bus: &mut T) -> u16 {
-        let low = u16::from(bus.cycle_read(self.r.sp));
+        let low = bus.cycle_read(self.r.sp);
         self.r.sp = self.r.sp.wrapping_add(1);
 
-        let high = u16::from(bus.cycle_read(self.r.sp));
+        let high = bus.cycle_read(self.r.sp);
         self.r.sp = self.r.sp.wrapping_add(1);
-
-        (high << 8) | low
+        u16::from_le_bytes([low, high])
     }
 
     /// Handles ADD A, n instructions
