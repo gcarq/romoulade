@@ -2,7 +2,7 @@ use crate::gb::constants::UNDEFINED_READ;
 
 const OAM_TRANSFER_SIZE: u8 = 0xA0;
 
-/// This struct holds all data required for the OAM DMA transfer.
+/// This controller holds all data required for the OAM DMA transfer.
 /// It takes 2 machine cycles until the transfer is started.
 ///   M = 0: write to $FF46 happens
 ///   M = 1: nothing (OAM still accessible)
@@ -17,7 +17,7 @@ const OAM_TRANSFER_SIZE: u8 = 0xA0;
 ///
 /// source, requested and pending hold the upper bits of the source address.
 #[derive(Clone, Copy)]
-pub struct OamDma {
+pub struct OamDmaController {
     pub is_running: bool,
     pub source: u8,
     pub requested: Option<u8>,
@@ -25,7 +25,7 @@ pub struct OamDma {
     source_address: u16, // Holds the current transfer source address
 }
 
-impl Default for OamDma {
+impl Default for OamDmaController {
     fn default() -> Self {
         Self {
             is_running: false,
@@ -37,7 +37,7 @@ impl Default for OamDma {
     }
 }
 
-impl OamDma {
+impl OamDmaController {
     /// Requests a new OAM DMA transfer.
     #[inline]
     pub const fn request(&mut self, value: u8) {
@@ -55,7 +55,7 @@ impl OamDma {
 
     /// Returns the current source address and increments it by 1.
     #[inline]
-    pub const fn transfer(&mut self) -> Option<u16> {
+    pub fn transfer(&mut self) -> Option<u16> {
         if !self.is_running {
             return None;
         }

@@ -12,6 +12,7 @@ At this point, a lot of tested games are playable; however, there are still some
 ## Quick Start
 
 Clone this repository, build and run it with cargo:
+
 ```
 git clone https://github.com/gcarq/romoulade.git
 cd romoulade/
@@ -20,26 +21,26 @@ cargo run --release
 
 ## Key Bindings
 
-| Keyboard        | Emulator     |
-|-----------------|--------------|
-| Arrow Right     | A            |
-| Arrow Left      | B            |
-| Enter           | Start        |
-| Backspace       | Select       |
-| W               | Up           |
-| A               | Left         |
-| S               | Down         |
-| D               | Right        |
+| Keyboard    | Emulator |
+|-------------|----------|
+| Arrow Right | A        |
+| Arrow Left  | B        |
+| Enter       | Start    |
+| Backspace   | Select   |
+| W           | Up       |
+| A           | Left     |
+| S           | Down     |
+| D           | Right    |
 
 ## State
 
 This project started as an exploratory project and aims to have an accurate
 DMG emulator with cross-platform support and good documentation.
-The Frontend has been built with [egui.rs](https://github.com/emilk/egui), but the emulator can also be started in headless mode (see usage below).
+The Frontend has been built with [egui.rs](https://github.com/emilk/egui), but the emulator can also be started in
+headless mode (see usage below).
 
 #### Known Issues and TODOs
 
-- Fix sprite rendering bug in *The Legend Of Zelda - Link's Awakening*
 - Implement save game handling
 - Implement remaining MBCs (MBC2, MBC6, MBC7, ...)
 - Implement Sound Processing Unit
@@ -49,37 +50,37 @@ The Frontend has been built with [egui.rs](https://github.com/emilk/egui), but t
 
 ### Blargg's Test ROMs
 
-| Test No.        | Result  | Remark |
-|-----------------|---------|--------|
-| cpu_instrs      | ✅      | Passed |
-| instr_timing    | ✅      | Passed |
-| mem_timing      | ✅      | Passed |
-| mem_timing-2    | ✅      | Passed |
-| oam_bug         | ❌      | Failed |
-| halt_bug        | ✅      | Passed |
-| dmg_sound       | ❌      | Missing|
+| Test No.     | Result | Remark  |
+|--------------|--------|---------|
+| cpu_instrs   | ✅      | Passed  |
+| instr_timing | ✅      | Passed  |
+| mem_timing   | ✅      | Passed  |
+| mem_timing-2 | ✅      | Passed  |
+| oam_bug      | ❌      | Failed  |
+| halt_bug     | ✅      | Passed  |
+| dmg_sound    | ❌      | Missing |
 
 ### Mooneye Acceptance Tests
 
-The test ROMs are taken from the commit [a1adfe2](https://github.com/Gekkio/mooneye-test-suite/commit/a1adfe27ba6517d8f4d14d16088e23ce6bbf4d55).
+The test ROMs are taken from the
+commit [a1adfe2](https://github.com/Gekkio/mooneye-test-suite/commit/a1adfe27ba6517d8f4d14d16088e23ce6bbf4d55).
 
-| Test Name  | Passed | Failing Tests |
-|------------|--------|--------|
-| common     | 26/31  | <sub>boot_div, boot_hwio, di_timing, halt_ime0_nointr_timing, halt_ime1_timing2</sub> |
-| bits       | 3/3    | ✅ |
-| instr      | 1/1    | ✅ |
-| interrupts | 1/1    | ✅ |
-| oam_dma    | 2/3    | <sub>sources</sub> |
+| Test Name  | Passed | Failing Tests                                                                                                                     |
+|------------|--------|-----------------------------------------------------------------------------------------------------------------------------------|
+| common     | 26/31  | <sub>boot_div, boot_hwio, di_timing, halt_ime0_nointr_timing, halt_ime1_timing2</sub>                                             |
+| bits       | 3/3    | ✅                                                                                                                                 |
+| instr      | 1/1    | ✅                                                                                                                                 |
+| interrupts | 1/1    | ✅                                                                                                                                 |
+| oam_dma    | 2/3    | <sub>sources</sub>                                                                                                                |
 | ppu        | 6/12   | <sub>intr_2_mode0_timing_sprites, hblank_ly_scx_timing, lcdon_timing, lcdon_write_timing, stat_irq_blocking, stat_lyc_onoff</sub> |
-| serial     | 0/1    | <sub>boot_sclk_align</sub> |
-| timer      | 10/13  | <sub>rapid_toggle, tima_write_reloading, tma_write_reloading</sub> |
+| serial     | 0/1    | <sub>boot_sclk_align</sub>                                                                                                        |
+| timer      | 10/13  | <sub>rapid_toggle, tima_write_reloading, tma_write_reloading</sub>                                                                |
 
 ## Debugger
 
 This emulator comes with a visual debugger built using [egui.rs](https://github.com/emilk/egui).
 The debugger can be attached and detached at any time without a performance penalty.
 ![Screenshot_20250526_152543](https://github.com/user-attachments/assets/fc9fca26-6af5-4559-8046-7b042f6e1864)
-
 
 ## Command Line Options
 
@@ -99,7 +100,8 @@ Options:
 ## Contributing
 
 This repository is open to contributions.
-The code should follow the [Rust Style Guide](https://doc.rust-lang.org/stable/style-guide/) and shouldn't produce any `clippy` warnings.
+The code should follow the [Rust Style Guide](https://doc.rust-lang.org/stable/style-guide/) and shouldn't produce any
+`clippy` warnings.
 
 ## Dependencies
 

@@ -1,22 +1,22 @@
-use crate::gb::oam::OamDma;
+use crate::gb::oam::OamDmaController;
 use crate::gb::ppu::misc::Palette;
-use crate::gb::ppu::{ACCESS_OAM_CYCLES, ACCESS_VRAM_CYCLES, HBLANK_CYCLES, VBLANK_LINE_CYCLES};
+use crate::gb::ppu::{HBLANK_CYCLES, OAM_SCAN_CYCLES, PIXEL_TRANSFER_CYCLES, VBLANK_CYCLES};
 
 /// Holds all PPU Registers
 #[derive(Clone, Copy, Default)]
 pub struct Registers {
-    pub lcd_control: LCDControl, // PPU_LCDC
-    pub lcd_stat: LCDState,      // PPU_STAT
-    pub ly: u8,                  // PPU_LY
-    pub lyc: u8,                 // PPU_LYC
-    pub oam_dma: OamDma,         // PPU_DMA
-    pub scy: u8,                 // PPU_SCY
-    pub scx: u8,                 // PPU_SCX
-    pub bg_palette: Palette,     // PPU_BGP
-    pub obj_palette0: Palette,   // PPU_OBP0
-    pub obj_palette1: Palette,   // PPU_OBP1
-    pub wy: u8,                  // PPU_WY
-    pub wx: u8,                  // PPU_WX
+    pub lcd_control: LCDControl,   // PPU_LCDC
+    pub lcd_stat: LCDState,        // PPU_STAT
+    pub ly: u8,                    // PPU_LY
+    pub lyc: u8,                   // PPU_LYC
+    pub oam_dma: OamDmaController, // PPU_DMA
+    pub scy: u8,                   // PPU_SCY
+    pub scx: u8,                   // PPU_SCX
+    pub bg_palette: Palette,       // PPU_BGP
+    pub obj_palette0: Palette,     // PPU_OBP0
+    pub obj_palette1: Palette,     // PPU_OBP1
+    pub wy: u8,                    // PPU_WY
+    pub wx: u8,                    // PPU_WX
 }
 
 bitflags! {
@@ -86,10 +86,10 @@ impl LCDState {
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum PPUMode {
-    HBlank = 0b00,
-    VBlank = 0b01,
-    AccessOAM = 0b10,
-    AccessVRAM = 0b11,
+    HBlank = 0b00,        // Mode 0
+    VBlank = 0b01,        // Mode 1
+    OAMScan = 0b10,       // Mode 2
+    PixelTransfer = 0b11, // Mode 3
 }
 
 impl PPUMode {
@@ -97,10 +97,10 @@ impl PPUMode {
     #[inline]
     pub const fn cycles(self) -> usize {
         match self {
-            PPUMode::AccessOAM => ACCESS_OAM_CYCLES,
-            PPUMode::AccessVRAM => ACCESS_VRAM_CYCLES,
+            PPUMode::OAMScan => OAM_SCAN_CYCLES,
+            PPUMode::PixelTransfer => PIXEL_TRANSFER_CYCLES,
             PPUMode::HBlank => HBLANK_CYCLES,
-            PPUMode::VBlank => VBLANK_LINE_CYCLES,
+            PPUMode::VBlank => VBLANK_CYCLES,
         }
     }
 }
@@ -111,8 +111,8 @@ impl From<u8> for PPUMode {
         match value & 0b11 {
             0b00 => PPUMode::HBlank,
             0b01 => PPUMode::VBlank,
-            0b10 => PPUMode::AccessOAM,
-            0b11 => PPUMode::AccessVRAM,
+            0b10 => PPUMode::OAMScan,
+            0b11 => PPUMode::PixelTransfer,
             _ => unreachable!(),
         }
     }

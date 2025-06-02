@@ -147,7 +147,7 @@ impl MainBus {
             let value = self.read(source_address);
             let offset = source_address & 0b1111_1111;
             let target_address = OAM_BEGIN + offset;
-            self.ppu.write(target_address, value);
+            self.ppu.write_oam(target_address, value, true);
         }
         if let Some(source) = self.ppu.r.oam_dma.pending.take() {
             self.ppu.r.oam_dma.start(source);

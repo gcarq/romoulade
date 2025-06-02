@@ -51,10 +51,10 @@ pub const PPU_OBP1: u16 = 0xFF49;
 pub const PPU_WY: u16 = 0xFF4A;
 pub const PPU_WX: u16 = 0xFF4B;
 
-const ACCESS_OAM_CYCLES: usize = 21;
-const ACCESS_VRAM_CYCLES: usize = 43;
-const HBLANK_CYCLES: usize = 51;
-const VBLANK_LINE_CYCLES: usize = 114;
+const OAM_SCAN_CYCLES: usize = 21;
+const PIXEL_TRANSFER_CYCLES: usize = 43;
+const HBLANK_CYCLES: usize = 50;
+const VBLANK_CYCLES: usize = 114;
 
 /// The Window is visible (if enabled) when both coordinates are in the ranges WX=0..166, WY=0..143
 /// respectively. Values WX=7, WY=0 place the Window at the top left of the screen,
@@ -109,7 +109,7 @@ impl Default for PPU {
             r: Registers::default(),
             vram: [0u8; VRAM_SIZE],
             oam: [0u8; OAM_SIZE],
-            cycles: ACCESS_OAM_CYCLES,
+            cycles: OAM_SCAN_CYCLES,
             wy_internal: None,
             display: None,
         }
@@ -141,8 +141,8 @@ impl PPU {
             // In this state, the PPU would scan the OAM (Objects Attribute Memory)
             // from 0xfe00 to 0xfe9f to mix sprite pixels in the current line later.
             // This always takes 40 ticks.
-            PPUMode::AccessOAM => self.switch_mode(PPUMode::AccessVRAM, int_reg),
-            PPUMode::AccessVRAM => {
+            PPUMode::OAMScan => self.switch_mode(PPUMode::PixelTransfer, int_reg),
+            PPUMode::PixelTransfer => {
                 if self.r.lcd_stat.contains(LCDState::H_BLANK_INT) {
                     int_reg.insert(InterruptRegister::STAT);
                 }
@@ -177,12 +177,12 @@ impl PPU {
                     int_reg.insert(InterruptRegister::STAT);
                 }
             }
-            PPUMode::AccessOAM => {
+            PPUMode::OAMScan => {
                 if self.r.lcd_stat.contains(LCDState::OAM_INT) {
                     int_reg.insert(InterruptRegister::STAT);
                 }
             }
-            PPUMode::AccessVRAM => {
+            PPUMode::PixelTransfer => {
                 if self.r.lcd_control.contains(LCDControl::WIN_EN)
                     && self.wy_internal.is_none()
                     && self.r.wy == self.r.ly
@@ -209,7 +209,7 @@ impl PPU {
     fn handle_hblank(&mut self, int_reg: &mut InterruptRegister) {
         self.r.ly += 1;
         if is_on_screen_y(self.r.ly) {
-            self.switch_mode(PPUMode::AccessOAM, int_reg);
+            self.switch_mode(PPUMode::OAMScan, int_reg);
         } else {
             if let Some(display) = &mut self.display {
                 display.send_frame();
@@ -224,9 +224,9 @@ impl PPU {
         self.r.ly += 1;
         if self.r.ly > VBLANK_SCAN_LINE_MAX {
             self.r.ly = 0;
-            self.switch_mode(PPUMode::AccessOAM, int_reg);
+            self.switch_mode(PPUMode::OAMScan, int_reg);
         } else {
-            self.cycles += VBLANK_LINE_CYCLES;
+            self.cycles += VBLANK_CYCLES;
         }
         self.handle_coincidence_flag(int_reg);
     }
@@ -410,7 +410,7 @@ impl PPU {
         if new.contains(LCDControl::LCD_EN) && !cur.contains(LCDControl::LCD_EN) {
             // LCD is being turned on
             self.r.lcd_stat.set_mode(PPUMode::HBlank);
-            self.cycles = PPUMode::AccessOAM.cycles();
+            self.cycles = PPUMode::OAMScan.cycles();
             self.r.lcd_stat.insert(LCDState::LYC_STAT);
         } else if !new.contains(LCDControl::LCD_EN) && cur.contains(LCDControl::LCD_EN) {
             debug_assert_eq!(
@@ -454,17 +454,17 @@ impl PPU {
     fn read_oam(&self, address: u16) -> u8 {
         match self.r.lcd_stat.mode() {
             // In Pixel Transfer mode or during OAM Search, the OAM is not accessible.
-            PPUMode::AccessOAM | PPUMode::AccessVRAM => UNDEFINED_READ,
+            PPUMode::OAMScan | PPUMode::PixelTransfer => UNDEFINED_READ,
             PPUMode::HBlank | PPUMode::VBlank => self.oam[(address - OAM_BEGIN) as usize],
         }
     }
 
     /// Writes to the OAM (Object Attribute Memory) region.
-    fn write_oam(&mut self, address: u16, value: u8) {
+    /// During `OAMScan` and `PixelTransfer` writes are ignored unless it's a DMA transfer.
+    pub fn write_oam(&mut self, address: u16, value: u8, is_dma: bool) {
         match self.r.lcd_stat.mode() {
-            // OAM is not accessible during Pixel Transfer or OAM Search.
-            PPUMode::AccessOAM | PPUMode::AccessVRAM => {}
-            PPUMode::HBlank | PPUMode::VBlank => self.oam[(address - OAM_BEGIN) as usize] = value,
+            PPUMode::OAMScan | PPUMode::PixelTransfer if !is_dma => {}
+            _ => self.oam[(address - OAM_BEGIN) as usize] = value,
         }
     }
 
@@ -472,14 +472,14 @@ impl PPU {
     fn read_vram(&self, address: u16) -> u8 {
         match self.r.lcd_stat.mode() {
             // In Pixel Transfer mode, the VRAM is not accessible.
-            PPUMode::AccessVRAM => UNDEFINED_READ,
+            PPUMode::PixelTransfer => UNDEFINED_READ,
             _ => self.vram[usize::from(address - VRAM_BEGIN)],
         }
     }
 
     /// Writes to the VRAM region.
     fn write_vram(&mut self, address: u16, value: u8) {
-        if self.r.lcd_stat.mode() != PPUMode::AccessVRAM {
+        if self.r.lcd_stat.mode() != PPUMode::PixelTransfer {
             // VRAM is not accessible during Pixel Transfer mode.
             self.vram[usize::from(address - VRAM_BEGIN)] = value;
         }
@@ -490,7 +490,7 @@ impl SubSystem for PPU {
     fn write(&mut self, address: u16, value: u8) {
         match address {
             VRAM_BEGIN..=VRAM_END => self.write_vram(address, value),
-            OAM_BEGIN..=OAM_END => self.write_oam(address, value),
+            OAM_BEGIN..=OAM_END => self.write_oam(address, value, false),
             PPU_LCDC => self.write_control(value),
             PPU_STAT => self.write_stat(value),
             PPU_SCY => self.r.scy = value,
