@@ -56,7 +56,7 @@ impl CPU {
             // Handle interrupts if IME is enabled and there is a pending IRQ
             ImeState::Enabled if bus.has_irq() => {
                 bus.cycle();
-                interrupt::handle(self, bus)
+                interrupt::handle(self, bus);
             }
             _ => {}
         }

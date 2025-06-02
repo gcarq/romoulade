@@ -1,4 +1,4 @@
-use crate::gb::cartridge::controller::BankController;
+use crate::gb::cartridge::controller::{BankController, SaveError};
 use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, bank_mask};
 use crate::gb::constants::*;
 use std::sync::Arc;
@@ -183,6 +183,25 @@ impl BankController for MBC3 {
             _ => {}
         }
     }
+
+    fn load_ram(&mut self, ram: Vec<u8>) {
+        debug_assert_eq!(
+            ram.len(),
+            self.ram.len(),
+            "Given RAM size does not match the expected size",
+        );
+        self.ram = ram;
+    }
+
+    fn save_ram(&self) -> Result<Arc<[u8]>, SaveError> {
+        if self.ram.is_empty() || !self.config.controller.has_battery() {
+            return Err(SaveError::NoSaveSupport);
+        }
+        if self.has_ram_rtc_access {
+            return Err(SaveError::RAMLocked);
+        }
+        Ok(self.ram.clone().into())
+    }
 }
 
 #[cfg(test)]
@@ -192,7 +211,8 @@ mod tests {
 
     #[test]
     fn test_ram_state() {
-        let config = CartridgeConfig::new(ControllerType::MBC3, 0x03, 0x02).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC3 { battery: true }, 0x03, 0x02).unwrap();
         let mut controller = MBC3::new(config, Arc::new([0; ROM_BANK_SIZE * 16]));
 
         let addr = CRAM_BANK_BEGIN + 0x10;
@@ -215,7 +235,8 @@ mod tests {
 
     #[test]
     fn test_rom_bank_bits() {
-        let config = CartridgeConfig::new(ControllerType::MBC3, 0x08, 0x02).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC3 { battery: true }, 0x08, 0x02).unwrap();
         let mut ctrl = MBC3::new(config, Arc::new([0; ROM_BANK_SIZE * 16]));
 
         ctrl.write(RAM_RTC_ENABLE_BEGIN, 0x01);
@@ -232,7 +253,8 @@ mod tests {
     }
     #[test]
     fn test_ram_banking() {
-        let config = CartridgeConfig::new(ControllerType::MBC3, 0x00, 0x03).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC3 { battery: true }, 0x00, 0x03).unwrap();
 
         // Initialize each bank with a unique value
         let mut ctrl = MBC3::new(

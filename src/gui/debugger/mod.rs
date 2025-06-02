@@ -1,8 +1,6 @@
 mod disasm;
 mod memory;
 mod registers;
-#[macro_use]
-mod macros;
 
 use crate::gb::FrontendMessage;
 use crate::gb::cpu::CPU;

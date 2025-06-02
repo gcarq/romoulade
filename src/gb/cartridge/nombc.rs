@@ -1,5 +1,5 @@
 use crate::gb::cartridge::CartridgeConfig;
-use crate::gb::cartridge::controller::BankController;
+use crate::gb::cartridge::controller::{BankController, SaveError};
 use crate::gb::constants::*;
 use std::sync::Arc;
 
@@ -9,6 +9,7 @@ use std::sync::Arc;
 /// using a discrete logic decoder in place of a full MBC chip.
 #[derive(Clone)]
 pub struct NoMBC {
+    config: CartridgeConfig,
     rom: Arc<[u8]>,
     ram: Vec<u8>,
 }
@@ -19,6 +20,7 @@ impl NoMBC {
         Self {
             ram: vec![0; config.ram_size()],
             rom,
+            config,
         }
     }
 }
@@ -42,5 +44,21 @@ impl BankController for NoMBC {
                 self.ram[(address - CRAM_BANK_BEGIN) as usize] = value;
             }
         }
+    }
+
+    fn load_ram(&mut self, ram: Vec<u8>) {
+        debug_assert_eq!(
+            ram.len(),
+            self.ram.len(),
+            "Given RAM size does not match the expected size",
+        );
+        self.ram = ram;
+    }
+
+    fn save_ram(&self) -> Result<Arc<[u8]>, SaveError> {
+        if self.ram.is_empty() || !self.config.controller.has_battery() {
+            return Err(SaveError::NoSaveSupport);
+        }
+        Ok(self.ram.clone().into())
     }
 }

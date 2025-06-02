@@ -413,12 +413,12 @@ impl PPU {
             self.cycles = PPUMode::OAMScan.cycles();
             self.r.lcd_stat.insert(LCDState::LYC_STAT);
         } else if !new.contains(LCDControl::LCD_EN) && cur.contains(LCDControl::LCD_EN) {
+            // LCD is being turned off
             debug_assert_eq!(
                 self.r.lcd_stat.mode(),
                 PPUMode::VBlank,
                 "LCD off, but not in VBlank"
             );
-            // LCD is being turned off, reset the LY register to 0.
             self.r.ly = 0;
             self.wy_internal = None;
         }

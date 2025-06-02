@@ -52,6 +52,7 @@ fn main() {
         fastboot: args.fastboot,
         print_serial: args.print_serial,
         headless: args.headless,
+        autosave: true, // TODO: make this configurable
     };
 
     if config.headless {
@@ -83,7 +84,7 @@ fn headless_mode(config: EmulatorConfig) {
         .as_ref()
         .expect("No ROM path provided for headless mode");
     let cartridge = Cartridge::try_from(rom.as_path()).expect("Failed to load cartridge");
-    let (emulator_sender, _) = mpsc::channel();
+    let (emulator_sender, _) = mpsc::sync_channel(2);
     let (_, frontend_receiver) = mpsc::channel();
     let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
     emulator.run();

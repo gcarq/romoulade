@@ -8,7 +8,7 @@ use crate::gb::cpu::instruction::Instruction;
 use crate::gb::debugger::bus::DebugBus;
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::SyncSender;
 
 /// This enum defines the possible debug messages that can be sent from
 /// the frontend to the emulator.
@@ -58,13 +58,13 @@ impl AnnotatedInstr {
 pub struct Debugger {
     message: Option<FrontendDebugMessage>,
     breakpoints: HashSet<u16>,
-    sender: Sender<EmulatorMessage>,
+    sender: SyncSender<EmulatorMessage>,
 }
 
 impl Debugger {
     /// Creates a new debugger instance and sends the initial state to the frontend.
     #[inline]
-    pub fn new(sender: Sender<EmulatorMessage>) -> Self {
+    pub fn new(sender: SyncSender<EmulatorMessage>) -> Self {
         Self {
             message: None,
             breakpoints: HashSet::new(),

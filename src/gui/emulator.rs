@@ -9,6 +9,7 @@ use eframe::egui::{Color32, Key, TextureHandle, Ui, Vec2, ViewportBuilder, Viewp
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
 use spin_sleep::sleep;
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -49,7 +50,7 @@ pub struct EmulatorFrontend {
 impl EmulatorFrontend {
     /// Starts the emulator with the given cartridge.
     pub fn start(ctx: &egui::Context, cartridge: &Cartridge, config: EmulatorConfig) -> Self {
-        let (emulator_sender, emulator_receiver) = mpsc::channel();
+        let (emulator_sender, emulator_receiver) = mpsc::sync_channel(2);
         let (frontend_sender, frontend_receiver) = mpsc::channel();
         let cartridge = cartridge.clone();
 
@@ -103,8 +104,15 @@ impl EmulatorFrontend {
         self.send_message(FrontendMessage::Stop);
         // Wait for the emulator to finish
         while !self.thread.is_finished() {
+            let _ = self.channel.receiver.try_recv();
             sleep(std::time::Duration::from_millis(15));
         }
+    }
+
+    /// Writes a save file to the given path.
+    pub fn write_savefile(&self, path: PathBuf) {
+        println!("Writing save file to: {}", path.display());
+        self.send_message(FrontendMessage::WriteSaveFile(path));
     }
 
     /// Attaches a debugger to the frontend and sends a `AttachDebugger` to the emulator

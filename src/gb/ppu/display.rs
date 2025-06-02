@@ -1,20 +1,20 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::ColoredPixel;
 use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage};
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::SyncSender;
 use std::time::{Duration, Instant};
 
 /// The display holds the current frame in the `FrameBuffer` and sends it to the frontend.
 /// It also takes care of syncing the frame rate.
 pub struct Display {
-    sender: Sender<EmulatorMessage>,
+    sender: SyncSender<EmulatorMessage>,
     buffer: FrameBuffer,
     frame_limiter: FrameLimiter,
 }
 
 impl Display {
     /// Creates a new display with the given int upscale.
-    pub fn new(sender: Sender<EmulatorMessage>, upscale: usize) -> Self {
+    pub fn new(sender: SyncSender<EmulatorMessage>, upscale: usize) -> Self {
         Self {
             sender,
             buffer: FrameBuffer::new(upscale),

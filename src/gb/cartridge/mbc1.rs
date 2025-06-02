@@ -1,4 +1,4 @@
-use crate::gb::cartridge::controller::BankController;
+use crate::gb::cartridge::controller::{BankController, SaveError};
 use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, bank_mask};
 use crate::gb::constants::*;
 use std::sync::Arc;
@@ -171,6 +171,25 @@ impl BankController for MBC1 {
             _ => {}
         }
     }
+
+    fn load_ram(&mut self, ram: Vec<u8>) {
+        debug_assert_eq!(
+            ram.len(),
+            self.ram.len(),
+            "Given RAM size does not match the expected size",
+        );
+        self.ram = ram;
+    }
+
+    fn save_ram(&self) -> Result<Arc<[u8]>, SaveError> {
+        if self.ram.is_empty() || !self.config.controller.has_battery() {
+            return Err(SaveError::NoSaveSupport);
+        }
+        if self.has_ram_access {
+            return Err(SaveError::RAMLocked);
+        }
+        Ok(self.ram.clone().into())
+    }
 }
 
 #[cfg(test)]
@@ -180,7 +199,8 @@ mod tests {
 
     #[test]
     fn test_ram_state() {
-        let config = CartridgeConfig::new(ControllerType::MBC1, 0x03, 0x02).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x03, 0x02).unwrap();
         let mut controller = MBC1::new(config, Arc::new([0; ROM_BANK_SIZE * 16]));
 
         let addr = CRAM_BANK_BEGIN + 0x10;
@@ -203,7 +223,8 @@ mod tests {
 
     #[test]
     fn test_rom_bank_lower_bits() {
-        let config = CartridgeConfig::new(ControllerType::MBC1, 0x03, 0x02).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x03, 0x02).unwrap();
         let mut ctrl = MBC1::new(config, Arc::new([0; ROM_BANK_SIZE * 16]));
 
         ctrl.write(ROM_BANK_NUMBER_BEGIN, 0x01);
@@ -231,7 +252,8 @@ mod tests {
 
     #[test]
     fn test_rom_bank_upper_bits() {
-        let config = CartridgeConfig::new(ControllerType::MBC1, 0x03, 0x03).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x03, 0x03).unwrap();
         let mut ctrl = MBC1::new(config, Arc::new([0; ROM_BANK_SIZE * 16]));
 
         ctrl.write(RAM_BANK_NUMBER_BEGIN, 0b11);
@@ -262,7 +284,8 @@ mod tests {
 
     #[test]
     fn test_change_banking_mode() {
-        let config = CartridgeConfig::new(ControllerType::MBC1, 0x03, 0x02).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x03, 0x02).unwrap();
         let mut ctrl = MBC1::new(config, Arc::new([0; ROM_BANK_SIZE * 16]));
 
         ctrl.write(BANKING_MODE_SELECT_BEGIN, 0b1);
@@ -280,7 +303,8 @@ mod tests {
 
     #[test]
     fn test_rom_banking_simple() {
-        let config = CartridgeConfig::new(ControllerType::MBC1, 0x05, 0x02).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x05, 0x02).unwrap();
 
         // Initialize each bank with a unique value
         let mut ctrl = MBC1::new(
@@ -324,7 +348,8 @@ mod tests {
 
     #[test]
     fn test_rom_banking_masked() {
-        let config = CartridgeConfig::new(ControllerType::MBC1, 0x02, 0x02).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x02, 0x02).unwrap();
 
         // Initialize each bank with a unique value
         let mut ctrl = MBC1::new(
@@ -345,7 +370,8 @@ mod tests {
 
     #[test]
     fn test_rom_banking_advanced() {
-        let config = CartridgeConfig::new(ControllerType::MBC1, 0x05, 0x02).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x05, 0x02).unwrap();
 
         // Initialize each bank with a unique value
         let mut ctrl = MBC1::new(
@@ -389,7 +415,8 @@ mod tests {
 
     #[test]
     fn test_ram_banking() {
-        let config = CartridgeConfig::new(ControllerType::MBC1, 0x00, 0x03).unwrap();
+        let config =
+            CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x00, 0x03).unwrap();
 
         // Initialize each bank with a unique value
         let mut ctrl = MBC1::new(

@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::{fmt, fs};
 
-mod controller;
+pub mod controller;
 mod mbc1;
 mod mbc3;
 mod mbc5;
@@ -42,7 +42,7 @@ const CARTRIDGE_ROM_SIZE: u16 = 0x0148;
 const CARTRIDGE_RAM_SIZE: u16 = 0x0149;
 
 /// This byte contains an 8-bit checksum computed from the cartridge header bytes 0x0134 – 0x014C.
-const _CARTRIDGE_HEADER_CHECKSUM: u16 = 0x014D;
+const CARTRIDGE_HEADER_CHECKSUM: u16 = 0x014D;
 
 /// These bytes contain a 16-bit (big-endian) checksum simply computed as the sum of all
 /// the bytes of the cartridge ROM (except these two checksum bytes).
@@ -56,28 +56,45 @@ const RAM_BANK_SIZE: usize = 8192;
 #[repr(u8)]
 /// The controller type of the cartridge.
 /// See https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type
-/// TODO: implement remaining modes (and specify battery support?)
+/// TODO: implement remaining controller types
 pub enum ControllerType {
-    NoMBC,
-    MBC1,
-    MBC2,
-    MBC3,
-    MBC5,
-    MBC6,
-    MBC7,
+    NoMBC { battery: bool },
+    MBC1 { battery: bool },
+    MBC2 { battery: bool },
+    MBC3 { battery: bool },
+    MBC5 { battery: bool },
+    MBC7 { battery: bool },
+}
+
+impl ControllerType {
+    /// Returns true if the controller type has battery-backed RAM.
+    pub const fn has_battery(&self) -> bool {
+        match self {
+            ControllerType::NoMBC { battery } => *battery,
+            ControllerType::MBC1 { battery } => *battery,
+            ControllerType::MBC2 { battery } => *battery,
+            ControllerType::MBC3 { battery } => *battery,
+            ControllerType::MBC5 { battery } => *battery,
+            ControllerType::MBC7 { battery } => *battery,
+        }
+    }
 }
 
 impl TryFrom<u8> for ControllerType {
     type Error = GBError;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let mode = match value {
-            0x00 | 0x08 | 0x09 => ControllerType::NoMBC,
-            0x01..=0x03 => ControllerType::MBC1,
-            0x05 | 0x06 => ControllerType::MBC2,
-            0x0F..=0x13 => ControllerType::MBC3,
-            0x19..=0x1E => ControllerType::MBC5,
-            0x20 => ControllerType::MBC6,
-            0x22 => ControllerType::MBC7,
+            0x00 | 0x08 => ControllerType::NoMBC { battery: false },
+            0x09 => ControllerType::NoMBC { battery: true },
+            0x01 | 0x02 => ControllerType::MBC1 { battery: false },
+            0x03 => ControllerType::MBC1 { battery: true },
+            0x05 => ControllerType::MBC2 { battery: false },
+            0x06 => ControllerType::MBC2 { battery: true },
+            0x0F | 0x10 | 0x12 | 0x13 => ControllerType::MBC3 { battery: true },
+            0x11 => ControllerType::MBC3 { battery: false },
+            0x19 | 0x1A | 0x1C | 0x1D => ControllerType::MBC5 { battery: false },
+            0x1B | 0x1E => ControllerType::MBC5 { battery: true },
+            0x22 => ControllerType::MBC7 { battery: true },
             _ => return Err(format!("Cartridge type {value:#04x} not implemented").into()),
         };
         Ok(mode)
@@ -87,13 +104,12 @@ impl TryFrom<u8> for ControllerType {
 impl fmt::Display for ControllerType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
-            ControllerType::NoMBC => "NoMBC",
-            ControllerType::MBC1 => "MBC1",
-            ControllerType::MBC2 => "MBC2",
-            ControllerType::MBC3 => "MBC3",
-            ControllerType::MBC5 => "MBC5",
-            ControllerType::MBC6 => "MBC6",
-            ControllerType::MBC7 => "MBC7",
+            ControllerType::NoMBC { .. } => "NoMBC",
+            ControllerType::MBC1 { .. } => "MBC1",
+            ControllerType::MBC2 { .. } => "MBC2",
+            ControllerType::MBC3 { .. } => "MBC3",
+            ControllerType::MBC5 { .. } => "MBC5",
+            ControllerType::MBC7 { .. } => "MBC7",
         };
         write!(f, "{name}")
     }
@@ -109,7 +125,7 @@ pub struct CartridgeConfig {
 }
 
 impl CartridgeConfig {
-    pub fn new(banking: ControllerType, rom_size: u8, ram_size: u8) -> GBResult<Self> {
+    pub fn new(controller: ControllerType, rom_size: u8, ram_size: u8) -> GBResult<Self> {
         let ram_banks = match ram_size {
             0x00 | 0x01 => 0,
             0x02 => 1,
@@ -134,7 +150,7 @@ impl CartridgeConfig {
         };
 
         Ok(Self {
-            controller: banking,
+            controller,
             rom_banks,
             ram_banks,
         })
@@ -152,23 +168,37 @@ impl CartridgeConfig {
 pub struct CartridgeHeader {
     pub title: String,
     pub config: CartridgeConfig,
+    pub header_checksum: u8,
+    pub global_checksum: u16,
 }
 
 impl TryFrom<&[u8]> for CartridgeHeader {
     type Error = GBError;
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
         let controller = ControllerType::try_from(buf[CARTRIDGE_TYPE as usize])?;
-        let config = CartridgeConfig::new(
-            controller,
-            buf[CARTRIDGE_ROM_SIZE as usize],
-            buf[CARTRIDGE_RAM_SIZE as usize],
-        )?;
-        let title = CartridgeHeader::parse_title(buf);
-        Ok(Self { title, config })
+        Ok(Self {
+            title: CartridgeHeader::parse_title(buf),
+            config: CartridgeConfig::new(
+                controller,
+                buf[CARTRIDGE_ROM_SIZE as usize],
+                buf[CARTRIDGE_RAM_SIZE as usize],
+            )?,
+            header_checksum: buf[CARTRIDGE_HEADER_CHECKSUM as usize],
+            global_checksum: u16::from_le_bytes([
+                buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize],
+                buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize],
+            ]),
+        })
     }
 }
 
 impl CartridgeHeader {
+    /// Returns true if the cartridge has at least one battery-backed RAM bank.
+    #[inline]
+    pub const fn has_persistent_data(&self) -> bool {
+        self.config.ram_banks > 0 && self.config.controller.has_battery()
+    }
+
     /// Returns the cartridge title from the cartridge header.
     fn parse_title(buf: &[u8]) -> String {
         let title = buf[CARTRIDGE_TITLE_BEGIN as usize..=CARTRIDGE_TITLE_END as usize]
@@ -192,17 +222,20 @@ impl fmt::Display for CartridgeHeader {
 #[derive(Clone)]
 pub struct Cartridge {
     pub header: CartridgeHeader,
-    controller: Box<dyn BankController>,
+    pub(crate) controller: Box<dyn BankController>,
 }
 
 impl TryFrom<Arc<[u8]>> for Cartridge {
     type Error = GBError;
 
     fn try_from(rom: Arc<[u8]>) -> Result<Self, Self::Error> {
-        if let Err(msg) = verify_checksum(rom.as_ref()) {
-            eprintln!("WARNING: {msg}");
+        if rom.len() < CARTRIDGE_GLOBAL_CHECKSUM2 as usize {
+            return Err("Cartridge is too small to calculate the checksum".into());
         }
         let header = CartridgeHeader::try_from(rom.as_ref())?;
+        if let Err(msg) = verify_checksum(rom.as_ref(), header.global_checksum) {
+            eprintln!("WARNING: {msg}");
+        }
         let controller = controller::new(header.config, rom);
         Ok(Self { controller, header })
     }
@@ -236,16 +269,13 @@ impl SubSystem for Cartridge {
 }
 
 /// Validates the global checksum of the given buffer containing the whole cartridge.
-fn verify_checksum(buf: &[u8]) -> GBResult<()> {
-    if buf.len() < CARTRIDGE_GLOBAL_CHECKSUM2 as usize {
-        return Err("Cartridge is too small to calculate the checksum".into());
-    }
+fn verify_checksum(buf: &[u8], checksum: u16) -> GBResult<()> {
+    debug_assert!(
+        buf.len() >= CARTRIDGE_GLOBAL_CHECKSUM2 as usize,
+        "Buffer is too small to calculate the checksum"
+    );
 
-    let byte1 = buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize];
-    let byte2 = buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize];
-    let checksum = u16::from(byte1) << 8 | u16::from(byte2);
     let calculated_checksum = calculate_global_checksum(buf);
-
     if checksum == calculated_checksum {
         return Ok(());
     }

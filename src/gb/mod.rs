@@ -1,14 +1,15 @@
 use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
+use crate::gb::cartridge::controller::SaveError;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
 use crate::gb::joypad::JoypadInput;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
-use std::error;
 use std::path::PathBuf;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, SyncSender};
+use std::{error, fs};
 
 mod audio;
 pub mod bus;
@@ -78,6 +79,7 @@ pub enum EmulatorMessage {
 pub enum FrontendMessage {
     Stop,
     Input(JoypadInput),
+    WriteSaveFile(PathBuf),
     AttachDebugger,
     DetachDebugger,
     Debug(FrontendDebugMessage),
@@ -90,6 +92,7 @@ pub struct EmulatorConfig {
     pub fastboot: bool,       // Skip boot ROM
     pub print_serial: bool,   // Print serial data to stdout
     pub headless: bool,       // Run in headless mode (no display)
+    pub autosave: bool,       // Automatically save SRAM every few seconds
 }
 
 impl Default for EmulatorConfig {
@@ -100,6 +103,7 @@ impl Default for EmulatorConfig {
             fastboot: false,
             print_serial: false,
             headless: false,
+            autosave: true,
         }
     }
 }
@@ -108,17 +112,19 @@ impl Default for EmulatorConfig {
 pub struct Emulator {
     cpu: CPU,
     bus: MainBus,
-    sender: Sender<EmulatorMessage>,
+    sender: SyncSender<EmulatorMessage>,
     receiver: Receiver<FrontendMessage>,
     debugger: Option<Debugger>,
     is_running: bool,
-    fastboot: bool,
+    config: EmulatorConfig,
+    save_requested: Option<PathBuf>, // Path to save file if requested
+    last_autosave: Option<std::time::Instant>, // Last time the autosave was performed
 }
 
 impl Emulator {
     /// Creates a new `Emulator` instance.
     pub fn new(
-        sender: Sender<EmulatorMessage>,
+        sender: SyncSender<EmulatorMessage>,
         receiver: Receiver<FrontendMessage>,
         cartridge: Cartridge,
         config: EmulatorConfig,
@@ -129,8 +135,10 @@ impl Emulator {
 
         Self {
             is_running: true,
-            fastboot: config.fastboot,
             debugger: None,
+            save_requested: None,
+            last_autosave: None,
+            config,
             cpu,
             bus,
             sender,
@@ -145,14 +153,18 @@ impl Emulator {
         println!("Loaded ROM: {}", self.bus.cartridge);
         println!("DEBUG: {:?}", self.bus.cartridge.header.config);
 
-        if self.fastboot {
+        if self.config.fastboot {
             println!("Fastboot enabled. Skipping boot ROM ...");
             self.fastboot();
         }
 
         // TODO: implement proper error handling
         while self.is_running {
+            self.autosave();
             self.handle_message();
+            if let Err(msg) = self.write_savefile() {
+                eprintln!("Error handling save: {}", msg);
+            }
             if let Some(debugger) = &mut self.debugger {
                 debugger.maybe_step(&mut self.cpu, &mut self.bus);
             } else {
@@ -165,6 +177,46 @@ impl Emulator {
     #[inline]
     fn step(&mut self) {
         self.cpu.step(&mut self.bus);
+    }
+
+    /// Requests an autosave if the configuration allows it
+    /// and the last autosave was more than 30 seconds ago.
+    fn autosave(&mut self) {
+        if !self.config.autosave {
+            return;
+        }
+        if let Some(last_autosave) = self.last_autosave {
+            if last_autosave.elapsed().as_secs() < 30 {
+                return;
+            }
+        }
+        let path = PathBuf::from(format!(
+            "{}_autosave_{:02x}.sav",
+            self.bus.cartridge.header.title, self.bus.cartridge.header.header_checksum
+        ));
+        self.save_requested = Some(path);
+        match self.write_savefile() {
+            Ok(_) => self.last_autosave = Some(std::time::Instant::now()),
+            Err(msg) => eprintln!("Error writing autosave: {}", msg),
+        }
+    }
+
+    /// Writes the save file if a save was requested.
+    /// The save file contains a dump of the RAM and the one byte header checksum.
+    fn write_savefile(&mut self) -> GBResult<()> {
+        if let Some(path) = self.save_requested.take() {
+            match self.bus.cartridge.controller.save_ram() {
+                Ok(ram) => {
+                    let mut data = ram.to_vec();
+                    data.push(self.bus.cartridge.header.header_checksum);
+                    fs::write(&path, &data)?;
+                    println!("Saved game to {}", path.display());
+                }
+                Err(SaveError::RAMLocked) => self.save_requested = Some(path),
+                Err(SaveError::NoSaveSupport) => {}
+            }
+        }
+        Ok(())
     }
 
     /// Fastboot the emulator by setting the CPU registers as if it had booted normally.
@@ -189,8 +241,12 @@ impl Emulator {
     fn handle_message(&mut self) {
         if let Ok(message) = self.receiver.try_recv() {
             match message {
-                FrontendMessage::Stop => self.is_running = false,
+                FrontendMessage::Stop => {
+                    self.autosave();
+                    self.is_running = false;
+                }
                 FrontendMessage::Input(input) => self.bus.joypad.handle_input(input),
+                FrontendMessage::WriteSaveFile(path) => self.save_requested = Some(path),
                 FrontendMessage::AttachDebugger => self.attach_debugger(),
                 FrontendMessage::DetachDebugger => self.debugger = None,
                 FrontendMessage::Debug(message) => {

@@ -10,7 +10,7 @@ use crate::gb::{Bus, EmulatorConfig, SubSystem};
 
 bitflags! {
     /// Represents interrupt registers IE at 0xFFFF and IF at 0xFF0F
-    #[derive(Copy, Clone, PartialEq, Debug)]
+    #[derive(Copy, Clone, PartialEq, Debug, Default)]
     pub struct InterruptRegister: u8 {
         const VBLANK = 0b00000001; // V-Blank Interrupt
         const STAT   = 0b00000010; // LCD STAT Interrupt
@@ -57,8 +57,8 @@ impl MainBus {
             serial: SerialTransfer::new(config.print_serial),
             ppu: PPU::new(display),
             joypad: Joypad::default(),
-            interrupt_enable: InterruptRegister::empty(),
-            interrupt_flag: InterruptRegister::empty(),
+            interrupt_enable: InterruptRegister::default(),
+            interrupt_flag: InterruptRegister::default(),
             timer: Timer::default(),
             wram: [0u8; WRAM_SIZE],
             hram: [0u8; HRAM_SIZE],
@@ -170,7 +170,7 @@ impl SubSystem for MainBus {
             // Writes during OAM DMA transfer are ignored
             OAM_BEGIN..=OAM_END => {
                 if !self.ppu.r.oam_dma.is_running {
-                    self.ppu.write(address, value)
+                    self.ppu.write(address, value);
                 }
             }
             UNUSED_BEGIN..=UNUSED_END => {}

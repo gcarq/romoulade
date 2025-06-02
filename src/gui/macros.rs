@@ -13,3 +13,12 @@ macro_rules! monospace_append {
         );
     };
 }
+
+/// Helper macro to create a `RichText` with a specific style
+/// that is suitable for the top bar menu.
+#[macro_export]
+macro_rules! menu_text {
+    ($text:expr) => {
+        RichText::new($text).size(14.5)
+    };
+}

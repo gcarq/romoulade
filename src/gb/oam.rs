@@ -55,7 +55,7 @@ impl OamDmaController {
 
     /// Returns the current source address and increments it by 1.
     #[inline]
-    pub fn transfer(&mut self) -> Option<u16> {
+    pub const fn transfer(&mut self) -> Option<u16> {
         if !self.is_running {
             return None;
         }

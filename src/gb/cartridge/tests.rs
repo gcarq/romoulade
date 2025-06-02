@@ -19,13 +19,7 @@ fn test_verify_checksum_ok() {
         .collect::<Vec<u8>>();
     buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize] = 0x8B;
     buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x3B;
-    assert!(verify_checksum(&buf).is_ok());
-}
-
-#[test]
-fn test_verify_checksum_buffer_too_small() {
-    let buf = (0..=10).map(|i| i as u8).collect::<Vec<_>>();
-    assert!(verify_checksum(&buf).is_err());
+    assert!(verify_checksum(&buf, 0x8B3B).is_ok());
 }
 
 #[test]
@@ -35,13 +29,13 @@ fn test_verify_checksum_buffer_invalid_checksum() {
         .collect::<Vec<u8>>();
     buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize] = 0x00;
     buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x00;
-    assert!(verify_checksum(&buf).is_err());
+    assert!(verify_checksum(&buf, 0x0000).is_err());
 }
 
 #[test]
 fn test_cartridge_config() {
-    let config = CartridgeConfig::new(ControllerType::MBC1, 0x02, 0x03).unwrap();
-    assert_eq!(config.controller, ControllerType::MBC1);
+    let config = CartridgeConfig::new(ControllerType::MBC1 { battery: true }, 0x02, 0x03).unwrap();
+    assert_eq!(config.controller, ControllerType::MBC1 { battery: true });
     assert_eq!(config.rom_banks, 8);
     assert_eq!(config.ram_size(), 32768);
     assert_eq!(config.ram_banks, 4);
