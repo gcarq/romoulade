@@ -4,7 +4,7 @@ mod timer;
 use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
-use crate::gb::cpu::{ImeState, CPU};
+use crate::gb::cpu::{CPU, ImeState};
 use crate::gb::utils::{bit_at, half_carry_u8, set_bit};
 use crate::gb::{Bus, EmulatorConfig, SubSystem};
 use std::sync::Arc;

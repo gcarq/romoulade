@@ -95,7 +95,7 @@ pub enum PPUMode {
 impl PPUMode {
     /// Returns the number of cycles for the current mode.
     #[inline]
-    pub const fn cycles(self) -> isize {
+    pub const fn cycles(self) -> usize {
         match self {
             PPUMode::AccessOAM => ACCESS_OAM_CYCLES,
             PPUMode::AccessVRAM => ACCESS_VRAM_CYCLES,

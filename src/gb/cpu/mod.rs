@@ -3,7 +3,7 @@ use crate::gb::cpu::instruction::Instruction::*;
 use crate::gb::cpu::ops::WordRegister::HL;
 use crate::gb::cpu::ops::*;
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::{utils, Bus};
+use crate::gb::{Bus, utils};
 use registers::Registers;
 
 pub mod instruction;
@@ -54,7 +54,10 @@ impl CPU {
             // Enabling IME is delayed by one instruction
             ImeState::Pending => self.ime = ImeState::Enabled,
             // Handle interrupts if IME is enabled and there is a pending IRQ
-            ImeState::Enabled if bus.has_irq() => interrupt::handle(self, bus),
+            ImeState::Enabled if bus.has_irq() => {
+                bus.cycle();
+                interrupt::handle(self, bus)
+            }
             _ => {}
         }
 
@@ -132,7 +135,7 @@ impl CPU {
     }
 
     /// Push an u16 value onto the stack.
-    pub fn push<T: Bus>(&mut self, value: u16, bus: &mut T) {
+    pub fn push_u16<T: Bus>(&mut self, value: u16, bus: &mut T) {
         bus.cycle();
         let [low, high] = value.to_le_bytes();
         self.r.sp = self.r.sp.wrapping_sub(1);
@@ -143,7 +146,7 @@ impl CPU {
     }
 
     /// Pop an u16 value from the stack.
-    fn pop<T: Bus>(&mut self, bus: &mut T) -> u16 {
+    fn pop_u16<T: Bus>(&mut self, bus: &mut T) -> u16 {
         let low = bus.cycle_read(self.r.sp);
         self.r.sp = self.r.sp.wrapping_add(1);
 
@@ -240,7 +243,7 @@ impl CPU {
     /// Handle CALL instructions
     fn handle_call<T: Bus>(&mut self, test: JumpCondition, address: u16, bus: &mut T) -> u16 {
         if test.resolve(self) {
-            self.push(self.r.pc, bus);
+            self.push_u16(self.r.pc, bus);
             address
         } else {
             self.r.pc
@@ -346,11 +349,7 @@ impl CPU {
     /// Handles the HALT instruction.
     fn handle_halt<T: Bus>(&mut self, bus: &mut T) -> u16 {
         self.is_halted = true;
-        if !bus.has_irq() {
-            bus.cycle();
-            return self.r.pc;
-        }
-        if self.ime != ImeState::Enabled {
+        if self.ime != ImeState::Enabled && bus.has_irq() {
             self.halt_bug = true;
         }
         self.r.pc
@@ -479,7 +478,7 @@ impl CPU {
     /// Handles POP instruction
     #[inline]
     fn handle_pop<T: Bus>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
-        let word = self.pop(bus);
+        let word = self.pop_u16(bus);
         target.write(self, word);
         self.r.pc
     }
@@ -488,7 +487,7 @@ impl CPU {
     #[inline]
     fn handle_push<T: Bus>(&mut self, target: WordRegister, bus: &mut T) -> u16 {
         let word = target.read(self);
-        self.push(word, bus);
+        self.push_u16(word, bus);
         self.r.pc
     }
 
@@ -507,7 +506,7 @@ impl CPU {
             bus.cycle();
         }
         if test.resolve(self) {
-            let addr = self.pop(bus);
+            let addr = self.pop_u16(bus);
             bus.cycle();
             addr
         } else {
@@ -519,7 +518,7 @@ impl CPU {
     #[inline]
     fn handle_reti<T: Bus>(&mut self, bus: &mut T) -> u16 {
         self.ime = ImeState::Enabled;
-        let addr = self.pop(bus);
+        let addr = self.pop_u16(bus);
         bus.cycle();
         addr
     }
@@ -611,7 +610,7 @@ impl CPU {
     /// Handles RST instructions
     #[inline]
     fn handle_rst<T: Bus>(&mut self, code: ResetCode, bus: &mut T) -> u16 {
-        self.push(self.r.pc, bus);
+        self.push_u16(self.r.pc, bus);
         code as u16
     }
 

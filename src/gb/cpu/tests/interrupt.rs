@@ -1,5 +1,5 @@
 use crate::gb::bus::InterruptRegister;
-use crate::gb::cpu::{interrupt, ImeState, CPU};
+use crate::gb::cpu::{CPU, ImeState, interrupt};
 use crate::gb::tests::MockBus;
 use crate::gb::{Bus, SubSystem};
 
@@ -20,6 +20,7 @@ fn test_interrupt_ime_disabled() {
         !cpu.is_halted,
         "CPU should always wake up from HALT if an interrupt is pending"
     );
+    assert_eq!(bus.cycles, 1);
 }
 
 #[test]
@@ -56,6 +57,7 @@ fn test_interrupt_ime_enabled() {
         assert_eq!(bus.read(0x0000), 0x34, "Should contain low bits of old PC");
         assert_eq!(bus.read(0x0001), 0x12, "Should contain high bits of old PC");
         assert_eq!(cpu.r.sp, 0x0000, "SP should be decremented by 2");
+        assert_eq!(bus.cycles, 4);
     }
 }
 
@@ -72,8 +74,16 @@ fn test_interrupt_ie_push_high_bits() {
     bus.set_if(InterruptRegister::VBLANK);
 
     interrupt::handle(&mut cpu, &mut bus);
-    assert_eq!(bus.read(0xFFFF), 0x12, "IE should contain high bits of old PC");
-    assert_eq!(bus.read(0xFFFE), 0x34, "Address should contain low bits of old PC");
+    assert_eq!(
+        bus.read(0xFFFF),
+        0x12,
+        "IE should contain high bits of old PC"
+    );
+    assert_eq!(
+        bus.read(0xFFFE),
+        0x34,
+        "Address should contain low bits of old PC"
+    );
     assert_eq!(cpu.r.sp, 0xFFFE, "SP should be decremented by 2");
     assert_eq!(cpu.r.pc, 0x0000, "PC should be set to 0x000");
 }
@@ -91,10 +101,21 @@ fn test_interrupt_ie_push_low_bits() {
     bus.set_if(InterruptRegister::VBLANK);
 
     interrupt::handle(&mut cpu, &mut bus);
-    assert_eq!(bus.read(0x0000), 0x12, "IE should contain high bits of old PC");
-    assert_eq!(bus.read(0xFFFF), 0x34, "Address should contain low bits of old PC");
+    assert_eq!(
+        bus.read(0x0000),
+        0x12,
+        "IE should contain high bits of old PC"
+    );
+    assert_eq!(
+        bus.read(0xFFFF),
+        0x34,
+        "Address should contain low bits of old PC"
+    );
     assert_eq!(cpu.r.sp, 0xFFFF, "SP should be decremented by 2");
-    assert_eq!(cpu.r.pc, 0x0040, "VBLANK IRQ should still be handled normally");
+    assert_eq!(
+        cpu.r.pc, 0x0040,
+        "VBLANK IRQ should still be handled normally"
+    );
 }
 
 #[test]

@@ -51,10 +51,10 @@ pub const PPU_OBP1: u16 = 0xFF49;
 pub const PPU_WY: u16 = 0xFF4A;
 pub const PPU_WX: u16 = 0xFF4B;
 
-const ACCESS_OAM_CYCLES: isize = 21;
-const ACCESS_VRAM_CYCLES: isize = 43;
-const HBLANK_CYCLES: isize = 51;
-const VBLANK_LINE_CYCLES: isize = 114;
+const ACCESS_OAM_CYCLES: usize = 21;
+const ACCESS_VRAM_CYCLES: usize = 43;
+const HBLANK_CYCLES: usize = 51;
+const VBLANK_LINE_CYCLES: usize = 114;
 
 /// The Window is visible (if enabled) when both coordinates are in the ranges WX=0..166, WY=0..143
 /// respectively. Values WX=7, WY=0 place the Window at the top left of the screen,
@@ -81,7 +81,7 @@ pub struct PPU {
     pub r: Registers,
     vram: [u8; VRAM_SIZE],
     oam: [u8; OAM_SIZE],
-    cycles: isize,
+    cycles: usize,
     // This line counter determines what window line is to be rendered on the current scanline.
     // See https://gbdev.io/pandocs/Tile_Maps.html#window
     wy_internal: Option<u8>,
@@ -131,26 +131,21 @@ impl PPU {
             // Screen is off, PPU remains idle.
             return;
         }
-        let mode = self.r.lcd_stat.mode();
 
         self.cycles -= 1;
-        if self.cycles == 1 && mode == PPUMode::AccessVRAM {
-            // STAT mode=0 interrupt happens one cycle before the actual mode switch!
-            if self.r.lcd_stat.contains(LCDState::H_BLANK_INT) {
-                int_reg.insert(InterruptRegister::STAT);
-            }
-        }
-
         if self.cycles > 0 {
             return;
         }
 
-        match mode {
+        match self.r.lcd_stat.mode() {
             // In this state, the PPU would scan the OAM (Objects Attribute Memory)
             // from 0xfe00 to 0xfe9f to mix sprite pixels in the current line later.
             // This always takes 40 ticks.
             PPUMode::AccessOAM => self.switch_mode(PPUMode::AccessVRAM, int_reg),
             PPUMode::AccessVRAM => {
+                if self.r.lcd_stat.contains(LCDState::H_BLANK_INT) {
+                    int_reg.insert(InterruptRegister::STAT);
+                }
                 self.draw_line();
                 self.switch_mode(PPUMode::HBlank, int_reg);
             }

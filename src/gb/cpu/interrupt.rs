@@ -1,6 +1,6 @@
-use crate::gb::bus::InterruptRegister;
-use crate::gb::cpu::{ImeState, CPU};
 use crate::gb::Bus;
+use crate::gb::bus::InterruptRegister;
+use crate::gb::cpu::{CPU, ImeState};
 
 const VBLANK_IRQ_ADDRESS: u16 = 0x0040;
 const LCD_IRQ_ADDRESS: u16 = 0x0048;

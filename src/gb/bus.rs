@@ -2,8 +2,8 @@ use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
 use crate::gb::joypad::Joypad;
-use crate::gb::ppu::display::Display;
 use crate::gb::ppu::PPU;
+use crate::gb::ppu::display::Display;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
 use crate::gb::{Bus, EmulatorConfig, SubSystem};
@@ -167,11 +167,12 @@ impl SubSystem for MainBus {
             WRAM_BEGIN..=WRAM_END => self.wram[(address & 0x1FFF) as usize] = value,
             // Writes to Echo RAM, effectively mirroring to Working RAM
             ERAM_BEGIN..=ERAM_END => self.wram[(address & 0x1FFF) as usize] = value,
-            OAM_BEGIN..=OAM_END => match self.ppu.r.oam_dma.is_running {
-                // Writes during OAM DMA transfer are ignored
-                true => {}
-                false => self.ppu.write(address, value),
-            },
+            // Writes during OAM DMA transfer are ignored
+            OAM_BEGIN..=OAM_END => {
+                if !self.ppu.r.oam_dma.is_running {
+                    self.ppu.write(address, value)
+                }
+            }
             UNUSED_BEGIN..=UNUSED_END => {}
             IO_BEGIN..=IO_END => self.write_io(address, value),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize] = value,

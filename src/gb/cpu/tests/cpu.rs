@@ -448,6 +448,7 @@ fn test_ei_di_rapid() {
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Pending);
     assert_eq!(cpu.r.pc, 1);
+    assert_eq!(bus.cycles, 1);
     cpu.step(&mut bus);
     assert_eq!(cpu.ime, ImeState::Disabled);
     assert_eq!(cpu.r.pc, 2);
@@ -478,10 +479,11 @@ fn test_halt() {
     cpu.step(&mut bus);
     assert_eq!(cpu.r.pc, 1);
     assert!(cpu.is_halted);
+    assert_eq!(bus.cycles, 1);
 
     cpu.step(&mut bus);
     assert_eq!(cpu.r.pc, 1, "HALT should not change PC");
-    assert_eq!(bus.cycles, 3);
+    assert_eq!(bus.cycles, 2);
 }
 
 #[test]
@@ -506,15 +508,18 @@ fn test_halt_bug() {
     cpu.step(&mut bus);
     assert_eq!(cpu.r.pc, 1);
     assert!(cpu.is_halted, "CPU should be halted normally");
+    assert_eq!(bus.cycles, 1);
 
     cpu.step(&mut bus);
     assert!(!cpu.is_halted, "CPU should be woken up due to pending IRQ");
     assert_eq!(cpu.r.pc, 2);
     assert_eq!(cpu.r.b, 0x06, "B should be 6");
+    assert_eq!(bus.cycles, 3);
 
     cpu.step(&mut bus);
     assert_eq!(cpu.r.pc, 3);
     assert_eq!(cpu.r.b, 0x07, "B should be 7");
+    assert_eq!(bus.cycles, 4);
 }
 
 #[test]
@@ -624,6 +629,17 @@ fn test_jp_a16_jump() {
     cpu.step(&mut bus);
     assert_eq!(cpu.r.pc, 0x0201);
     assert_eq!(bus.cycles, 4);
+}
+
+#[test]
+fn test_jp_hl() {
+    // JP HL
+    let mut bus = MockBus::new(vec![0xe9]);
+    let mut cpu = CPU::default();
+    cpu.r.set_hl(0x0102);
+    cpu.step(&mut bus);
+    assert_eq!(cpu.r.pc, 0x0102);
+    assert_eq!(bus.cycles, 1);
 }
 
 #[test]
