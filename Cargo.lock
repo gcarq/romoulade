@@ -2358,6 +2358,7 @@ dependencies = [
  "itertools",
  "rfd",
  "spin_sleep",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
