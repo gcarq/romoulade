@@ -5,9 +5,9 @@ mod macros;
 
 use crate::gb::cartridge::Cartridge;
 use crate::gb::{EmulatorConfig, FrontendMessage, GBResult};
-use crate::gui::emulator::EmulatorFrontend;
+use crate::gui::emulator::{EmulatorFrontend, SCREEN_HEIGHT, SCREEN_WIDTH};
 use eframe::egui;
-use eframe::egui::{RichText, menu};
+use eframe::egui::{RichText, Vec2, menu};
 use egui::{CentralPanel, Color32, Label, TopBottomPanel, Ui, Widget};
 use std::fs;
 use std::path::PathBuf;
@@ -35,7 +35,7 @@ impl Romoulade {
     /// Loads a cartridge using a file dialog.
     fn choose_cartridge(&mut self) -> GBResult<()> {
         if let Some(frontend) = &self.frontend {
-            frontend.shutdown();
+            frontend.stop();
         }
         let dialog = rfd::FileDialog::new().add_filter("Game Boy ROM", &["gb"]);
         if let Some(path) = dialog.pick_file() {
@@ -61,7 +61,7 @@ impl Romoulade {
     }
 
     /// Starts the `Emulator` with the loaded `Cartridge`.
-    fn run(&mut self, ui: &Ui) {
+    fn start_emulator(&mut self, ui: &Ui) {
         if let Some(cartridge) = &self.cartridge {
             self.frontend = Some(EmulatorFrontend::start(
                 ui.ctx(),
@@ -73,9 +73,9 @@ impl Romoulade {
 
     /// Shuts down the `Emulator` and cleans up resources.
     #[inline]
-    fn shutdown(&mut self) {
+    fn stop_emulator(&mut self) {
         if let Some(frontend) = self.frontend.take() {
-            frontend.shutdown();
+            frontend.stop();
         }
     }
 
@@ -97,7 +97,7 @@ impl Romoulade {
         ui.menu_button(menu_text!("Emulator"), |ui| {
             // Load ROM button
             if ui.button(menu_text!("📁 Load ROM...")).clicked() {
-                self.shutdown();
+                self.stop_emulator();
                 if let Err(msg) = self.choose_cartridge() {
                     eprintln!("Error loading ROM: {msg}");
                 }
@@ -110,14 +110,14 @@ impl Romoulade {
                     None => "▶ Run",
                 };
                 if ui.button(menu_text!(text)).clicked() {
-                    self.shutdown();
-                    self.run(ui);
+                    self.stop_emulator();
+                    self.start_emulator(ui);
                 }
             });
             // Stop button
             ui.add_enabled_ui(self.frontend.is_some(), |ui| {
                 if ui.button(menu_text!("⏹ Stop")).clicked() {
-                    self.shutdown();
+                    self.stop_emulator();
                 }
             });
         });
@@ -194,7 +194,7 @@ impl Romoulade {
             ui.add_enabled_ui(self.cartridge.is_some(), |ui| {
                 if ui.button(menu_text!("🔧 Attach Debugger")).clicked() {
                     if self.frontend.is_none() {
-                        self.run(ui);
+                        self.start_emulator(ui);
                     }
                     if let Some(frontend) = &mut self.frontend {
                         frontend.attach_debugger();
@@ -223,6 +223,14 @@ impl Romoulade {
                 .ui(ui);
         }
     }
+
+    /// Returns the dimensions of the frame layout in pixels.
+    const fn frame_layout_dimensions(&self) -> Vec2 {
+        Vec2 {
+            x: (SCREEN_WIDTH * self.config.upscale) as f32,
+            y: (SCREEN_HEIGHT * self.config.upscale) as f32,
+        }
+    }
 }
 
 impl eframe::App for Romoulade {
@@ -237,14 +245,17 @@ impl eframe::App for Romoulade {
                 self.draw_savefile_info(ui);
             });
         });
-
-        CentralPanel::default().show(ctx, |ui| {
-            if let Some(emulator) = &mut self.frontend {
-                emulator.update(ctx, ui);
-            }
-        });
+        CentralPanel::default()
+            .frame(egui::Frame::NONE)
+            .show(ctx, |ui| {
+                ui.allocate_ui(self.frame_layout_dimensions(), |ui| {
+                    if let Some(emulator) = &mut self.frontend {
+                        emulator.update(ctx, ui);
+                    }
+                });
+            });
         if ctx.input(|i| i.viewport().close_requested()) {
-            self.shutdown();
+            self.stop_emulator();
         }
     }
 }

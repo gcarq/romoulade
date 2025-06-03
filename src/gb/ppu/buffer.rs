@@ -21,6 +21,18 @@ impl FrameBuffer {
         }
     }
 
+    /// Returns the width of the frame buffer image in pixels.
+    #[inline]
+    pub const fn width(&self) -> usize {
+        SCREEN_WIDTH as usize * self.upscale
+    }
+
+    /// Returns the height of the frame buffer image in pixels.
+    #[inline]
+    pub const fn height(&self) -> usize {
+        SCREEN_HEIGHT as usize * self.upscale
+    }
+
     /// Writes a colored pixel to the buffer with the defined upscale in mind.
     pub fn write_pixel(&mut self, x: u8, y: u8, color: ColoredPixel) {
         let color = self.translate_color(color);

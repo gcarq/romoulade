@@ -17,11 +17,6 @@ use std::thread::JoinHandle;
 pub const SCREEN_WIDTH: usize = 160;
 pub const SCREEN_HEIGHT: usize = 144;
 
-// TODO: make this configurable
-pub const UPSCALE: usize = 3;
-
-const FRAME_DIMENSIONS: [usize; 2] = [SCREEN_WIDTH * UPSCALE, SCREEN_HEIGHT * UPSCALE];
-
 /// A channel to communicate between the emulator and the frontend.
 /// The frontend can send messages with `sender`
 /// and receive messages from the emulator with `receiver`.
@@ -61,7 +56,7 @@ impl EmulatorFrontend {
         });
 
         // Create initial TextureHandle for the frame buffer
-        let image = ColorImage::new(FRAME_DIMENSIONS, Color32::TRANSPARENT);
+        let image = ColorImage::new([1, 1], Color32::TRANSPARENT);
         let frame = ctx.load_texture("frame", image, TextureOptions::LINEAR);
 
         Self {
@@ -72,35 +67,18 @@ impl EmulatorFrontend {
         }
     }
 
+    /// Updates the emulator frontend Ui.
     pub fn update(&mut self, ctx: &egui::Context, ui: &mut Ui) {
         self.handle_user_input(ui);
         self.recv_message();
         self.draw_emulator_frame(ui);
-
-        let mut stop_debugger = false;
-        if let Some(debugger) = &mut self.debugger {
-            ctx.show_viewport_immediate(
-                ViewportId::from_hash_of("debugger"),
-                ViewportBuilder::default()
-                    .with_title("Debugger")
-                    .with_inner_size(Vec2::new(1130.0, 790.0))
-                    .with_resizable(false),
-                |ctx, _| {
-                    debugger.update(ctx);
-                    // Check if the debugger window is closed
-                    if ctx.input(|i| i.viewport().close_requested()) {
-                        stop_debugger = true;
-                    }
-                },
-            );
-        }
-        if stop_debugger {
+        if !self.update_debugger(ctx) {
             self.detach_debugger();
         }
     }
 
-    /// Shuts the emulator down by sending a reset message and waiting for it to finish.
-    pub fn shutdown(&self) {
+    /// Stops the emulator by sending a reset message and waiting for it to finish.
+    pub fn stop(&self) {
         println!("Stopping emulator ...");
         self.send_message(FrontendMessage::Stop);
         // Wait for the emulator to finish
@@ -131,6 +109,29 @@ impl EmulatorFrontend {
         }
     }
 
+    /// Updates the debugger frontend.
+    /// Returns false if the debugger was closed and should be detached.
+    fn update_debugger(&mut self, ctx: &egui::Context) -> bool {
+        let mut is_running = true;
+        if let Some(debugger) = &mut self.debugger {
+            ctx.show_viewport_immediate(
+                ViewportId::from_hash_of("debugger"),
+                ViewportBuilder::default()
+                    .with_title("Debugger")
+                    .with_inner_size(Vec2::new(1130.0, 790.0))
+                    .with_resizable(false),
+                |ctx, _| {
+                    debugger.update(ctx);
+                    // Check if the debugger window is closed
+                    if ctx.input(|i| i.viewport().close_requested()) {
+                        is_running = false;
+                    }
+                },
+            );
+        }
+        is_running
+    }
+
     /// Closes the debugger frontend and sends a `DetachDebugger` message to the emulator.
     #[inline]
     fn detach_debugger(&mut self) {
@@ -149,7 +150,7 @@ impl EmulatorFrontend {
     /// Sets the frame texture to the given `FrameBuffer`.
     fn set_frame_texture(&mut self, frame: FrameBuffer) {
         let image = ColorImage {
-            size: FRAME_DIMENSIONS,
+            size: [frame.width(), frame.height()],
             pixels: frame.buffer,
         };
         self.frame.set(image, TextureOptions::LINEAR);
@@ -157,7 +158,6 @@ impl EmulatorFrontend {
 
     /// Checks for messages from the emulator and updates the state if necessary.
     fn recv_message(&mut self) {
-        // TODO: consider checking if there are multiple messages
         if let Ok(msg) = self.channel.receiver.try_recv() {
             match msg {
                 EmulatorMessage::Frame(frame) => self.set_frame_texture(frame),

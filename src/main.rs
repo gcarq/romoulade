@@ -10,7 +10,6 @@ extern crate clap;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::{Emulator, EmulatorConfig};
 use crate::gui::Romoulade;
-use crate::gui::emulator::UPSCALE;
 use clap::Parser;
 use eframe::{HardwareAcceleration, egui};
 use std::path::PathBuf;
@@ -48,7 +47,7 @@ fn main() {
 
     let config = EmulatorConfig {
         rom: args.rom,
-        upscale: UPSCALE, // TODO: make this configurable
+        upscale: 3, // TODO: make this configurable
         fastboot: args.fastboot,
         print_serial: args.print_serial,
         headless: args.headless,
@@ -68,7 +67,7 @@ fn gui_mode(config: EmulatorConfig) {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_resizable(false)
-            .with_inner_size([503.0, 490.0]),
+            .with_inner_size([480.0, 476.0]),
         hardware_acceleration: HardwareAcceleration::Preferred,
         ..Default::default()
     };
