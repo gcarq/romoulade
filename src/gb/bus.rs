@@ -65,6 +65,13 @@ impl MainBus {
         }
     }
 
+    /// Updates the configuration of the bus and all connected subsystems.
+    #[inline]
+    pub fn update_config(&mut self, config: &EmulatorConfig) {
+        self.ppu.update_config(config);
+        self.serial.update_config(config);
+    }
+
     /// Reads value from boot ROM or cartridge
     /// depending on `BOOT_ROM_OFF` register
     fn read_cartridge(&mut self, address: u16) -> u8 {

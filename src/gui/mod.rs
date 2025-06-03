@@ -13,6 +13,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+/// The height of the top and bottom panels in pixels.
+pub const PANEL_HEIGHT: f32 = 22.0;
+
 pub struct Romoulade {
     frontend: Option<EmulatorFrontend>,
     cartridge: Option<Cartridge>,
@@ -145,9 +148,7 @@ impl Romoulade {
                 supports_saves && self.config.savefile.is_some() && self.frontend.is_some(),
                 |ui| {
                     if ui.button(menu_text!("💾 Save")).clicked() {
-                        if let Some(frontend) = &mut self.frontend {
-                            frontend.send_message(FrontendMessage::WriteSaveFile);
-                        }
+                        self.send_message(FrontendMessage::WriteSaveFile);
                     }
                 },
             );
@@ -172,18 +173,38 @@ impl Romoulade {
     /// Updates the settings menu in the menu bar.
     fn update_settings_menu(&mut self, ui: &mut Ui) {
         ui.menu_button(menu_text!("Settings"), |ui| {
-            if ui
-                .checkbox(&mut self.config.autosave, menu_text!("Enable Autosave"))
-                .on_hover_text(
-                    "Automatically saves the game every 60 seconds and on emulator shutdown.\n\
+            egui::Grid::new("settings_grid")
+                .num_columns(2)
+                .spacing([20.0, 4.0])
+                .striped(true)
+                .show(ui, |ui| {
+                    // Upscale setting
+                    ui.label(menu_text!("Upscale:"));
+                    ui.horizontal(|ui| {
+                        let mut update = false;
+                        update |= ui.selectable_value(&mut self.config.upscale, 2, "2x").clicked();
+                        update |= ui.selectable_value(&mut self.config.upscale, 3, "3x").clicked();
+                        update |= ui.selectable_value(&mut self.config.upscale, 4, "4x").clicked();
+                        update |= ui.selectable_value(&mut self.config.upscale, 5, "5x").clicked();
+                        if update {
+                            self.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
+                        }
+                    });
+                    ui.end_row();
+                    // Autosave setting
+                    ui.label(menu_text!("Autosave:"));
+                    if ui
+                        .checkbox(&mut self.config.autosave, "")
+                        .on_hover_text(
+                            "Automatically saves the game every 60 seconds and on emulator shutdown.\n\
                     Also loads the last save file on startup.",
-                )
-                .clicked()
-            {
-                if let Some(frontend) = &mut self.frontend {
-                    frontend.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
-                }
-            }
+                        )
+                        .clicked()
+                    {
+                        self.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
+                    }
+                    ui.end_row();
+                });
         });
     }
 
@@ -224,8 +245,14 @@ impl Romoulade {
         }
     }
 
+    fn send_message(&self, message: FrontendMessage) {
+        if let Some(frontend) = &self.frontend {
+            frontend.send_message(message);
+        }
+    }
+
     /// Returns the dimensions of the frame layout in pixels.
-    const fn frame_layout_dimensions(&self) -> Vec2 {
+    const fn frame_layout_size(&self) -> Vec2 {
         Vec2 {
             x: (SCREEN_WIDTH * self.config.upscale) as f32,
             y: (SCREEN_HEIGHT * self.config.upscale) as f32,
@@ -245,10 +272,11 @@ impl eframe::App for Romoulade {
                 self.draw_savefile_info(ui);
             });
         });
+        let frame_size = self.frame_layout_size();
         CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ctx, |ui| {
-                ui.allocate_ui(self.frame_layout_dimensions(), |ui| {
+                ui.allocate_ui(frame_size, |ui| {
                     if let Some(emulator) = &mut self.frontend {
                         emulator.update(ctx, ui);
                     }
@@ -257,5 +285,8 @@ impl eframe::App for Romoulade {
         if ctx.input(|i| i.viewport().close_requested()) {
             self.stop_emulator();
         }
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+            frame_size + Vec2::new(0.0, PANEL_HEIGHT * 2.0),
+        ));
     }
 }

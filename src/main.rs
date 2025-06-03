@@ -1,15 +1,15 @@
 #![allow(clippy::upper_case_acronyms)]
 #![warn(clippy::semicolon_if_nothing_returned)]
 #![warn(clippy::unnecessary_semicolon)]
-#![warn(clippy::missing_const_for_fn)]
 
 #[macro_use]
 extern crate bitflags;
 extern crate clap;
 
 use crate::gb::cartridge::Cartridge;
-use crate::gb::{Emulator, EmulatorConfig};
-use crate::gui::Romoulade;
+use crate::gb::{Emulator, EmulatorConfig, SCREEN_HEIGHT};
+use crate::gui::emulator::SCREEN_WIDTH;
+use crate::gui::{PANEL_HEIGHT, Romoulade};
 use clap::Parser;
 use eframe::{HardwareAcceleration, egui};
 use std::path::PathBuf;
@@ -17,6 +17,8 @@ use std::sync::mpsc;
 
 mod gb;
 mod gui;
+
+const DEFAULT_UPSCALE: usize = 3; // Default upscale factor for the display
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -47,7 +49,7 @@ fn main() {
 
     let config = EmulatorConfig {
         rom: args.rom,
-        upscale: 3, // TODO: make this configurable
+        upscale: DEFAULT_UPSCALE,
         fastboot: args.fastboot,
         print_serial: args.print_serial,
         headless: args.headless,
@@ -64,10 +66,14 @@ fn main() {
 
 /// Starts the emulator with an `egui` frontend.
 fn gui_mode(config: EmulatorConfig) {
+    let size = egui::vec2(
+        SCREEN_WIDTH as f32 * DEFAULT_UPSCALE as f32,
+        SCREEN_HEIGHT as f32 * DEFAULT_UPSCALE as f32 + PANEL_HEIGHT * 2.0,
+    );
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_resizable(false)
-            .with_inner_size([480.0, 476.0]),
+            .with_inner_size(size),
         hardware_acceleration: HardwareAcceleration::Preferred,
         ..Default::default()
     };

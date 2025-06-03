@@ -10,7 +10,7 @@ use crate::gb::constants::*;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDState, PPUMode, Registers};
 use crate::gb::utils::bit_at;
-use crate::gb::{SCREEN_HEIGHT, SCREEN_WIDTH, SubSystem};
+use crate::gb::{EmulatorConfig, SCREEN_HEIGHT, SCREEN_WIDTH, SubSystem};
 use display::Display;
 use std::cmp::Ordering;
 
@@ -158,6 +158,12 @@ impl PPU {
             // do stuff that takes time. It takes as many cycles as would be needed
             // to keep displaying scanlines up to line 153.
             PPUMode::VBlank => self.handle_vblank(int_reg),
+        }
+    }
+
+    pub fn update_config(&mut self, config: &EmulatorConfig) {
+        if let Some(display) = &mut self.display {
+            display.update_config(config);
         }
     }
 

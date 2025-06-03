@@ -1,6 +1,6 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::ColoredPixel;
-use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage};
+use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorConfig, EmulatorMessage};
 use std::sync::mpsc::SyncSender;
 use std::time::{Duration, Instant};
 
@@ -33,6 +33,10 @@ impl Display {
     #[inline]
     pub fn write_pixel(&mut self, x: u8, y: u8, color: ColoredPixel) {
         self.buffer.write_pixel(x, y, color);
+    }
+
+    pub fn update_config(&mut self, config: &EmulatorConfig) {
+        self.buffer = FrameBuffer::new(config.upscale);
     }
 }
 

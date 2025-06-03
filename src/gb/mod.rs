@@ -179,11 +179,11 @@ impl Emulator {
     }
 
     /// Updates the emulator configuration.
-    /// TODO: Propagate the configuration to all subsystems.
     #[inline]
     fn update_config(&mut self, config: EmulatorConfig) {
         println!("Updating emulator configuration...");
         self.config = config;
+        self.bus.update_config(&self.config);
     }
 
     /// Triggers an autosave if the configuration allows it

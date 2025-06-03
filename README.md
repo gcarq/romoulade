@@ -45,7 +45,6 @@ headless mode (see usage below).
 - Implement Sound Processing Unit
 - Pass acceptance tests from [the Mooneye Test Suite](https://github.com/Gekkio/mooneye-test-suite)
 - Improve debugger UI
-- Add option for dynamic screen upscaling
 
 ### Blargg's Test ROMs
 

@@ -1,5 +1,5 @@
-use crate::gb::SubSystem;
 use crate::gb::constants::*;
+use crate::gb::{EmulatorConfig, SubSystem};
 
 bitflags! {
     /// Represents the Serial transfer control register at 0xFF02
@@ -32,6 +32,10 @@ impl SerialTransfer {
             print_serial,
             ..Default::default()
         }
+    }
+
+    pub fn update_config(&mut self, config: &EmulatorConfig) {
+        self.print_serial = config.print_serial;
     }
 
     fn set_ctrl(&mut self, value: u8) {
