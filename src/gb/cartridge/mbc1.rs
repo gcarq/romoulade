@@ -1,5 +1,5 @@
-use crate::gb::cartridge::controller::{BankController, SaveError};
-use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, bank_mask};
+use crate::gb::cartridge::controller::BankController;
+use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, SaveError, bank_mask};
 use crate::gb::constants::*;
 use std::sync::Arc;
 
@@ -52,9 +52,10 @@ pub struct MBC1 {
     config: CartridgeConfig,
     rom: Arc<[u8]>,
     ram: Vec<u8>,
-    low_rom_bank_offset: usize, // current selected ROM bank offset for 0x0000 - 0x3FFF
-    high_rom_bank_offset: usize, // current selected ROM bank offset for 0x4000 - 0x7FFF
-    ram_bank_offset: usize,     // current selected RAM bank offset for 0xA000 - 0xBFFF
+    savable_ram: Option<Arc<[u8]>>, // Latest sane copy of the RAM for saving
+    low_rom_bank_offset: usize,     // current selected ROM bank offset for 0x0000 - 0x3FFF
+    high_rom_bank_offset: usize,    // current selected ROM bank offset for 0x4000 - 0x7FFF
+    ram_bank_offset: usize,         // current selected RAM bank offset for 0xA000 - 0xBFFF
     has_ram_access: bool,
     bank_low_bits: u8,  // lower 5 bits of the ROM bank number
     bank_high_bits: u8, // RAM bank number or upper 2 bits of the ROM bank number
@@ -63,8 +64,9 @@ pub struct MBC1 {
 
 impl MBC1 {
     pub fn new(config: CartridgeConfig, rom: Arc<[u8]>) -> Self {
+        let ram = vec![0; config.ram_size()];
         Self {
-            ram: vec![0; config.ram_size()],
+            savable_ram: config.is_savable().then_some(ram.clone().into()),
             low_rom_bank_offset: 0,
             high_rom_bank_offset: ROM_HIGH_BANK_BEGIN as usize,
             ram_bank_offset: 0,
@@ -72,6 +74,7 @@ impl MBC1 {
             banking_mode: BankingMode::Simple,
             bank_low_bits: 0b0000_0001,
             bank_high_bits: 0b0000_0000,
+            ram,
             rom,
             config,
         }
@@ -137,6 +140,9 @@ impl BankController for MBC1 {
             // Any value with 0x0A in the lower 4 bits enables ram, any other value disables it.
             RAM_ENABLE_BEGIN..=RAM_ENABLE_END => {
                 self.has_ram_access = value & 0b1111 == 0b1010;
+                if !self.has_ram_access {
+                    self.savable_ram = Some(self.ram.clone().into());
+                }
             }
             // Sets the lower 5 bits of the ROM bank number.
             ROM_BANK_NUMBER_BEGIN..=ROM_BANK_NUMBER_END => {
@@ -173,22 +179,15 @@ impl BankController for MBC1 {
     }
 
     fn load_ram(&mut self, ram: Vec<u8>) {
-        debug_assert_eq!(
-            ram.len(),
-            self.ram.len(),
-            "Given RAM size does not match the expected size",
-        );
+        debug_assert_eq!(ram.len(), self.ram.len());
         self.ram = ram;
     }
 
     fn save_ram(&self) -> Result<Arc<[u8]>, SaveError> {
-        if self.ram.is_empty() || !self.config.controller.has_battery() {
+        if !self.config.is_savable() {
             return Err(SaveError::NoSaveSupport);
         }
-        if self.has_ram_access {
-            return Err(SaveError::RAMLocked);
-        }
-        Ok(self.ram.clone().into())
+        Ok(self.savable_ram.clone().unwrap())
     }
 }
 

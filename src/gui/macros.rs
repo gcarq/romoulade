@@ -19,6 +19,6 @@ macro_rules! monospace_append {
 #[macro_export]
 macro_rules! menu_text {
     ($text:expr) => {
-        RichText::new($text).size(14.5)
+        $crate::egui::RichText::new($text).size(14.0)
     };
 }

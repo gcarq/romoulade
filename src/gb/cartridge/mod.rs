@@ -4,6 +4,7 @@ use crate::gb::{GBResult, SubSystem};
 use std::path::Path;
 use std::sync::Arc;
 use std::{fmt, fs};
+use thiserror::Error;
 
 pub mod controller;
 mod mbc1;
@@ -51,6 +52,18 @@ const CARTRIDGE_GLOBAL_CHECKSUM2: u16 = 0x014F;
 
 const ROM_BANK_SIZE: usize = 16384;
 const RAM_BANK_SIZE: usize = 8192;
+
+#[derive(Error, Debug)]
+pub enum SaveError {
+    #[error("The cartridge does not support saving.")]
+    NoSaveSupport,
+    #[error("The save file is not compatible with the current cartridge.")]
+    InvalidChecksum,
+    #[error("The save file is empty or malformed.")]
+    MalformedFile,
+    #[error("Failed to read or write the save file: {0}")]
+    IOError(#[from] std::io::Error),
+}
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 #[repr(u8)]
@@ -160,6 +173,12 @@ impl CartridgeConfig {
     pub const fn ram_size(&self) -> usize {
         self.ram_banks as usize * RAM_BANK_SIZE
     }
+
+    /// Returns true if the cartridge has at least one battery-backed RAM bank.
+    #[inline]
+    pub const fn is_savable(&self) -> bool {
+        self.ram_banks > 0 && self.controller.has_battery()
+    }
 }
 
 /// Contains the cartridge header information.
@@ -193,14 +212,9 @@ impl TryFrom<&[u8]> for CartridgeHeader {
 }
 
 impl CartridgeHeader {
-    /// Returns true if the cartridge has at least one battery-backed RAM bank.
-    #[inline]
-    pub const fn has_persistent_data(&self) -> bool {
-        self.config.ram_banks > 0 && self.config.controller.has_battery()
-    }
-
     /// Returns the cartridge title from the cartridge header.
     fn parse_title(buf: &[u8]) -> String {
+        debug_assert!(buf.len() >= CARTRIDGE_TITLE_END as usize);
         let title = buf[CARTRIDGE_TITLE_BEGIN as usize..=CARTRIDGE_TITLE_END as usize]
             .iter()
             .filter_map(|b| b.is_ascii_alphanumeric().then_some(char::from(*b)))
@@ -214,7 +228,7 @@ impl CartridgeHeader {
 
 impl fmt::Display for CartridgeHeader {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({})", self.title, self.config.controller)
+        write!(f, "{}", self.title)
     }
 }
 
@@ -223,6 +237,40 @@ impl fmt::Display for CartridgeHeader {
 pub struct Cartridge {
     pub header: CartridgeHeader,
     pub(crate) controller: Box<dyn BankController>,
+}
+
+impl Cartridge {
+    /// Loads a save file from the given path.
+    pub fn load_savefile(&mut self, path: &Path) -> Result<(), SaveError> {
+        let mut data = fs::read(path)?;
+        let checksum = match data.pop() {
+            Some(checksum) => checksum,
+            None => return Err(SaveError::MalformedFile),
+        };
+        if checksum != self.header.header_checksum {
+            return Err(SaveError::InvalidChecksum);
+        }
+        self.controller.load_ram(data);
+        Ok(())
+    }
+
+    /// Writes a save file to the given path.
+    /// The save file contains a dump of the latest sane RAM state and the one byte header checksum.
+    pub fn write_savefile(&self, path: &Path) -> Result<(), SaveError> {
+        let ram = self.controller.save_ram()?;
+        let mut data = ram.to_vec();
+        data.push(self.header.header_checksum);
+        Ok(fs::write(path, &data)?)
+    }
+
+    /// Returns the name of the autosave file based on the cartridge title and header checksum.
+    pub fn autosave_filename(&self) -> String {
+        format!(
+            "{}_{:02x}_autosave.sav",
+            self.header.title.replace(' ', "_"),
+            self.header.header_checksum
+        )
+    }
 }
 
 impl TryFrom<Arc<[u8]>> for Cartridge {
@@ -270,10 +318,7 @@ impl SubSystem for Cartridge {
 
 /// Validates the global checksum of the given buffer containing the whole cartridge.
 fn verify_checksum(buf: &[u8], checksum: u16) -> GBResult<()> {
-    debug_assert!(
-        buf.len() >= CARTRIDGE_GLOBAL_CHECKSUM2 as usize,
-        "Buffer is too small to calculate the checksum"
-    );
+    debug_assert!(buf.len() >= CARTRIDGE_GLOBAL_CHECKSUM2 as usize);
 
     let calculated_checksum = calculate_global_checksum(buf);
     if checksum == calculated_checksum {

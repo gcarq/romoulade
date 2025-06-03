@@ -1,5 +1,5 @@
-use crate::gb::cartridge::CartridgeConfig;
-use crate::gb::cartridge::controller::{BankController, SaveError};
+use crate::gb::cartridge::controller::BankController;
+use crate::gb::cartridge::{CartridgeConfig, SaveError};
 use crate::gb::constants::*;
 use std::sync::Arc;
 
@@ -47,16 +47,12 @@ impl BankController for NoMBC {
     }
 
     fn load_ram(&mut self, ram: Vec<u8>) {
-        debug_assert_eq!(
-            ram.len(),
-            self.ram.len(),
-            "Given RAM size does not match the expected size",
-        );
+        debug_assert_eq!(ram.len(), self.ram.len());
         self.ram = ram;
     }
 
     fn save_ram(&self) -> Result<Arc<[u8]>, SaveError> {
-        if self.ram.is_empty() || !self.config.controller.has_battery() {
+        if !self.config.is_savable() {
             return Err(SaveError::NoSaveSupport);
         }
         Ok(self.ram.clone().into())

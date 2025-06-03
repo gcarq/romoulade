@@ -53,6 +53,7 @@ fn main() {
         print_serial: args.print_serial,
         headless: args.headless,
         autosave: true, // TODO: make this configurable
+        savefile: None, // TODO: make this configurable
     };
 
     if config.headless {
@@ -67,7 +68,7 @@ fn gui_mode(config: EmulatorConfig) {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_resizable(false)
-            .with_inner_size([503.0, 475.0]),
+            .with_inner_size([503.0, 490.0]),
         hardware_acceleration: HardwareAcceleration::Preferred,
         ..Default::default()
     };
@@ -87,5 +88,7 @@ fn headless_mode(config: EmulatorConfig) {
     let (emulator_sender, _) = mpsc::sync_channel(2);
     let (_, frontend_receiver) = mpsc::channel();
     let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
-    emulator.run();
+    if let Err(msg) = emulator.run() {
+        eprintln!("Error running emulator: {}", msg);
+    }
 }

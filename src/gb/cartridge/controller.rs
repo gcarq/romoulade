@@ -2,7 +2,7 @@ use crate::gb::cartridge::mbc1::MBC1;
 use crate::gb::cartridge::mbc3::MBC3;
 use crate::gb::cartridge::mbc5::MBC5;
 use crate::gb::cartridge::nombc::NoMBC;
-use crate::gb::cartridge::{CartridgeConfig, ControllerType};
+use crate::gb::cartridge::{CartridgeConfig, ControllerType, SaveError};
 use dyn_clone::DynClone;
 use std::sync::Arc;
 
@@ -23,11 +23,6 @@ pub trait BankController: DynClone + Send {
 }
 
 dyn_clone::clone_trait_object!(BankController);
-
-pub enum SaveError {
-    NoSaveSupport,
-    RAMLocked,
-}
 
 /// Creates a new `BankController` with the given ROM and `CartridgeConfig`.
 pub fn new(config: CartridgeConfig, rom: Arc<[u8]>) -> Box<dyn BankController> {

@@ -9,7 +9,6 @@ use eframe::egui::{Color32, Key, TextureHandle, Ui, Vec2, ViewportBuilder, Viewp
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
 use spin_sleep::sleep;
-use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -56,7 +55,9 @@ impl EmulatorFrontend {
 
         let thread = thread::spawn(move || {
             let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
-            emulator.run();
+            if let Err(msg) = emulator.run() {
+                eprintln!("Emulator error: {msg}");
+            }
         });
 
         // Create initial TextureHandle for the frame buffer
@@ -109,12 +110,6 @@ impl EmulatorFrontend {
         }
     }
 
-    /// Writes a save file to the given path.
-    pub fn write_savefile(&self, path: PathBuf) {
-        println!("Writing save file to: {}", path.display());
-        self.send_message(FrontendMessage::WriteSaveFile(path));
-    }
-
     /// Attaches a debugger to the frontend and sends a `AttachDebugger` to the emulator
     /// if `send_msg` is true.
     #[inline]
@@ -126,6 +121,14 @@ impl EmulatorFrontend {
         println!("Attaching debugger ...");
         self.debugger = Some(DebuggerFrontend::new(self.channel.sender.clone()));
         self.send_message(FrontendMessage::AttachDebugger);
+    }
+
+    /// Sends a message to the emulator.
+    #[inline]
+    pub fn send_message(&self, message: FrontendMessage) {
+        if let Err(msg) = self.channel.sender.send(message) {
+            eprintln!("Emulator isn't running: {msg}");
+        }
     }
 
     /// Closes the debugger frontend and sends a `DetachDebugger` message to the emulator.
@@ -166,14 +169,6 @@ impl EmulatorFrontend {
                     }
                 }
             }
-        }
-    }
-
-    /// Sends a message to the emulator.
-    #[inline]
-    fn send_message(&self, message: FrontendMessage) {
-        if let Err(msg) = self.channel.sender.send(message) {
-            eprintln!("Emulator isn't running: {msg}");
         }
     }
 

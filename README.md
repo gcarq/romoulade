@@ -41,7 +41,6 @@ headless mode (see usage below).
 
 #### Known Issues and TODOs
 
-- Implement save game handling
 - Implement remaining MBCs (MBC2, MBC6, MBC7, ...)
 - Implement Sound Processing Unit
 - Pass acceptance tests from [the Mooneye Test Suite](https://github.com/Gekkio/mooneye-test-suite)
