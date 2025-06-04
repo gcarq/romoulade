@@ -151,7 +151,7 @@ impl EmulatorFrontend {
     fn set_frame_texture(&mut self, frame: FrameBuffer) {
         let image = ColorImage {
             size: [frame.width(), frame.height()],
-            pixels: frame.buffer,
+            pixels: frame.into_vec(),
         };
         self.frame.set(image, TextureOptions::LINEAR);
     }

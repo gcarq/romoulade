@@ -145,3 +145,51 @@ bitflags! {
         const PRIORITY      = 0b1000_0000;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_palette() {
+        let palette = Palette::from(0b11_10_01_00);
+        assert_eq!(palette.colorize(Pixel::Zero), ColoredPixel::White);
+        assert_eq!(palette.colorize(Pixel::One), ColoredPixel::LightGrey);
+        assert_eq!(palette.colorize(Pixel::Two), ColoredPixel::DarkGrey);
+        assert_eq!(palette.colorize(Pixel::Three), ColoredPixel::Black);
+        assert_eq!(u8::from(palette), 0b11_10_01_00);
+    }
+
+    #[test]
+    fn test_pixel() {
+        let data = vec![
+            (0b00, Pixel::Zero),
+            (0b01, Pixel::One),
+            (0b10, Pixel::Two),
+            (0b11, Pixel::Three),
+        ];
+        for (value, pixel) in data {
+            assert_eq!(u8::from(pixel), value);
+            assert_eq!(Pixel::from(value), pixel);
+        }
+
+        assert_eq!(Pixel::from(0b1111_1111), Pixel::Three);
+        assert_eq!(Pixel::from(0b0101_1100), Pixel::Zero);
+    }
+
+    #[test]
+    fn test_colored_pixel() {
+        let data = vec![
+            (0b00, ColoredPixel::White),
+            (0b01, ColoredPixel::LightGrey),
+            (0b10, ColoredPixel::DarkGrey),
+            (0b11, ColoredPixel::Black),
+        ];
+        for (value, pixel) in data {
+            assert_eq!(u8::from(pixel), value);
+            assert_eq!(ColoredPixel::from(value), pixel);
+        }
+
+        assert_eq!(ColoredPixel::from(0b1111_1111), ColoredPixel::Black);
+        assert_eq!(ColoredPixel::from(0b0101_1100), ColoredPixel::White);
+    }
+}

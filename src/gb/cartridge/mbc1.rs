@@ -1,5 +1,5 @@
 use crate::gb::cartridge::controller::BankController;
-use crate::gb::cartridge::{bank_mask, CartridgeConfig, SaveError, RAM_BANK_SIZE, ROM_BANK_SIZE};
+use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, SaveError, bank_mask};
 use crate::gb::constants::*;
 use std::sync::Arc;
 

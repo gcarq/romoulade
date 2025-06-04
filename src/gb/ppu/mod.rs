@@ -2,8 +2,6 @@ pub mod buffer;
 pub mod display;
 pub mod misc;
 mod registers;
-#[cfg(test)]
-mod tests;
 
 use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::*;
@@ -546,4 +544,27 @@ const fn is_on_screen_y(y: u8) -> bool {
 #[inline]
 fn pixel_from_line(byte1: u8, byte2: u8, bit: u8) -> Pixel {
     Pixel::from(((bit_at(byte2, bit) as u8) << 1) | bit_at(byte1, bit) as u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_pixel_from_line() {
+        let data = vec![
+            (0b0000_0000, 0b0000_0000, 0, Pixel::Zero),
+            (0b1111_1111, 0b1111_1111, 1, Pixel::Three),
+            (0b1010_1010, 0b0101_0101, 2, Pixel::Two),
+            (0b1100_1100, 0b0011_0011, 3, Pixel::One),
+            (0b1111_0000, 0b0000_1111, 4, Pixel::One),
+            (0b0000_1111, 0b1111_0000, 5, Pixel::Two),
+            (0b1100_0011, 0b0011_1100, 6, Pixel::One),
+            (0b0011_1100, 0b0100_0011, 7, Pixel::Zero),
+        ];
+        for (byte1, byte2, index, expected) in data {
+            let pixel = pixel_from_line(byte1, byte2, index);
+            assert_eq!(pixel, expected);
+        }
+    }
 }

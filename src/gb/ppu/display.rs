@@ -1,6 +1,7 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::ColoredPixel;
 use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorConfig, EmulatorMessage};
+use eframe::egui::Color32;
 use std::sync::mpsc::SyncSender;
 use std::time::{Duration, Instant};
 
@@ -32,7 +33,7 @@ impl Display {
     /// Writes a pixel to the given coordinates
     #[inline]
     pub fn write_pixel(&mut self, x: u8, y: u8, color: ColoredPixel) {
-        self.buffer.write_pixel(x, y, color);
+        self.buffer.write_pixel(x, y, translate_color(color));
     }
 
     pub fn update_config(&mut self, config: &EmulatorConfig) {
@@ -65,5 +66,34 @@ impl FrameLimiter {
             spin_sleep::sleep(self.frame_duration - elapsed);
         }
         self.last_call = Instant::now();
+    }
+}
+
+/// Translates a `ColoredPixel` to `egui::Color32`.
+#[inline]
+const fn translate_color(color: ColoredPixel) -> Color32 {
+    match color {
+        ColoredPixel::White => Color32::WHITE,
+        ColoredPixel::LightGrey => Color32::from_rgb(0xab, 0xab, 0xab),
+        ColoredPixel::DarkGrey => Color32::from_rgb(0x55, 0x55, 0x55),
+        ColoredPixel::Black => Color32::BLACK,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_translate_color() {
+        assert_eq!(translate_color(ColoredPixel::White), Color32::WHITE);
+        assert_eq!(
+            translate_color(ColoredPixel::LightGrey),
+            Color32::from_rgb(0xab, 0xab, 0xab)
+        );
+        assert_eq!(
+            translate_color(ColoredPixel::DarkGrey),
+            Color32::from_rgb(0x55, 0x55, 0x55)
+        );
+        assert_eq!(translate_color(ColoredPixel::Black), Color32::BLACK);
     }
 }

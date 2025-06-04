@@ -1,5 +1,4 @@
 mod joypad;
-mod timer;
 
 use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
