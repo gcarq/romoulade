@@ -1,5 +1,5 @@
 use crate::gb::cartridge::controller::BankController;
-use crate::gb::cartridge::{CartridgeConfig, RAM_BANK_SIZE, ROM_BANK_SIZE, SaveError, bank_mask};
+use crate::gb::cartridge::{bank_mask, CartridgeConfig, SaveError, RAM_BANK_SIZE, ROM_BANK_SIZE};
 use crate::gb::constants::*;
 use std::sync::Arc;
 
@@ -47,6 +47,7 @@ pub enum BankingMode {
 /// at the cost of only supporting a fixed 8 KiB of cartridge RAM. All MBC1 cartridges with 1 MiB
 /// of ROM or more use this alternate wiring. Also see the note on MBC1M multi-game compilation
 /// carts below.
+/// TODO: Implement Multicart ROM support
 #[derive(Clone)]
 pub struct MBC1 {
     config: CartridgeConfig,
@@ -119,14 +120,17 @@ impl BankController for MBC1 {
     fn read(&mut self, address: u16) -> u8 {
         match address {
             ROM_LOW_BANK_BEGIN..=ROM_LOW_BANK_END => {
-                self.rom[self.low_rom_bank_offset + (address - ROM_LOW_BANK_BEGIN) as usize]
+                let address = self.low_rom_bank_offset + (address - ROM_LOW_BANK_BEGIN) as usize;
+                self.rom[address % self.rom.len()]
             }
             ROM_HIGH_BANK_BEGIN..=ROM_HIGH_BANK_END => {
-                self.rom[self.high_rom_bank_offset + (address - ROM_HIGH_BANK_BEGIN) as usize]
+                let address = self.high_rom_bank_offset + (address - ROM_HIGH_BANK_BEGIN) as usize;
+                self.rom[address % self.rom.len()]
             }
             CRAM_BANK_BEGIN..=CRAM_BANK_END => {
                 if self.has_ram_access && !self.ram.is_empty() {
-                    self.ram[self.ram_bank_offset + (address - CRAM_BANK_BEGIN) as usize]
+                    let address = self.ram_bank_offset + (address - CRAM_BANK_BEGIN) as usize;
+                    self.ram[address % self.ram.len()]
                 } else {
                     UNDEFINED_READ
                 }
@@ -171,7 +175,9 @@ impl BankController for MBC1 {
             }
             CRAM_BANK_BEGIN..=CRAM_BANK_END => {
                 if self.has_ram_access && !self.ram.is_empty() {
-                    self.ram[self.ram_bank_offset + (address - CRAM_BANK_BEGIN) as usize] = value;
+                    let offset = (address - CRAM_BANK_BEGIN) as usize;
+                    let address = (self.ram_bank_offset + offset) % self.ram.len();
+                    self.ram[address] = value;
                 }
             }
             _ => {}

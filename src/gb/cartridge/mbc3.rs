@@ -107,7 +107,7 @@ impl BankController for MBC3 {
             }
             ROM_HIGH_BANK_BEGIN..=ROM_HIGH_BANK_END => {
                 let offset = self.rom_bank_number as usize * ROM_BANK_SIZE;
-                self.rom[offset + (address - ROM_HIGH_BANK_BEGIN) as usize]
+                self.rom[(offset + (address - ROM_HIGH_BANK_BEGIN) as usize) % self.rom.len()]
             }
             CRAM_BANK_BEGIN..=CRAM_BANK_END => {
                 if !self.has_ram_rtc_access {
@@ -120,7 +120,7 @@ impl BankController for MBC3 {
                             return UNDEFINED_READ;
                         }
                         let offset = bank as usize * RAM_BANK_SIZE;
-                        self.ram[offset + (address - CRAM_BANK_BEGIN) as usize]
+                        self.ram[(offset + (address - CRAM_BANK_BEGIN) as usize) % self.ram.len()]
                     }
                     RAMBankSelection::Seconds => self.rtc.seconds,
                     RAMBankSelection::Minutes => self.rtc.minutes,
@@ -180,8 +180,9 @@ impl BankController for MBC3 {
                 }
                 match self.ram_bank_selection {
                     RAMBankSelection::RAMBank(bank) if !self.ram.is_empty() => {
-                        let offset = bank as usize * RAM_BANK_SIZE;
-                        self.ram[offset + (address - CRAM_BANK_BEGIN) as usize] = value;
+                        let offset = (address - CRAM_BANK_BEGIN) as usize;
+                        let address = (bank as usize * RAM_BANK_SIZE + offset) % self.ram.len();
+                        self.ram[address] = value;
                     }
                     _ => {}
                 }
