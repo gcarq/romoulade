@@ -1,9 +1,10 @@
 use crate::gb::bus::InterruptRegister;
 use crate::gb::utils;
 
-/// Represents all possible Joypad Inputs that the emulator can receive.
+/// Represents all possible input events that the emulator can receive.
+/// This will be sent from the frontend and is used to update `Joypad`.
 #[derive(Copy, Clone, Default, Debug)]
-pub struct JoypadInput {
+pub struct JoypadInputEvent {
     pub left: bool,
     pub right: bool,
     pub up: bool,
@@ -14,10 +15,9 @@ pub struct JoypadInput {
     pub select: bool,
 }
 
-impl JoypadInput {
+impl JoypadInputEvent {
     /// Returns true if any button is pressed.
-    #[inline]
-    pub const fn is_pressed(self) -> bool {
+    pub fn is_pressed(self) -> bool {
         self.left
             || self.right
             || self.up
@@ -30,7 +30,7 @@ impl JoypadInput {
 
     /// Resets the state of the D-Pad buttons.
     #[inline]
-    pub const fn reset_dpad(&mut self) {
+    pub fn reset_dpad(&mut self) {
         self.left = false;
         self.right = false;
         self.up = false;
@@ -39,7 +39,7 @@ impl JoypadInput {
 
     /// Resets the state of the Action buttons.
     #[inline]
-    pub const fn reset_action(&mut self) {
+    pub fn reset_action(&mut self) {
         self.a = false;
         self.b = false;
         self.start = false;
@@ -64,24 +64,24 @@ enum SelectedButtons {
 /// a button being pressed is seen as the corresponding bit being 0, not 1.
 #[derive(Copy, Clone, Debug, Default)]
 pub struct Joypad {
-    a_right: bool,              // bit 0, A or Right
-    b_left: bool,               // bit 1, B or Left
-    select_up: bool,            // bit 2, Select or Up
-    start_down: bool,           // bit 3, Start or Down
-    selection: SelectedButtons, // bit 4-5, D-Pad keys or Action keys respectively
-    pending_event: JoypadInput, // pending input events that need handling
+    a_right: bool,                   // bit 0, A or Right
+    b_left: bool,                    // bit 1, B or Left
+    select_up: bool,                 // bit 2, Select or Up
+    start_down: bool,                // bit 3, Start or Down
+    selection: SelectedButtons,      // bit 4-5, D-Pad keys or Action keys respectively
+    pending_event: JoypadInputEvent, // pending input events that need handling
 }
 
 impl Joypad {
     /// Handles the given `JoypadInput` and sets the corresponding button state on the next write.
     #[inline(always)]
-    pub const fn handle_input(&mut self, event: JoypadInput) {
+    pub fn handle_input(&mut self, event: JoypadInputEvent) {
         self.pending_event = event;
     }
 
     /// Reads the Joypad register and returns the current state of the buttons.
-    pub const fn read(&self) -> u8 {
-        let mut value = 0b1100_0000;
+    pub fn read(&self) -> u8 {
+        let mut value = 0b1100_0000; // Undocumented bits should be 1
         value = utils::set_bit(value, 0, !self.a_right);
         value = utils::set_bit(value, 1, !self.b_left);
         value = utils::set_bit(value, 2, !self.select_up);
@@ -115,6 +115,7 @@ impl Joypad {
         // In the joypad register the bit values are inverted,
         // 0 means selected and 1 means not selected.
         match (utils::bit_at(value, 4), utils::bit_at(value, 5)) {
+            // D-Pad selection
             (false, true) => {
                 self.selection = SelectedButtons::DPad;
                 self.b_left = self.pending_event.left;
@@ -123,6 +124,7 @@ impl Joypad {
                 self.select_up = self.pending_event.up;
                 self.pending_event.reset_dpad();
             }
+            // Action selection
             (true, false) => {
                 self.selection = SelectedButtons::Action;
                 self.a_right = self.pending_event.a;
@@ -131,10 +133,12 @@ impl Joypad {
                 self.select_up = self.pending_event.select;
                 self.pending_event.reset_action();
             }
+            // No selection
             (true, true) => {
                 self.selection = SelectedButtons::None;
                 return;
             }
+            // Initial state
             (false, false) => return,
         }
 
@@ -145,7 +149,7 @@ impl Joypad {
 
     /// Resets the joypad state of the lower nibble
     #[inline]
-    const fn reset(&mut self) {
+    fn reset(&mut self) {
         self.a_right = false;
         self.b_left = false;
         self.select_up = false;

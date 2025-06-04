@@ -1,5 +1,5 @@
 use crate::gb::bus::InterruptRegister;
-use crate::gb::joypad::{Joypad, JoypadInput};
+use crate::gb::joypad::{Joypad, JoypadInputEvent};
 use bitflags::Flags;
 
 #[test]
@@ -9,7 +9,7 @@ fn test_joypad_dpad_pressed() {
 
     let data = [
         (
-            JoypadInput {
+            JoypadInputEvent {
                 right: true,
                 ..Default::default()
             },
@@ -17,7 +17,7 @@ fn test_joypad_dpad_pressed() {
             0b1110_1110,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 left: true,
                 ..Default::default()
             },
@@ -25,7 +25,7 @@ fn test_joypad_dpad_pressed() {
             0b1110_1101,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 up: true,
                 ..Default::default()
             },
@@ -33,7 +33,7 @@ fn test_joypad_dpad_pressed() {
             0b1110_1011,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 down: true,
                 ..Default::default()
             },
@@ -42,7 +42,7 @@ fn test_joypad_dpad_pressed() {
         ),
     ];
 
-    for (input, initial, expected) in data.into_iter() {
+    for (input, initial, expected) in data {
         int_reg.clear();
         joypad.handle_input(input);
         joypad.write(initial, &mut int_reg);
@@ -58,7 +58,7 @@ fn test_joypad_dpad_not_pressed() {
 
     let data = [
         (
-            JoypadInput {
+            JoypadInputEvent {
                 a: true,
                 ..Default::default()
             },
@@ -66,7 +66,7 @@ fn test_joypad_dpad_not_pressed() {
             0b1110_1111,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 b: true,
                 ..Default::default()
             },
@@ -74,7 +74,7 @@ fn test_joypad_dpad_not_pressed() {
             0b1110_1111,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 select: true,
                 ..Default::default()
             },
@@ -82,7 +82,7 @@ fn test_joypad_dpad_not_pressed() {
             0b1110_1111,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 start: true,
                 ..Default::default()
             },
@@ -91,7 +91,7 @@ fn test_joypad_dpad_not_pressed() {
         ),
     ];
 
-    for (input, initial, expected) in data.into_iter() {
+    for (input, initial, expected) in data {
         int_reg.clear();
         joypad.handle_input(input);
         joypad.write(initial, &mut int_reg);
@@ -107,7 +107,7 @@ fn test_joypad_actions_pressed() {
 
     let data = [
         (
-            JoypadInput {
+            JoypadInputEvent {
                 a: true,
                 ..Default::default()
             },
@@ -115,7 +115,7 @@ fn test_joypad_actions_pressed() {
             0b1101_1110,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 b: true,
                 ..Default::default()
             },
@@ -123,7 +123,7 @@ fn test_joypad_actions_pressed() {
             0b1101_1101,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 select: true,
                 ..Default::default()
             },
@@ -131,7 +131,7 @@ fn test_joypad_actions_pressed() {
             0b1101_1011,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 start: true,
                 ..Default::default()
             },
@@ -140,7 +140,7 @@ fn test_joypad_actions_pressed() {
         ),
     ];
 
-    for (input, initial, expected) in data.into_iter() {
+    for (input, initial, expected) in data {
         int_reg.clear();
         joypad.handle_input(input);
         joypad.write(initial, &mut int_reg);
@@ -156,7 +156,7 @@ fn test_joypad_actions_not_pressed() {
 
     let data = [
         (
-            JoypadInput {
+            JoypadInputEvent {
                 right: true,
                 ..Default::default()
             },
@@ -164,7 +164,7 @@ fn test_joypad_actions_not_pressed() {
             0b1101_1111,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 left: true,
                 ..Default::default()
             },
@@ -172,7 +172,7 @@ fn test_joypad_actions_not_pressed() {
             0b1101_1111,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 up: true,
                 ..Default::default()
             },
@@ -180,7 +180,7 @@ fn test_joypad_actions_not_pressed() {
             0b1101_1111,
         ),
         (
-            JoypadInput {
+            JoypadInputEvent {
                 down: true,
                 ..Default::default()
             },
@@ -189,7 +189,7 @@ fn test_joypad_actions_not_pressed() {
         ),
     ];
 
-    for (input, initial, expected) in data.into_iter() {
+    for (input, initial, expected) in data {
         int_reg.clear();
         joypad.handle_input(input);
         joypad.write(initial, &mut int_reg);
@@ -205,7 +205,7 @@ fn test_joypad_common() {
     assert_eq!(joypad.read(), 0b1100_1111, "Initial state should be 0xCF");
 
     // No selection mode while Right has been pressed
-    let input = JoypadInput {
+    let input = JoypadInputEvent {
         right: true,
         ..Default::default()
     };
@@ -215,7 +215,7 @@ fn test_joypad_common() {
     assert_eq!(joypad.read(), 0b1111_1111);
 
     // No selection mode while Select has been pressed
-    let input = JoypadInput {
+    let input = JoypadInputEvent {
         select: true,
         ..Default::default()
     };
@@ -226,7 +226,7 @@ fn test_joypad_common() {
 
     // Acceptance test of mooneye test suite:
     // See https://github.com/Gekkio/mooneye-test-suite/blob/main/acceptance/bits/unused_hwio-GS.s
-    joypad.handle_input(JoypadInput::default());
+    joypad.handle_input(JoypadInputEvent::default());
     joypad.write(0b1111_1111, &mut int_reg);
     assert!(int_reg.is_empty());
     assert_eq!(joypad.read(), 0b1111_1111);
@@ -234,35 +234,35 @@ fn test_joypad_common() {
 
 #[test]
 fn test_joypad_input_is_pressed() {
-    let input = JoypadInput::default();
+    let input = JoypadInputEvent::default();
     assert!(!input.is_pressed());
-    let input = JoypadInput { a: true, ..input };
+    let input = JoypadInputEvent { a: true, ..input };
     assert!(input.is_pressed());
-    let input = JoypadInput { b: true, ..input };
+    let input = JoypadInputEvent { b: true, ..input };
     assert!(input.is_pressed());
-    let input = JoypadInput {
+    let input = JoypadInputEvent {
         select: true,
         ..input
     };
     assert!(input.is_pressed());
-    let input = JoypadInput {
+    let input = JoypadInputEvent {
         start: true,
         ..input
     };
     assert!(input.is_pressed());
-    let input = JoypadInput { up: true, ..input };
+    let input = JoypadInputEvent { up: true, ..input };
     assert!(input.is_pressed());
-    let input = JoypadInput {
+    let input = JoypadInputEvent {
         down: true,
         ..input
     };
     assert!(input.is_pressed());
-    let input = JoypadInput {
+    let input = JoypadInputEvent {
         left: true,
         ..input
     };
     assert!(input.is_pressed());
-    let input = JoypadInput {
+    let input = JoypadInputEvent {
         right: true,
         ..input
     };

@@ -49,6 +49,8 @@ impl Romoulade {
             // Set savefile if autosave is enabled
             if self.config.autosave && cartridge.header.config.is_savable() {
                 self.config.savefile = Some(PathBuf::from(cartridge.autosave_filename()));
+            } else {
+                self.config.savefile = None;
             }
             self.cartridge = Some(cartridge);
         }
@@ -285,6 +287,7 @@ impl eframe::App for Romoulade {
         if ctx.input(|i| i.viewport().close_requested()) {
             self.stop_emulator();
         }
+        // Update the viewport size to match the current upscale factor
         ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
             frame_size + Vec2::new(0.0, PANEL_HEIGHT * 2.0),
         ));

@@ -3,7 +3,7 @@ use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
-use crate::gb::joypad::JoypadInput;
+use crate::gb::joypad::JoypadInputEvent;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
 use std::error;
@@ -77,7 +77,7 @@ pub enum EmulatorMessage {
 /// This enum defines the possible messages that can be sent from the frontend to the emulator.
 pub enum FrontendMessage {
     Stop,
-    Input(JoypadInput),
+    Input(JoypadInputEvent),
     UpdateConfig(EmulatorConfig),
     WriteSaveFile,
     AttachDebugger,
@@ -209,7 +209,7 @@ impl Emulator {
     }
 
     /// Fastboot the emulator by setting the CPU registers as if it had booted normally.
-    const fn fastboot(&mut self) {
+    fn fastboot(&mut self) {
         self.cpu.r.set_af(0x01B0);
         self.cpu.r.set_bc(0x0013);
         self.cpu.r.set_de(0x00D8);

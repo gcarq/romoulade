@@ -16,7 +16,7 @@ pub struct Registers {
 impl Registers {
     #[inline(always)]
     pub fn get_af(self) -> u16 {
-        (u16::from(self.a) << 8) | u16::from(self.f.bits())
+        u16::from_be_bytes([self.a, self.f.bits()])
     }
 
     #[inline(always)]
@@ -27,7 +27,7 @@ impl Registers {
 
     #[inline(always)]
     pub fn get_bc(self) -> u16 {
-        (u16::from(self.b) << 8) | u16::from(self.c)
+        u16::from_be_bytes([self.b, self.c])
     }
 
     #[inline(always)]
@@ -38,7 +38,7 @@ impl Registers {
 
     #[inline(always)]
     pub fn get_de(self) -> u16 {
-        (u16::from(self.d) << 8) | u16::from(self.e)
+        u16::from_be_bytes([self.d, self.e])
     }
 
     #[inline(always)]
@@ -49,7 +49,7 @@ impl Registers {
 
     #[inline(always)]
     pub fn get_hl(self) -> u16 {
-        (u16::from(self.h) << 8) | u16::from(self.l)
+        u16::from_be_bytes([self.h, self.l])
     }
 
     #[inline(always)]
@@ -63,13 +63,13 @@ bitflags! {
     /// Represents the special purpose "flags" register.
     /// Only the upper 4 bits are used.
     ///
-    ///    ┌-> Carry
-    ///  ┌-+> Subtraction
-    ///  | |
-    /// 1111 0000
-    /// | |
-    /// └-+> Zero
-    ///   └-> Half Carry
+    ///        ┌-> Carry
+    ///      ┌-+> Subtraction
+    ///      | |
+    ///     1111 0000
+    ///     | |
+    ///     └-+> Zero
+    ///       └-> Half Carry
     #[derive(Copy, Clone, Default)]
     pub struct FlagsRegister: u8 {
         const ZERO = 0b1000_0000;

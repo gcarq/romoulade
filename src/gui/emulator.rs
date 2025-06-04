@@ -1,5 +1,5 @@
 use crate::gb::cartridge::Cartridge;
-use crate::gb::joypad::JoypadInput;
+use crate::gb::joypad::JoypadInputEvent;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
@@ -27,7 +27,7 @@ struct EmulatorChannel {
 
 impl EmulatorChannel {
     #[inline]
-    pub const fn new(sender: Sender<FrontendMessage>, receiver: Receiver<EmulatorMessage>) -> Self {
+    pub fn new(sender: Sender<FrontendMessage>, receiver: Receiver<EmulatorMessage>) -> Self {
         Self { sender, receiver }
     }
 }
@@ -175,7 +175,7 @@ impl EmulatorFrontend {
     /// Handles user input and sends it to the emulator.
     fn handle_user_input(&self, ui: &mut Ui) {
         ui.input(|i| {
-            let mut input = JoypadInput::default();
+            let mut input = JoypadInputEvent::default();
             for key in &i.keys_down {
                 match key {
                     Key::A => input.left = true,
