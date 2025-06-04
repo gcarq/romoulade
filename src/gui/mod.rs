@@ -46,8 +46,9 @@ impl Romoulade {
             let rom = fs::read(path)?;
             let cartridge = Cartridge::try_from(Arc::from(rom.into_boxed_slice()))?;
 
-            // Set savefile if autosave is enabled
-            if self.config.autosave && cartridge.header.config.is_savable() {
+            // Set savefile if autosave is enabled, the cartridge supports it and the file exists.
+            let file_name = PathBuf::from(cartridge.autosave_filename());
+            if self.config.autosave && cartridge.header.config.is_savable() && file_name.exists() {
                 self.config.savefile = Some(PathBuf::from(cartridge.autosave_filename()));
             } else {
                 self.config.savefile = None;
