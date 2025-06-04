@@ -125,8 +125,8 @@ impl PPU {
         }
     }
 
-    /// Steps the PPU for a given number of cycles.
-    pub fn step(&mut self, int_reg: &mut InterruptRegister) {
+    /// Steps the `PPU` by one cycle.
+    pub fn cycle(&mut self, int_reg: &mut InterruptRegister) {
         if !self.r.lcd_control.contains(LCDControl::LCD_EN) {
             // Screen is off, PPU remains idle.
             return;

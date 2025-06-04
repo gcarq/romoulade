@@ -11,7 +11,7 @@ fn test_timer_counter_no_overflow() {
     timer.divider = 0b0001_0111;
     assert!(timer.control.is_enabled());
 
-    timer.step(&mut int_reg);
+    timer.cycle(&mut int_reg);
     assert_eq!(timer.divider, 0b0001_1000);
     assert_eq!(timer.counter, 0b0000_0001);
     assert!(!int_reg.contains(InterruptRegister::TIMER));
@@ -26,11 +26,11 @@ fn test_timer_counter_overflow() {
     timer.counter = 0b1111_1111;
 
     // Simulate a timer overflow, the interrupt shouldn't be fired immediately
-    timer.step(&mut int_reg);
+    timer.cycle(&mut int_reg);
     assert_eq!(timer.counter, 0b0000_0000);
     assert!(!int_reg.contains(InterruptRegister::TIMER));
 
-    timer.step(&mut int_reg);
+    timer.cycle(&mut int_reg);
     assert_eq!(timer.counter, 0b0000_0000);
     assert!(int_reg.contains(InterruptRegister::TIMER));
 }

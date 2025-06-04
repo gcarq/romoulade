@@ -45,8 +45,8 @@ pub struct Timer {
 }
 
 impl Timer {
-    /// Steps the timer by the given number of cycles.
-    pub fn step(&mut self, int_flag: &mut InterruptRegister) {
+    /// Steps the `Timer` by one cycle.
+    pub fn cycle(&mut self, int_flag: &mut InterruptRegister) {
         let prev_divider = self.divider;
         self.divider = self.divider.wrapping_add(1);
 

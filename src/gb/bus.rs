@@ -212,8 +212,8 @@ impl Bus for MainBus {
     #[inline]
     fn cycle(&mut self) {
         self.oam_transfer();
-        self.ppu.step(&mut self.interrupt_flag);
-        self.timer.step(&mut self.interrupt_flag);
+        self.ppu.cycle(&mut self.interrupt_flag);
+        self.timer.cycle(&mut self.interrupt_flag);
     }
 
     #[inline(always)]
