@@ -7,3 +7,5 @@
 misc.txt
 log.txt
 *.sav
+flamegraph*.svg
+perf.data*
