@@ -3,12 +3,12 @@ use crate::gb::joypad::JoypadInputEvent;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
+use crate::perf::PerformanceCounter;
 use eframe::egui;
 use eframe::egui::load::SizedTexture;
 use eframe::egui::{Color32, Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
-use spin_sleep::sleep;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -39,6 +39,7 @@ pub struct EmulatorFrontend {
     channel: EmulatorChannel,
     frame: TextureHandle,
     debugger: Option<DebuggerFrontend>,
+    pub fps_counter: PerformanceCounter,
 }
 
 impl EmulatorFrontend {
@@ -62,6 +63,7 @@ impl EmulatorFrontend {
         Self {
             channel: EmulatorChannel::new(frontend_sender, emulator_receiver),
             debugger: None,
+            fps_counter: PerformanceCounter::default(),
             frame,
             thread,
         }
@@ -84,7 +86,7 @@ impl EmulatorFrontend {
         // Wait for the emulator to finish
         while !self.thread.is_finished() {
             let _ = self.channel.receiver.try_recv();
-            sleep(std::time::Duration::from_millis(15));
+            spin_sleep::sleep(std::time::Duration::from_millis(15));
         }
     }
 
@@ -160,14 +162,14 @@ impl EmulatorFrontend {
     fn recv_message(&mut self) {
         if let Ok(msg) = self.channel.receiver.try_recv() {
             match msg {
-                EmulatorMessage::Frame(frame) => self.set_frame_texture(frame),
-                EmulatorMessage::Debug(message) => {
-                    if let Some(debugger) = &mut self.debugger {
-                        debugger.handle_message(*message);
-                    } else {
-                        eprintln!("Got debugger message, but frontend is not running");
-                    }
+                EmulatorMessage::Frame(frame) => {
+                    self.set_frame_texture(frame);
+                    self.fps_counter.update();
                 }
+                EmulatorMessage::Debug(message) => match &mut self.debugger {
+                    Some(dbg) => dbg.handle_message(*message),
+                    None => eprintln!("Got debug message, but debugger is not attached"),
+                },
             }
         }
     }

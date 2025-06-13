@@ -17,6 +17,7 @@ use std::sync::mpsc;
 
 mod gb;
 mod gui;
+mod perf;
 
 const DEFAULT_UPSCALE: usize = 3; // Default upscale factor for the display
 

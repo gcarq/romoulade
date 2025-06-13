@@ -17,17 +17,17 @@ impl Display {
     /// Creates a new display with the given int upscale.
     pub fn new(sender: SyncSender<EmulatorMessage>, upscale: usize) -> Self {
         Self {
-            sender,
             buffer: FrameBuffer::new(upscale),
             frame_limiter: FrameLimiter::new(DISPLAY_REFRESH_RATE),
+            sender,
         }
     }
 
     /// Sends the current frame to the frontend and syncs the frame rate.
     pub fn send_frame(&mut self) {
-        let buffer = self.buffer.clone();
-        self.sender.send(EmulatorMessage::Frame(buffer)).ok();
+        let msg = EmulatorMessage::Frame(self.buffer.clone());
         self.frame_limiter.wait();
+        self.sender.send(msg).ok();
     }
 
     /// Writes a pixel to the given coordinates
@@ -61,9 +61,9 @@ impl FrameLimiter {
     /// Blocks the current thread until the allotted frame time has passed.
     #[inline]
     pub fn wait(&mut self) {
-        let elapsed = self.last_call.elapsed();
-        if elapsed < self.frame_duration {
-            spin_sleep::sleep(self.frame_duration - elapsed);
+        let diff = self.frame_duration.saturating_sub(self.last_call.elapsed());
+        if !diff.is_zero() {
+            spin_sleep::sleep(diff);
         }
         self.last_call = Instant::now();
     }

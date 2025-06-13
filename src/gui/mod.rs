@@ -7,7 +7,7 @@ use crate::gb::cartridge::Cartridge;
 use crate::gb::{EmulatorConfig, FrontendMessage, GBResult};
 use crate::gui::emulator::{EmulatorFrontend, SCREEN_HEIGHT, SCREEN_WIDTH};
 use eframe::egui;
-use eframe::egui::{RichText, Vec2, menu};
+use eframe::egui::{Layout, RichText, Vec2, menu};
 use egui::{CentralPanel, Color32, Label, TopBottomPanel, Ui, Widget};
 use std::fs;
 use std::path::PathBuf;
@@ -248,6 +248,13 @@ impl Romoulade {
         }
     }
 
+    /// Displays the emulator metrics in the bottom panel.
+    fn draw_emulator_metrics(&self, ui: &mut Ui) {
+        if let Some(frontend) = &self.frontend {
+            ui.label(format!("{:.1} FPS", frontend.fps_counter.rate()));
+        }
+    }
+
     fn send_message(&self, message: FrontendMessage) {
         if let Some(frontend) = &self.frontend {
             frontend.send_message(message);
@@ -273,6 +280,9 @@ impl eframe::App for Romoulade {
                 self.draw_cartridge_info(ui);
                 ui.separator();
                 self.draw_savefile_info(ui);
+                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                    self.draw_emulator_metrics(ui);
+                });
             });
         });
         let frame_size = self.frame_layout_size();
