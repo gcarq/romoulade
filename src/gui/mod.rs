@@ -7,7 +7,7 @@ use crate::gb::cartridge::Cartridge;
 use crate::gb::{EmulatorConfig, FrontendMessage, GBResult};
 use crate::gui::emulator::{EmulatorFrontend, SCREEN_HEIGHT, SCREEN_WIDTH};
 use eframe::egui;
-use eframe::egui::{Layout, RichText, Vec2, menu};
+use eframe::egui::{menu, Layout, RichText, Vec2};
 use egui::{CentralPanel, Color32, Label, TopBottomPanel, Ui, Widget};
 use std::fs;
 use std::path::PathBuf;
@@ -209,7 +209,7 @@ impl Romoulade {
 
                     // Force DMG mode setting
                     ui.label(menu_text!("Force DMG Mode:"));
-                    ui.add_enabled_ui(!self.frontend.is_some(), |ui| {
+                    ui.add_enabled_ui(self.frontend.is_none(), |ui| {
                         if ui.checkbox(&mut self.config.force_dmg_mode, "").clicked() {
                             update = true;
                         }

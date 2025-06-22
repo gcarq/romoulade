@@ -1,5 +1,5 @@
-use crate::gb::GBError;
 use crate::gb::cartridge::controller::BankController;
+use crate::gb::GBError;
 use crate::gb::{GBResult, SubSystem};
 use std::path::Path;
 use std::sync::Arc;
@@ -311,7 +311,7 @@ impl TryFrom<Arc<[u8]>> for Cartridge {
         }
         let header = CartridgeHeader::try_from(rom.as_ref())?;
         if let Err(msg) =
-            verify_checksum(rom.as_ref(), header.header_checksum, header.global_checksum)
+            verify_checksums(rom.as_ref(), &header)
         {
             eprintln!("WARNING: {msg}");
         }
@@ -348,25 +348,24 @@ impl SubSystem for Cartridge {
 }
 
 /// Validates the checksums of the given buffer containing the whole cartridge.
-fn verify_checksum(buf: &[u8], header_checksum: u8, global_checksum: u16) -> GBResult<()> {
+fn verify_checksums(buf: &[u8], header: &CartridgeHeader) -> GBResult<()> {
     debug_assert!(buf.len() >= CARTRIDGE_GLOBAL_CHECKSUM2 as usize);
     // Header checksum validation
-    let calculated_sum = calculate_header_checksum(buf);
-    if calculated_sum != header_checksum {
+    let header_checksum = calculate_header_checksum(buf);
+    if header_checksum != header.header_checksum {
         let msg = format!(
-            "Header checksum mismatch! Expected: {header_checksum:#04x} Got: {calculated_sum:#04x}"
+            "Header checksum mismatch! Expected: {header_checksum:#04x} Got: {header_checksum:#04x}"
         );
         return Err(msg.into());
     }
     // Global checksum validation
-    let calculated_sum = calculate_global_checksum(buf);
-    if global_checksum != calculated_sum {
+    let global_checksum = calculate_global_checksum(buf);
+    if global_checksum != header.global_checksum {
         let msg = format!(
-            "Global checksum mismatch! Expected: {calculated_sum:#06x} Got: {global_checksum:#06x}"
+            "Global checksum mismatch! Expected: {global_checksum:#06x} Got: {global_checksum:#06x}"
         );
         return Err(msg.into());
     }
-
     Ok(())
 }
 
@@ -425,7 +424,15 @@ mod tests {
         buf[CARTRIDGE_HEADER_CHECKSUM as usize] = 0xA7;
         buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize] = 0x8B;
         buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x95;
-        verify_checksum(&buf, 0xA7, 0x8B95).expect("Checksum verification should succeed");
+        let header = CartridgeHeader {
+            title: "".to_string(),
+            config: CartridgeConfig::new(ControllerType::NoMBC { battery: false }, 0x02, 0x00)
+                .unwrap(),
+            cgb_flag: CgbFlag::NonCgb,
+            header_checksum: 0xA7,
+            global_checksum: 0x8B95,
+        };
+        verify_checksums(&buf, &header).expect("Checksum verification should succeed");
     }
 
     #[test]
