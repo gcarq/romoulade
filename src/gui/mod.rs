@@ -175,6 +175,7 @@ impl Romoulade {
 
     /// Updates the settings menu in the menu bar.
     fn update_settings_menu(&mut self, ui: &mut Ui) {
+        let mut update = false;
         ui.menu_button(menu_text!("Settings"), |ui| {
             egui::Grid::new("settings_grid")
                 .num_columns(2)
@@ -184,31 +185,41 @@ impl Romoulade {
                     // Upscale setting
                     ui.label(menu_text!("Upscale:"));
                     ui.horizontal(|ui| {
-                        let mut update = false;
-                        update |= ui.selectable_value(&mut self.config.upscale, 2, "2x").clicked();
-                        update |= ui.selectable_value(&mut self.config.upscale, 3, "3x").clicked();
-                        update |= ui.selectable_value(&mut self.config.upscale, 4, "4x").clicked();
-                        update |= ui.selectable_value(&mut self.config.upscale, 5, "5x").clicked();
-                        if update {
-                            self.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
+                        update |= ui
+                            .selectable_value(&mut self.config.upscale, 2, "2x")
+                            .clicked();
+                        update |= ui
+                            .selectable_value(&mut self.config.upscale, 3, "3x")
+                            .clicked();
+                        update |= ui
+                            .selectable_value(&mut self.config.upscale, 4, "4x")
+                            .clicked();
+                        update |= ui
+                            .selectable_value(&mut self.config.upscale, 5, "5x")
+                            .clicked();
+                    });
+                    ui.end_row();
+
+                    // Autosave setting
+                    ui.label(menu_text!("Autosave:"));
+                    if ui.checkbox(&mut self.config.autosave, "").clicked() {
+                        update = true;
+                    }
+                    ui.end_row();
+
+                    // Force DMG mode setting
+                    ui.label(menu_text!("Force DMG Mode:"));
+                    ui.add_enabled_ui(!self.frontend.is_some(), |ui| {
+                        if ui.checkbox(&mut self.config.force_dmg_mode, "").clicked() {
+                            update = true;
                         }
                     });
                     ui.end_row();
-                    // Autosave setting
-                    ui.label(menu_text!("Autosave:"));
-                    if ui
-                        .checkbox(&mut self.config.autosave, "")
-                        .on_hover_text(
-                            "Automatically saves the game every 60 seconds and on emulator shutdown.\n\
-                    Also loads the last save file on startup.",
-                        )
-                        .clicked()
-                    {
-                        self.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
-                    }
-                    ui.end_row();
                 });
         });
+        if update {
+            self.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
+        }
     }
 
     /// Updates the tools menu in the menu bar.

@@ -56,7 +56,12 @@ impl MainBus {
         config: EmulatorConfig,
         display: Option<Display>,
     ) -> Self {
-        let hwmode = HardwareMode::from(&cartridge.header);
+        let hwmode = if config.force_dmg_mode {
+            println!("Forcing DMG mode, ignoring cartridge header.");
+            HardwareMode::DMG
+        } else {
+            HardwareMode::from(&cartridge.header)
+        };
         Self {
             is_booting: true,
             apu: AudioProcessor::default(),

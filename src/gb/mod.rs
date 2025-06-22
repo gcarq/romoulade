@@ -93,6 +93,7 @@ pub struct EmulatorConfig {
     pub headless: bool,            // Run in headless mode (no display)
     pub savefile: Option<PathBuf>, // Path to the save file
     pub autosave: bool,            // Automatically loads and saves SRAM
+    pub force_dmg_mode: bool,      // Force DMG mode even if the ROM is CGB compatible
 }
 
 impl Default for EmulatorConfig {
@@ -104,6 +105,7 @@ impl Default for EmulatorConfig {
             headless: false,
             savefile: None,
             autosave: true,
+            force_dmg_mode: false,
         }
     }
 }

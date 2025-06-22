@@ -49,8 +49,9 @@ fn main() {
         upscale: DEFAULT_UPSCALE,
         print_serial: args.print_serial,
         headless: args.headless,
-        autosave: true, // TODO: make this configurable
-        savefile: None, // TODO: make this configurable
+        autosave: true,        // TODO: make this configurable?
+        savefile: None,        // TODO: make this configurable?
+        force_dmg_mode: false, // TODO: make this configurable?
     };
 
     if config.headless {
