@@ -89,7 +89,6 @@ pub enum FrontendMessage {
 pub struct EmulatorConfig {
     pub rom: Option<PathBuf>,      // Path to the ROM file
     pub upscale: usize,            // Scale factor for the display
-    pub fastboot: bool,            // Skip boot ROM
     pub print_serial: bool,        // Print serial data to stdout
     pub headless: bool,            // Run in headless mode (no display)
     pub savefile: Option<PathBuf>, // Path to the save file
@@ -101,7 +100,6 @@ impl Default for EmulatorConfig {
         Self {
             rom: None,
             upscale: 3,
-            fastboot: false,
             print_serial: false,
             headless: false,
             savefile: None,
@@ -148,16 +146,12 @@ impl Emulator {
 
     /// Runs the emulator loop.
     pub fn run(&mut self) -> GBResult<()> {
-        println!("Starting emulator...");
+        println!("Starting emulator in {} mode...", self.bus.hwmode);
         println!("Loaded ROM: {}", self.bus.cartridge);
 
         if let Some(ref savefile) = self.config.savefile {
             self.bus.cartridge.load_savefile(savefile)?;
             println!("Loaded save file: {}", savefile.display());
-        }
-        if self.config.fastboot {
-            println!("Fastboot enabled. Skipping boot ROM ...");
-            self.fastboot();
         }
 
         while self.is_running {
@@ -206,17 +200,6 @@ impl Emulator {
             Err(msg) => eprintln!("Failed to autosave: {}", msg),
         }
         self.last_autosave = Some(std::time::Instant::now());
-    }
-
-    /// Fastboot the emulator by setting the CPU registers as if it had booted normally.
-    fn fastboot(&mut self) {
-        self.cpu.r.set_af(0x01B0);
-        self.cpu.r.set_bc(0x0013);
-        self.cpu.r.set_de(0x00D8);
-        self.cpu.r.set_hl(0x014D);
-        self.cpu.r.sp = 0xFFFE;
-        self.cpu.r.pc = BOOT_END + 1;
-        self.bus.is_boot_rom_active = false;
     }
 
     /// Initializes the debugger and sends the initial state to the frontend.

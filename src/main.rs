@@ -32,10 +32,6 @@ struct Args {
     #[arg(short, long)]
     debug: bool,
 
-    /// Start immediately and skip boot ROM
-    #[arg(short, long)]
-    fastboot: bool,
-
     /// Print serial data to stdout
     #[arg(short, long)]
     print_serial: bool,
@@ -51,7 +47,6 @@ fn main() {
     let config = EmulatorConfig {
         rom: args.rom,
         upscale: DEFAULT_UPSCALE,
-        fastboot: args.fastboot,
         print_serial: args.print_serial,
         headless: args.headless,
         autosave: true, // TODO: make this configurable
