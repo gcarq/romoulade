@@ -40,7 +40,7 @@ impl Romoulade {
         if let Some(frontend) = &self.frontend {
             frontend.stop();
         }
-        let dialog = rfd::FileDialog::new().add_filter("Game Boy ROM", &["gb"]);
+        let dialog = rfd::FileDialog::new().add_filter("Game Boy ROM", &["gb", "gbc"]);
         if let Some(path) = dialog.pick_file() {
             println!("Loading Cartridge: {}", path.display());
             let rom = fs::read(path)?;
