@@ -1,5 +1,5 @@
-use crate::gb::GBError;
 use crate::gb::cartridge::controller::BankController;
+use crate::gb::GBError;
 use crate::gb::{GBResult, SubSystem};
 use std::path::Path;
 use std::sync::Arc;
@@ -21,7 +21,7 @@ const CARTRIDGE_TITLE_END: u16 = 0x0142;
 /// Typically, use a value of 80h for games which support both CGB and monochrome Game Boys,
 /// and C0h for games which work on CGBs only. Otherwise,
 /// the CGB will operate in monochrome "Non CGB" compatibility mode.
-const _CARTRIDGE_CGB_FLAG: u16 = 0x0143;
+const CARTRIDGE_CGB_FLAG: u16 = 0x0143;
 
 /// This address contains the cartridge type and what kind of hardware is present
 /// 0x00     => ROM Only
@@ -179,12 +179,42 @@ impl CartridgeConfig {
     }
 }
 
+/// The CGB flag indicates whether the cartridge is compatible with Game Boy Color.
+#[derive(Clone)]
+pub enum CgbFlag {
+    CgbOnly,
+    CgbCompatible,
+    NonCgb,
+}
+
+impl From<u8> for CgbFlag {
+    fn from(value: u8) -> Self {
+        match value {
+            0xC0 => CgbFlag::CgbOnly,
+            0x80 => CgbFlag::CgbCompatible,
+            _ => CgbFlag::NonCgb,
+        }
+    }
+}
+
+impl fmt::Display for CgbFlag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            CgbFlag::CgbOnly => "CGB Only",
+            CgbFlag::CgbCompatible => "CGB Compatible",
+            CgbFlag::NonCgb => "Non-CGB",
+        };
+        write!(f, "{name}")
+    }
+}
+
 /// Contains the cartridge header information.
 /// See https://gbdev.io/pandocs/The_Cartridge_Header.html
 #[derive(Clone)]
 pub struct CartridgeHeader {
     pub title: String,
     pub config: CartridgeConfig,
+    pub cgb_flag: CgbFlag,
     pub header_checksum: u8,
     pub global_checksum: u16,
 }
@@ -200,6 +230,7 @@ impl TryFrom<&[u8]> for CartridgeHeader {
                 buf[CARTRIDGE_ROM_SIZE as usize],
                 buf[CARTRIDGE_RAM_SIZE as usize],
             )?,
+            cgb_flag: CgbFlag::from(buf[CARTRIDGE_CGB_FLAG as usize]),
             header_checksum: buf[CARTRIDGE_HEADER_CHECKSUM as usize],
             global_checksum: u16::from_le_bytes([
                 buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize],
@@ -279,7 +310,7 @@ impl TryFrom<Arc<[u8]>> for Cartridge {
             return Err("Cartridge is too small to calculate the checksum".into());
         }
         let header = CartridgeHeader::try_from(rom.as_ref())?;
-        if let Err(msg) = verify_checksum(rom.as_ref(), header.global_checksum) {
+        if let Err(msg) = verify_checksum(rom.as_ref(), header.header_checksum, header.global_checksum) {
             eprintln!("WARNING: {msg}");
         }
         let controller = controller::new(header.config, rom);
@@ -314,23 +345,36 @@ impl SubSystem for Cartridge {
     }
 }
 
-/// Validates the global checksum of the given buffer containing the whole cartridge.
-fn verify_checksum(buf: &[u8], checksum: u16) -> GBResult<()> {
+/// Validates the checksums of the given buffer containing the whole cartridge.
+fn verify_checksum(buf: &[u8], header_checksum: u8, global_checksum: u16) -> GBResult<()> {
     debug_assert!(buf.len() >= CARTRIDGE_GLOBAL_CHECKSUM2 as usize);
-
-    let calculated_checksum = calculate_global_checksum(buf);
-    if checksum == calculated_checksum {
-        return Ok(());
+    // Header checksum validation
+    let calculated_sum = calculate_header_checksum(buf);
+    if calculated_sum != header_checksum {
+        let msg = format!(
+            "Header checksum mismatch! Expected: {header_checksum:#04x} Got: {calculated_sum:#04x}"
+        );
+        return Err(msg.into());
+    }
+    // Global checksum validation
+    let calculated_sum = calculate_global_checksum(buf);
+    if global_checksum != calculated_sum {
+        let msg = format!(
+            "Global checksum mismatch! Expected: {calculated_sum:#06x} Got: {global_checksum:#06x}"
+        );
+        return Err(msg.into());
     }
 
-    let msg = format!(
-        "Global checksum mismatch! Expected: {calculated_checksum:#06x} Got: {checksum:#06x}"
-    );
-    Err(msg.into())
+    Ok(())
 }
 
-/// Calculates the global checksum by adding all bytes from the given cartridge buffer except
-/// the two checksum bytes.
+/// Calculates the header checksum for the given cartridge buffer.
+fn calculate_header_checksum(buf: &[u8]) -> u8 {
+    buf[CARTRIDGE_TITLE_BEGIN as usize..CARTRIDGE_HEADER_CHECKSUM as usize].iter()
+        .fold(0, |sum, &byte| sum.wrapping_sub(byte).wrapping_sub(1))
+}
+
+/// Calculates the global checksum by adding all bytes from the given cartridge buffer.
 fn calculate_global_checksum(buf: &[u8]) -> u16 {
     buf.iter()
         .enumerate()
@@ -353,6 +397,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_calculate_header_checksum() {
+        let buf = (0..CARTRIDGE_HEADER_CHECKSUM)
+            .map(|i| i as u8)
+            .collect::<Vec<u8>>();
+        let checksum = calculate_header_checksum(&buf);
+        assert_eq!(checksum, 0xA7);
+    }
+
+    #[test]
     fn test_calculate_global_checksum() {
         let buf = (0..CARTRIDGE_GLOBAL_CHECKSUM2)
             .map(|i| i as u8)
@@ -366,19 +419,11 @@ mod tests {
         let mut buf = (0..=CARTRIDGE_GLOBAL_CHECKSUM2)
             .map(|i| i as u8)
             .collect::<Vec<u8>>();
+        buf[CARTRIDGE_HEADER_CHECKSUM as usize] = 0xA7;
         buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize] = 0x8B;
-        buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x3B;
-        assert!(verify_checksum(&buf, 0x8B3B).is_ok());
-    }
-
-    #[test]
-    fn test_verify_checksum_buffer_invalid_checksum() {
-        let mut buf = (0..=CARTRIDGE_GLOBAL_CHECKSUM2)
-            .map(|i| i as u8)
-            .collect::<Vec<u8>>();
-        buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize] = 0x00;
-        buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x00;
-        assert!(verify_checksum(&buf, 0x0000).is_err());
+        buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x95;
+        verify_checksum(&buf, 0xA7, 0x8B95)
+            .expect("Checksum verification should succeed");
     }
 
     #[test]

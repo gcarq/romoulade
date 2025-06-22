@@ -129,7 +129,7 @@ impl BankController for MBC3 {
                     RAMBankSelection::DayHigh => self.rtc.day_high.bits(),
                 }
             }
-            _ => panic!("MBC3: Invalid address for read: {address:#06x}"),
+            _ => unreachable!("MBC3: Invalid address for read: {address:#06x}"),
         }
     }
 

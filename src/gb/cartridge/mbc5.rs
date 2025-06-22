@@ -71,7 +71,7 @@ impl BankController for MBC5 {
                     UNDEFINED_READ
                 }
             }
-            _ => panic!("MBC5: Invalid address for read: {address:#06x}"),
+            _ => unreachable!("MBC5: Invalid address for read: {address:#06x}"),
         }
     }
 

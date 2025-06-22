@@ -34,7 +34,7 @@ impl BankController for NoMBC {
                 true => UNDEFINED_READ,
                 false => self.ram[(address - CRAM_BANK_BEGIN) as usize],
             },
-            _ => panic!("NoMBC: Invalid address for read: {address:#06x}"),
+            _ => unreachable!("NoMBC: Invalid address for read: {address:#06x}"),
         }
     }
 
