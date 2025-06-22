@@ -107,7 +107,7 @@ impl SubSystem for AudioProcessor {
             AUDIO_MASTER_CONTROL => self.r[offset] = value,
             0xFF27..=0xFF2F => {} // undocumented
             AUDIO_WAVE_PATTERN_START..=AUDIO_WAVE_PATTERN_END => self.r[offset] = value,
-            _ => panic!("Attempt to write to unmapped audio register: {address:#06X}"),
+            _ => unreachable!("Attempt to write to unmapped audio register: {address:#06X}"),
         }
     }
 
@@ -139,7 +139,7 @@ impl SubSystem for AudioProcessor {
             AUDIO_MASTER_CONTROL => self.r[offset] | 0b0111_1111, // Undocumented bits should be 1
             0xFF27..=0xFF2F => UNDEFINED_READ,                    // undocumented
             AUDIO_WAVE_PATTERN_START..=AUDIO_WAVE_PATTERN_END => self.r[offset],
-            _ => panic!("Attempt to read from unmapped audio register: {address:#06X}"),
+            _ => unreachable!("Attempt to read from unmapped audio register: {address:#06X}"),
         }
     }
 }

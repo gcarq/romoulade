@@ -15,7 +15,7 @@ impl DebugBus {
         let mut instructions = Vec::with_capacity(1000);
         instructions.extend(self.instructions_from_range(ROM_LOW_BANK_BEGIN, ROM_HIGH_BANK_END));
         instructions.extend(self.instructions_from_range(CRAM_BANK_BEGIN, CRAM_BANK_END));
-        instructions.extend(self.instructions_from_range(WRAM_BEGIN, WRAM_END));
+        instructions.extend(self.instructions_from_range(WRAM_LOW_BEGIN, WRAM_HIGH_END));
         instructions.extend(self.instructions_from_range(HRAM_BEGIN, HRAM_END));
         instructions
     }

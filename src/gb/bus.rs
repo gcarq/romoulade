@@ -4,9 +4,10 @@ use crate::gb::constants::*;
 use crate::gb::joypad::Joypad;
 use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
+use crate::gb::registers::CpuMode;
 use crate::gb::serial::SerialTransfer;
 use crate::gb::timer::Timer;
-use crate::gb::{Bus, EmulatorConfig, SubSystem};
+use crate::gb::{Bus, EmulatorConfig, HardwareMode, SubSystem};
 
 bitflags! {
     /// Represents interrupt registers IE at 0xFFFF and IF at 0xFF0F
@@ -31,7 +32,8 @@ impl InterruptRegister {
 /// Defines a global Bus, all processing units should access memory through it.
 #[derive(Clone)]
 pub struct MainBus {
-    pub is_boot_rom_active: bool,
+    pub hwmode: HardwareMode,
+    pub is_booting: bool,
     apu: AudioProcessor,
     serial: SerialTransfer,
     pub cartridge: Cartridge,
@@ -40,8 +42,12 @@ pub struct MainBus {
     pub joypad: Joypad,
     pub interrupt_enable: InterruptRegister,
     pub interrupt_flag: InterruptRegister,
-    wram: [u8; WRAM_SIZE],
+    wram: Vec<u8>,
     hram: [u8; HRAM_SIZE],
+
+    // CGB specific registers
+    pub key0: CpuMode,
+    pub wram_bank: u8,
 }
 
 impl MainBus {
@@ -50,18 +56,25 @@ impl MainBus {
         config: EmulatorConfig,
         display: Option<Display>,
     ) -> Self {
+        let hwmode = HardwareMode::from(&cartridge.header);
         Self {
-            cartridge,
-            is_boot_rom_active: true,
+            is_booting: true,
             apu: AudioProcessor::default(),
             serial: SerialTransfer::new(config.print_serial),
-            ppu: PPU::new(display),
+            ppu: PPU::new(display, hwmode),
             joypad: Joypad::default(),
             interrupt_enable: InterruptRegister::default(),
             interrupt_flag: InterruptRegister::default(),
             timer: Timer::default(),
-            wram: [0u8; WRAM_SIZE],
             hram: [0u8; HRAM_SIZE],
+            wram: match hwmode {
+                HardwareMode::DMG => vec![0u8; WRAM_BANK_SIZE * 2],
+                HardwareMode::CGB => vec![0u8; WRAM_BANK_SIZE * 8],
+            },
+            key0: CpuMode::default(),
+            wram_bank: 1,
+            hwmode,
+            cartridge,
         }
     }
 
@@ -72,11 +85,39 @@ impl MainBus {
         self.serial.update_config(config);
     }
 
-    /// Reads value from boot ROM or cartridge
-    /// depending on `BOOT_ROM_OFF` register
+    /// Checks if the OAM DMA transfer is active and transfers the data to the OAM
+    fn oam_transfer(&mut self) {
+        if let Some(source_address) = self.ppu.r.oam_dma.transfer() {
+            let value = self.read(source_address);
+            let offset = source_address & 0b1111_1111;
+            let target_address = OAM_BEGIN + offset;
+            self.ppu.write_oam_dma(target_address, value);
+        }
+        if let Some(source) = self.ppu.r.oam_dma.pending.take() {
+            self.ppu.r.oam_dma.start(source);
+        }
+        if let Some(source) = self.ppu.r.oam_dma.requested.take() {
+            self.ppu.r.oam_dma.pending = Some(source);
+        }
+    }
+
+    /// Reads value from the boot ROM or cartridge depending on `BOOT_ROM_OFF` register
+    /// and hardware mode.
     fn read_cartridge(&mut self, address: u16) -> u8 {
         match address {
-            BOOT_BEGIN..=BOOT_END if self.is_boot_rom_active => BOOT_ROM[address as usize],
+            DMG_BOOT_ROM_BEGIN..=DMG_BOOT_ROM_END if self.is_booting && !self.hwmode.is_cgb() => {
+                DMG_BOOT_ROM[address as usize]
+            }
+            CGB_BOOT_ROM_BEGIN_R1..=CGB_BOOT_ROM_END_R1
+                if self.is_booting && self.hwmode.is_cgb() =>
+            {
+                CGB_BOOT_ROM[address as usize]
+            }
+            CGB_BOOT_ROM_BEGIN_R2..=CGB_BOOT_ROM_END_R2
+                if self.is_booting && self.hwmode.is_cgb() =>
+            {
+                CGB_BOOT_ROM[address as usize]
+            }
             _ => self.cartridge.read(address),
         }
     }
@@ -96,24 +137,37 @@ impl MainBus {
             INTERRUPT_FLAG => self.interrupt_flag = InterruptRegister::from_bits_retain(value),
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.apu.write(address, value),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.write(address, value),
-            0xFF4C => {}                   // only used in GBC mode
-            CGB_PREPARE_SPEED_SWITCH => {} // only used in GBC mode
-            0xFF4E => {}                   // undocumented
-            0xFF4F => {}                   // only used in GBC mode
-            BOOT_ROM_OFF => {
-                if value > 0 {
-                    self.is_boot_rom_active = false;
+            // This register is only writeable in the CGB boot ROM.
+            CGB_KEY0 if self.is_booting && self.hwmode.is_cgb() => {
+                self.key0 = CpuMode::from_bits_truncate(value);
+            }
+            CGB_KEY1_SPEED_SWITCH if self.hwmode.is_cgb() => {
+                todo!("implement key1")
+            }
+            0xFF4E => {} // undocumented
+            CGB_VRAM_BANK if self.hwmode.is_cgb() => self.ppu.vram_bank = value & 0b0000_0001,
+            BOOT_ROM_OFF if value > 0 => self.is_booting = false,
+            CGB_HDMA1_VRAM_DMA_SRC..=CGB_HDMA5_VRAM_DMA_MODE if self.hwmode.is_cgb() => {
+                self.ppu.r.vram_dma.write(address, value);
+            }
+            0xFF56 => {}          // only used in GBC mode
+            0xFF57..=0xFF67 => {} // undocumented
+            CGB_BCPS if self.hwmode.is_cgb() => self.ppu.write_bg_spec(value),
+            CGB_BCPD if self.hwmode.is_cgb() => self.ppu.write_bg_palette(value),
+            CGB_OBPS if self.hwmode.is_cgb() => self.ppu.write_obj_spec(value),
+            CGB_OBPD if self.hwmode.is_cgb() => self.ppu.write_obj_palette(value),
+            0xFF6C..=0xFF6F => {} // only used in GBC mode
+            CGB_WRAM_BANK if self.hwmode.is_cgb() => {
+                self.wram_bank = match value & 0b0000_0111 {
+                    0 => 1,
+                    n => n,
                 }
             }
-            0xFF51..=0xFF56 => {}  // only used in GBC mode
-            0xFF57..=0xFF67 => {}  // undocumented
-            0xFF68..=0xFF6F => {}  // only used in GBC mode
-            CGB_WRAM_BANK => {}    // only used in GBC mode
             0xFF71..=0xFF75 => {}  // undocumented
             PCM_AMPLITUDES12 => {} // only used in GBC mode
             PCM_AMPLITUDES34 => {} // only used in GBC mode
             0xFF78..=0xFF7F => {}  // undocumented
-            _ => panic!("Attempt to write to unmapped I/O register: {address:#06x}"),
+            _ => {}
         }
     }
 
@@ -126,41 +180,30 @@ impl MainBus {
             0xFF03 => UNDEFINED_READ, // undocumented
             TIMER_DIVIDER..=TIMER_CTRL => self.timer.read(address),
             0xFF08..=0xFF0E => UNDEFINED_READ, // undocumented
-            // Undocumented bits should be 1
             INTERRUPT_FLAG => self.interrupt_flag.bits() | 0b1110_0000,
             AUDIO_REGISTERS_START..=AUDIO_REGISTERS_END => self.apu.read(address),
             PPU_REGISTER_START..=PPU_REGISTER_END => self.ppu.read(address),
-            0xFF4C => UNDEFINED_READ, // only used in GBC mode
-            CGB_PREPARE_SPEED_SWITCH => UNDEFINED_READ, // only used in GBC mode
+            CGB_KEY0 if self.hwmode.is_cgb() => self.key0.bits() | 0b1111_1011,
+            CGB_KEY1_SPEED_SWITCH if self.hwmode.is_cgb() => todo!("CGB_KEY1 not implemented"),
             0xFF4E => UNDEFINED_READ, // undocumented
-            0xFF4F => UNDEFINED_READ, // only used in GBC mode
-            // When read, this register is always 0xFF
-            BOOT_ROM_OFF => UNDEFINED_READ,
-            0xFF51..=0xFF56 => UNDEFINED_READ, // only used in GBC mode
+            CGB_VRAM_BANK if self.hwmode.is_cgb() => self.ppu.vram_bank | 0b1111_1110,
+            BOOT_ROM_OFF => UNDEFINED_READ, // Write-only register
+            // Write-only registers
+            CGB_HDMA1_VRAM_DMA_SRC..=CGB_HDMA4_VRAM_DMA_DEST => UNDEFINED_READ,
+            CGB_HDMA5_VRAM_DMA_MODE if self.hwmode.is_cgb() => self.ppu.r.vram_dma.mode.bits(),
+            0xFF56 => UNDEFINED_READ,          // only used in GBC mode
             0xFF57..=0xFF67 => UNDEFINED_READ, // undocumented
-            0xFF68..=0xFF6F => UNDEFINED_READ, // only used in GBC mode
-            CGB_WRAM_BANK => UNDEFINED_READ,   // only used in GBC mode
-            0xFF71..=0xFF75 => UNDEFINED_READ, // undocumented
+            CGB_BCPS if self.hwmode.is_cgb() => self.ppu.bcps.bits() | 0b0100_0000,
+            CGB_BCPD if self.hwmode.is_cgb() => self.ppu.read_bg_palette(),
+            CGB_OBPS if self.hwmode.is_cgb() => self.ppu.ocps.bits() | 0b0100_0000,
+            CGB_OBPD if self.hwmode.is_cgb() => self.ppu.read_obj_palette(),
+            0xFF69..=0xFF6F => UNDEFINED_READ, // only used in GBC mode
+            CGB_WRAM_BANK if self.hwmode.is_cgb() => self.wram_bank | 0b1111_1000,
+            0xFF71..=0xFF75 => UNDEFINED_READ,  // undocumented
             PCM_AMPLITUDES12 => UNDEFINED_READ, // only used in GBC mode
             PCM_AMPLITUDES34 => UNDEFINED_READ, // only used in GBC mode
-            0xFF78..=0xFF7F => UNDEFINED_READ, // undocumented
-            _ => panic!("Attempt to read from unmapped I/O register: {address:#06X}"),
-        }
-    }
-
-    /// Checks if the OAM DMA transfer is active and transfers the data to the OAM
-    fn oam_transfer(&mut self) {
-        if let Some(source_address) = self.ppu.r.oam_dma.transfer() {
-            let value = self.read(source_address);
-            let offset = source_address & 0b1111_1111;
-            let target_address = OAM_BEGIN + offset;
-            self.ppu.write_oam(target_address, value, true);
-        }
-        if let Some(source) = self.ppu.r.oam_dma.pending.take() {
-            self.ppu.r.oam_dma.start(source);
-        }
-        if let Some(source) = self.ppu.r.oam_dma.requested.take() {
-            self.ppu.r.oam_dma.pending = Some(source);
+            0xFF78..=0xFF7F => UNDEFINED_READ,  // undocumented
+            _ => UNDEFINED_READ,
         }
     }
 }
@@ -169,17 +212,20 @@ impl SubSystem for MainBus {
     fn write(&mut self, address: u16, value: u8) {
         match address {
             ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END => self.cartridge.write(address, value),
-            VRAM_BEGIN..=VRAM_END => self.ppu.write(address, value),
+            VRAM_BEGIN..=VRAM_END => self.ppu.write_vram(address, value),
             CRAM_BANK_BEGIN..=CRAM_BANK_END => self.cartridge.write(address, value),
-            WRAM_BEGIN..=WRAM_END => self.wram[(address & 0x1FFF) as usize] = value,
-            // Writes to Echo RAM, effectively mirroring to Working RAM
-            ERAM_BEGIN..=ERAM_END => self.wram[(address & 0x1FFF) as usize] = value,
-            // Writes during OAM DMA transfer are ignored
-            OAM_BEGIN..=OAM_END => {
-                if !self.ppu.r.oam_dma.is_running {
-                    self.ppu.write(address, value);
-                }
+            WRAM_LOW_BEGIN..=WRAM_LOW_END => self.wram[(address & 0x0FFF) as usize] = value,
+            WRAM_HIGH_BEGIN..=WRAM_HIGH_END => {
+                let offset = self.wram_bank as usize * WRAM_BANK_SIZE;
+                self.wram[offset + (address & 0x0FFF) as usize] = value;
             }
+            // Writes to Echo RAM, effectively mirroring to Working RAM
+            ERAM_LOW_BEGIN..=ERAM_LOW_END => self.wram[(address & 0x0FFF) as usize] = value,
+            ERAM_HIGH_BEGIN..=ERAM_HIGH_END => {
+                let offset = self.wram_bank as usize * WRAM_BANK_SIZE;
+                self.wram[offset + (address & 0x0DFF) as usize] = value;
+            }
+            OAM_BEGIN..=OAM_END => self.ppu.write_oam(address, value),
             UNUSED_BEGIN..=UNUSED_END => {}
             IO_BEGIN..=IO_END => self.write_io(address, value),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize] = value,
@@ -190,16 +236,20 @@ impl SubSystem for MainBus {
     fn read(&mut self, address: u16) -> u8 {
         match address {
             ROM_LOW_BANK_BEGIN..=ROM_HIGH_BANK_END => self.read_cartridge(address),
-            VRAM_BEGIN..=VRAM_END => self.ppu.read(address),
+            VRAM_BEGIN..=VRAM_END => self.ppu.read_vram(address),
             CRAM_BANK_BEGIN..=CRAM_BANK_END => self.read_cartridge(address),
-            WRAM_BEGIN..=WRAM_END => self.wram[(address & 0x1FFF) as usize],
+            WRAM_LOW_BEGIN..=WRAM_LOW_END => self.wram[(address & 0x0FFF) as usize],
+            WRAM_HIGH_BEGIN..=WRAM_HIGH_END => {
+                let offset = self.wram_bank as usize * WRAM_BANK_SIZE;
+                self.wram[offset + (address & 0x0FFF) as usize]
+            }
             // Reads from Echo RAM, effectively mirroring to Working RAM
-            ERAM_BEGIN..=ERAM_END => self.wram[(address & 0x1FFF) as usize],
-            OAM_BEGIN..=OAM_END => match self.ppu.r.oam_dma.is_running {
-                // During OAM DMA transfer the OAM is not accessible
-                true => UNDEFINED_READ,
-                false => self.ppu.read(address),
-            },
+            ERAM_LOW_BEGIN..=ERAM_LOW_END => self.wram[(address & 0x0FFF) as usize],
+            ERAM_HIGH_BEGIN..=ERAM_HIGH_END => {
+                let offset = self.wram_bank as usize * WRAM_BANK_SIZE;
+                self.wram[offset + (address & 0x0DFF) as usize]
+            }
+            OAM_BEGIN..=OAM_END => self.ppu.read_oam(address),
             UNUSED_BEGIN..=UNUSED_END => UNDEFINED_READ,
             IO_BEGIN..=IO_END => self.read_io(address),
             HRAM_BEGIN..=HRAM_END => self.hram[(address - HRAM_BEGIN) as usize],

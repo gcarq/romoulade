@@ -70,7 +70,7 @@ impl MemoryMap {
             MemoryArea::RomBank0 => (ROM_LOW_BANK_BEGIN, ROM_LOW_BANK_BEGIN..=ROM_LOW_BANK_END),
             MemoryArea::RomBank1 => (ROM_HIGH_BANK_BEGIN, ROM_HIGH_BANK_BEGIN..=ROM_HIGH_BANK_END),
             MemoryArea::CRam => (CRAM_BANK_BEGIN, CRAM_BANK_BEGIN..=CRAM_BANK_END),
-            MemoryArea::WRam => (WRAM_BEGIN, WRAM_BEGIN..=WRAM_END),
+            MemoryArea::WRam => (WRAM_LOW_BEGIN, WRAM_LOW_BEGIN..=WRAM_HIGH_END),
             MemoryArea::Oam => (OAM_BEGIN, OAM_BEGIN..=OAM_END),
             MemoryArea::IO => (IO_BEGIN, IO_BEGIN..=IO_END),
             MemoryArea::HRam => (HRAM_BEGIN, HRAM_BEGIN..=HRAM_END),

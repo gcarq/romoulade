@@ -138,11 +138,12 @@ bitflags! {
     /// Bit 4 is used to select the palette in CGB mode.
     #[derive(Debug, Copy, Clone)]
     pub struct SpriteAttributes: u8 {
-        const BANK          = 0b0000_1000;
-        const DMG_PALETTE   = 0b0001_0000;
-        const X_FLIP        = 0b0010_0000;
-        const Y_FLIP        = 0b0100_0000;
-        const PRIORITY      = 0b1000_0000;
+        const CGB_PALETTE_MASK = 0b0000_0111;
+        const CGB_BANK         = 0b0000_1000;
+        const DMG_PALETTE      = 0b0001_0000;
+        const X_FLIP           = 0b0010_0000;
+        const Y_FLIP           = 0b0100_0000;
+        const PRIORITY         = 0b1000_0000;
     }
 }
 

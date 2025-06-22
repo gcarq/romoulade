@@ -1,22 +1,24 @@
-use crate::gb::oam::OamDmaController;
+use crate::gb::dma::oam::OamDmaController;
+use crate::gb::dma::vram::VRamDmaController;
 use crate::gb::ppu::misc::Palette;
 use crate::gb::ppu::{HBLANK_CYCLES, OAM_SCAN_CYCLES, PIXEL_TRANSFER_CYCLES, VBLANK_CYCLES};
 
 /// Holds all PPU Registers
 #[derive(Clone, Copy, Default)]
 pub struct Registers {
-    pub lcd_control: LCDControl,   // PPU_LCDC
-    pub lcd_stat: LCDState,        // PPU_STAT
-    pub ly: u8,                    // PPU_LY
-    pub lyc: u8,                   // PPU_LYC
-    pub oam_dma: OamDmaController, // PPU_DMA
-    pub scy: u8,                   // PPU_SCY
-    pub scx: u8,                   // PPU_SCX
-    pub bg_palette: Palette,       // PPU_BGP
-    pub obj_palette0: Palette,     // PPU_OBP0
-    pub obj_palette1: Palette,     // PPU_OBP1
-    pub wy: u8,                    // PPU_WY
-    pub wx: u8,                    // PPU_WX
+    pub lcd_control: LCDControl,     // PPU_LCDC
+    pub lcd_stat: LCDState,          // PPU_STAT
+    pub ly: u8,                      // PPU_LY
+    pub lyc: u8,                     // PPU_LYC
+    pub oam_dma: OamDmaController,   // PPU_DMA
+    pub scy: u8,                     // PPU_SCY
+    pub scx: u8,                     // PPU_SCX
+    pub bg_palette: Palette,         // PPU_BGP
+    pub obj_palette0: Palette,       // PPU_OBP0
+    pub obj_palette1: Palette,       // PPU_OBP1
+    pub wy: u8,                      // PPU_WY
+    pub wx: u8,                      // PPU_WX
+    pub vram_dma: VRamDmaController, // CGB_HDMA1-5
 }
 
 bitflags! {

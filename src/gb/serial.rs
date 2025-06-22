@@ -56,7 +56,7 @@ impl SubSystem for SerialTransfer {
         match address {
             SERIAL_TRANSFER_DATA => self.data = value,
             SERIAL_TRANSFER_CTRL => self.set_ctrl(value),
-            _ => panic!("Attempt to write to unmapped serial register: {address:#06x}"),
+            _ => unreachable!("Attempt to write to unmapped serial register: {address:#06x}"),
         }
     }
 
@@ -65,7 +65,7 @@ impl SubSystem for SerialTransfer {
             SERIAL_TRANSFER_DATA => self.data,
             // Undocumented bits should be 1
             SERIAL_TRANSFER_CTRL => self.control.bits() | 0b0111_1110,
-            _ => panic!("Attempt to read from unmapped serial register: {address:#06x}"),
+            _ => unreachable!("Attempt to read from unmapped serial register: {address:#06x}"),
         }
     }
 }

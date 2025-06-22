@@ -1,5 +1,5 @@
-use crate::gb::cartridge::controller::BankController;
 use crate::gb::GBError;
+use crate::gb::cartridge::controller::BankController;
 use crate::gb::{GBResult, SubSystem};
 use std::path::Path;
 use std::sync::Arc;
@@ -310,7 +310,9 @@ impl TryFrom<Arc<[u8]>> for Cartridge {
             return Err("Cartridge is too small to calculate the checksum".into());
         }
         let header = CartridgeHeader::try_from(rom.as_ref())?;
-        if let Err(msg) = verify_checksum(rom.as_ref(), header.header_checksum, header.global_checksum) {
+        if let Err(msg) =
+            verify_checksum(rom.as_ref(), header.header_checksum, header.global_checksum)
+        {
             eprintln!("WARNING: {msg}");
         }
         let controller = controller::new(header.config, rom);
@@ -370,7 +372,8 @@ fn verify_checksum(buf: &[u8], header_checksum: u8, global_checksum: u16) -> GBR
 
 /// Calculates the header checksum for the given cartridge buffer.
 fn calculate_header_checksum(buf: &[u8]) -> u8 {
-    buf[CARTRIDGE_TITLE_BEGIN as usize..CARTRIDGE_HEADER_CHECKSUM as usize].iter()
+    buf[CARTRIDGE_TITLE_BEGIN as usize..CARTRIDGE_HEADER_CHECKSUM as usize]
+        .iter()
         .fold(0, |sum, &byte| sum.wrapping_sub(byte).wrapping_sub(1))
 }
 
@@ -422,8 +425,7 @@ mod tests {
         buf[CARTRIDGE_HEADER_CHECKSUM as usize] = 0xA7;
         buf[CARTRIDGE_GLOBAL_CHECKSUM1 as usize] = 0x8B;
         buf[CARTRIDGE_GLOBAL_CHECKSUM2 as usize] = 0x95;
-        verify_checksum(&buf, 0xA7, 0x8B95)
-            .expect("Checksum verification should succeed");
+        verify_checksum(&buf, 0xA7, 0x8B95).expect("Checksum verification should succeed");
     }
 
     #[test]

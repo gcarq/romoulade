@@ -1,14 +1,13 @@
 use crate::gb::bus::{InterruptRegister, MainBus};
-use crate::gb::cartridge::Cartridge;
-use crate::gb::constants::BOOT_END;
+use crate::gb::cartridge::{Cartridge, CartridgeHeader, CgbFlag};
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
 use crate::gb::joypad::JoypadInputEvent;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
-use std::error;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, SyncSender};
+use std::{error, fmt};
 
 mod audio;
 pub mod bus;
@@ -16,9 +15,10 @@ pub mod cartridge;
 pub mod constants;
 pub mod cpu;
 pub mod debugger;
+mod dma;
 pub mod joypad;
-mod oam;
 pub mod ppu;
+mod registers;
 mod serial;
 #[cfg(test)]
 pub mod tests;
@@ -104,6 +104,38 @@ impl Default for EmulatorConfig {
             headless: false,
             savefile: None,
             autosave: true,
+        }
+    }
+}
+
+/// Defines whether the emulator is running as Game Boy (DMG) or Game Boy Color (CGB).
+#[derive(Copy, Clone, PartialEq)]
+pub enum HardwareMode {
+    DMG, // Game Boy
+    CGB, // Game Boy Color
+}
+
+impl HardwareMode {
+    #[inline]
+    pub fn is_cgb(&self) -> bool {
+        self == &HardwareMode::CGB
+    }
+}
+
+impl From<&CartridgeHeader> for HardwareMode {
+    fn from(header: &CartridgeHeader) -> Self {
+        match header.cgb_flag {
+            CgbFlag::NonCgb | CgbFlag::CgbCompatible => HardwareMode::DMG,
+            CgbFlag::CgbOnly => HardwareMode::CGB,
+        }
+    }
+}
+
+impl fmt::Display for HardwareMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HardwareMode::DMG => write!(f, "DMG"),
+            HardwareMode::CGB => write!(f, "CGB"),
         }
     }
 }

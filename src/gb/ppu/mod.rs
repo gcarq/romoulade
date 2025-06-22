@@ -1,14 +1,16 @@
 pub mod buffer;
+mod cgb;
 pub mod display;
 pub mod misc;
 mod registers;
 
 use crate::gb::bus::InterruptRegister;
 use crate::gb::constants::*;
+use crate::gb::ppu::cgb::ColorSpec;
 use crate::gb::ppu::misc::{Palette, Pixel, Sprite, SpriteAttributes};
 use crate::gb::ppu::registers::{LCDControl, LCDState, PPUMode, Registers};
 use crate::gb::utils::bit_at;
-use crate::gb::{EmulatorConfig, SCREEN_HEIGHT, SCREEN_WIDTH, SubSystem};
+use crate::gb::{EmulatorConfig, HardwareMode, SCREEN_HEIGHT, SCREEN_WIDTH, SubSystem};
 use display::Display;
 use std::cmp::Ordering;
 
@@ -77,13 +79,21 @@ const SPRITE_BYTES: usize = 4;
 /// Pixel Processing Unit
 pub struct PPU {
     pub r: Registers,
-    vram: [u8; VRAM_SIZE],
+    vram: Vec<u8>,
     oam: [u8; OAM_SIZE],
     cycles: usize,
     // This line counter determines what window line is to be rendered on the current scanline.
     // See https://gbdev.io/pandocs/Tile_Maps.html#window
     wy_internal: Option<u8>,
+    hwmode: HardwareMode,
     display: Option<Display>,
+
+    /// CGB specific
+    pub bcps: ColorSpec,
+    pub ocps: ColorSpec,
+    pub bg_cram: [u8; 64], // TODO: use better data type, bg_color_palette: [[BgColorData; 4]; 8]?
+    pub obj_cram: [u8; 64], // TODO: use better data type, bg_color_palette: [[BgColorData; 4]; 8]?
+    pub vram_bank: u8,
 }
 
 impl Clone for PPU {
@@ -91,24 +101,16 @@ impl Clone for PPU {
     fn clone(&self) -> Self {
         Self {
             r: self.r,
-            vram: self.vram,
+            vram: self.vram.clone(),
             oam: self.oam,
             cycles: self.cycles,
             wy_internal: self.wy_internal,
-            display: None,
-        }
-    }
-}
-
-impl Default for PPU {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            r: Registers::default(),
-            vram: [0u8; VRAM_SIZE],
-            oam: [0u8; OAM_SIZE],
-            cycles: OAM_SCAN_CYCLES,
-            wy_internal: None,
+            hwmode: self.hwmode,
+            bcps: self.bcps,
+            ocps: self.ocps,
+            bg_cram: self.bg_cram,
+            obj_cram: self.obj_cram,
+            vram_bank: self.vram_bank,
             display: None,
         }
     }
@@ -116,10 +118,23 @@ impl Default for PPU {
 
 impl PPU {
     #[inline]
-    pub fn new(display: Option<Display>) -> Self {
+    pub fn new(display: Option<Display>, hwmode: HardwareMode) -> Self {
         Self {
+            r: Registers::default(),
+            vram: match hwmode {
+                HardwareMode::DMG => vec![0u8; VRAM_SIZE],
+                HardwareMode::CGB => vec![0u8; VRAM_SIZE * 2],
+            },
+            oam: [0u8; OAM_SIZE],
+            cycles: OAM_SCAN_CYCLES,
+            wy_internal: None,
+            bcps: ColorSpec::default(),
+            ocps: ColorSpec::default(),
+            bg_cram: [0u8; 64],
+            obj_cram: [0u8; 64],
+            vram_bank: 0,
+            hwmode,
             display,
-            ..Self::default()
         }
     }
 
@@ -163,6 +178,95 @@ impl PPU {
         if let Some(display) = &mut self.display {
             display.update_config(config);
         }
+    }
+
+    /// Reads from the OAM (Object Attribute Memory) region.
+    /// Reading from OAM during DMA is undefined behavior.
+    pub fn read_oam(&self, address: u16) -> u8 {
+        if self.r.oam_dma.is_running {
+            return UNDEFINED_READ;
+        }
+        match self.r.lcd_stat.mode() {
+            // In Pixel Transfer mode or during OAM Search, the OAM is not accessible.
+            PPUMode::OAMScan | PPUMode::PixelTransfer => UNDEFINED_READ,
+            PPUMode::HBlank | PPUMode::VBlank => self.oam[(address - OAM_BEGIN) as usize],
+        }
+    }
+
+    /// Writes to the OAM as part of the DMA transfer.
+    #[inline]
+    pub fn write_oam_dma(&mut self, address: u16, value: u8) {
+        self.oam[(address - OAM_BEGIN) as usize] = value;
+    }
+
+    /// Writes to the OAM (Object Attribute Memory) region.
+    /// During OAM DMA transfer, `OAMScan` and `PixelTransfer` modes, writes are ignored.
+    pub fn write_oam(&mut self, address: u16, value: u8) {
+        if self.r.oam_dma.is_running {
+            return;
+        }
+        match self.r.lcd_stat.mode() {
+            PPUMode::OAMScan | PPUMode::PixelTransfer => {}
+            PPUMode::VBlank | PPUMode::HBlank => self.oam[(address - OAM_BEGIN) as usize] = value,
+        }
+    }
+
+    /// Reads from the VRAM region.
+    pub fn read_vram(&self, address: u16) -> u8 {
+        match self.r.lcd_stat.mode() {
+            // In Pixel Transfer mode, the VRAM is not accessible.
+            PPUMode::PixelTransfer => UNDEFINED_READ,
+            _ => {
+                let offset = usize::from(self.vram_bank) * VRAM_SIZE;
+                self.vram[usize::from(address - VRAM_BEGIN) + offset]
+            }
+        }
+    }
+
+    /// Writes to the VRAM region.
+    /// VRAM is not accessible during Pixel Transfer mode.
+    pub fn write_vram(&mut self, address: u16, value: u8) {
+        if self.r.lcd_stat.mode() == PPUMode::PixelTransfer {
+            return;
+        }
+        let offset = usize::from(self.vram_bank) * VRAM_SIZE;
+        self.vram[usize::from(address - VRAM_BEGIN) + offset] = value;
+    }
+
+    /// Writes to the CGB background color palette specification register (`BCPS`).
+    #[inline]
+    pub fn write_bg_spec(&mut self, value: u8) {
+        self.bcps = ColorSpec::from_bits_truncate(value);
+    }
+
+    /// Writes to the CGB background palette RAM.
+    pub fn write_bg_palette(&mut self, value: u8) {
+        let address = self.bcps.address();
+        self.bcps.maybe_increment();
+        self.bg_cram[address as usize] = value;
+    }
+
+    /// Reads from the CGB background color palette.
+    pub fn read_bg_palette(&self) -> u8 {
+        self.bg_cram[self.bcps.address() as usize]
+    }
+
+    /// Reads from the CGB object color palette.
+    pub fn read_obj_palette(&self) -> u8 {
+        self.obj_cram[self.ocps.address() as usize]
+    }
+
+    /// Writes to the CGB object color palette specification register (`OCPS`).
+    #[inline]
+    pub fn write_obj_spec(&mut self, value: u8) {
+        self.ocps = ColorSpec::from_bits_truncate(value);
+    }
+
+    /// Writes to the CGB object palette RAM.
+    pub fn write_obj_palette(&mut self, value: u8) {
+        let address = self.ocps.address();
+        self.ocps.maybe_increment();
+        self.obj_cram[address as usize] = value;
     }
 
     /// Switches the LCD mode and handles interrupts if needed.
@@ -212,6 +316,9 @@ impl PPU {
     /// Handles the `HBlank` mode, requests an OAM and/or STAT interrupt if needed
     fn handle_hblank(&mut self, int_reg: &mut InterruptRegister) {
         self.r.ly += 1;
+
+        // TODO: handle HDMA
+
         if is_on_screen_y(self.r.ly) {
             self.switch_mode(PPUMode::OAMScan, int_reg);
         } else {
@@ -449,48 +556,11 @@ impl PPU {
             LCDControl::empty().bits() | unused
         }
     }
-
-    /// Reads from the OAM (Object Attribute Memory) region.
-    fn read_oam(&self, address: u16) -> u8 {
-        match self.r.lcd_stat.mode() {
-            // In Pixel Transfer mode or during OAM Search, the OAM is not accessible.
-            PPUMode::OAMScan | PPUMode::PixelTransfer => UNDEFINED_READ,
-            PPUMode::HBlank | PPUMode::VBlank => self.oam[(address - OAM_BEGIN) as usize],
-        }
-    }
-
-    /// Writes to the OAM (Object Attribute Memory) region.
-    /// During `OAMScan` and `PixelTransfer` writes are ignored unless it's a DMA transfer.
-    pub fn write_oam(&mut self, address: u16, value: u8, is_dma: bool) {
-        match self.r.lcd_stat.mode() {
-            PPUMode::OAMScan | PPUMode::PixelTransfer if !is_dma => {}
-            _ => self.oam[(address - OAM_BEGIN) as usize] = value,
-        }
-    }
-
-    /// Reads from the VRAM region.
-    fn read_vram(&self, address: u16) -> u8 {
-        match self.r.lcd_stat.mode() {
-            // In Pixel Transfer mode, the VRAM is not accessible.
-            PPUMode::PixelTransfer => UNDEFINED_READ,
-            _ => self.vram[usize::from(address - VRAM_BEGIN)],
-        }
-    }
-
-    /// Writes to the VRAM region.
-    fn write_vram(&mut self, address: u16, value: u8) {
-        if self.r.lcd_stat.mode() != PPUMode::PixelTransfer {
-            // VRAM is not accessible during Pixel Transfer mode.
-            self.vram[usize::from(address - VRAM_BEGIN)] = value;
-        }
-    }
 }
 
 impl SubSystem for PPU {
     fn write(&mut self, address: u16, value: u8) {
         match address {
-            VRAM_BEGIN..=VRAM_END => self.write_vram(address, value),
-            OAM_BEGIN..=OAM_END => self.write_oam(address, value, false),
             PPU_LCDC => self.write_control(value),
             PPU_STAT => self.write_stat(value),
             PPU_SCY => self.r.scy = value,
@@ -503,14 +573,12 @@ impl SubSystem for PPU {
             PPU_OBP1 => self.r.obj_palette1 = Palette::from(value),
             PPU_WY => self.r.wy = value,
             PPU_WX => self.r.wx = value,
-            _ => panic!("Attempt to write to unmapped PPU register: {address:#06x}"),
+            _ => unreachable!("Attempt to write to unmapped PPU register: {address:#06x}"),
         }
     }
 
     fn read(&mut self, address: u16) -> u8 {
         match address {
-            VRAM_BEGIN..=VRAM_END => self.read_vram(address),
-            OAM_BEGIN..=OAM_END => self.read_oam(address),
             PPU_LCDC => self.r.lcd_control.bits(),
             PPU_STAT => self.read_stat(),
             PPU_SCY => self.r.scy,
@@ -523,7 +591,7 @@ impl SubSystem for PPU {
             PPU_OBP1 => u8::from(self.r.obj_palette1),
             PPU_WY => self.r.wy,
             PPU_WX => self.r.wx,
-            _ => panic!("Attempt to read from unmapped audio register: {address:#06x}"),
+            _ => unreachable!("Attempt to read from unmapped audio register: {address:#06x}"),
         }
     }
 }

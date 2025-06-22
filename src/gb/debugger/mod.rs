@@ -2,7 +2,6 @@ pub mod bus;
 
 use crate::gb::EmulatorMessage;
 use crate::gb::bus::MainBus;
-use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::cpu::instruction::Instruction;
 use crate::gb::debugger::bus::DebugBus;
@@ -96,14 +95,14 @@ impl Debugger {
                 self.message = None;
             }
             // The frontend requested to skip the boot ROM,
-            // the cpu should step until the end of the boot ROM
+            // the cpu should step until the boot ROM has been processed
             Some(FrontendDebugMessage::SkipBootRom) => {
-                if bus.is_boot_rom_active && cpu.r.pc == BOOT_END - 1 {
+                if bus.is_booting {
+                    self.step(cpu, bus);
+                } else {
                     self.step(cpu, bus);
                     self.send_message(DebugMessage::new(cpu, bus));
                     self.message = None;
-                } else {
-                    self.step(cpu, bus);
                 }
             }
             // The frontend sent a new set of breakpoints
