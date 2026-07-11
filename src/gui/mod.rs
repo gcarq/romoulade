@@ -6,8 +6,8 @@ mod macros;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::{EmulatorConfig, FrontendMessage, GBResult};
 use crate::gui::emulator::{EmulatorFrontend, SCREEN_HEIGHT, SCREEN_WIDTH};
-use eframe::egui;
-use eframe::egui::{Layout, RichText, Vec2, menu};
+use eframe::{egui, Frame};
+use eframe::egui::{Layout, RichText, Vec2, MenuBar};
 use egui::{CentralPanel, Color32, Label, TopBottomPanel, Ui, Widget};
 use std::fs;
 use std::path::PathBuf;
@@ -87,7 +87,7 @@ impl Romoulade {
 
     /// Updates the top panel of the main window.
     fn update_top_panel(&mut self, ui: &mut Ui) {
-        menu::bar(ui, |ui| {
+        MenuBar::new().ui(ui, |ui| {
             self.update_emulator_menu(ui);
             ui.separator();
             self.update_savegame_menu(ui);
@@ -271,11 +271,11 @@ impl Romoulade {
 }
 
 impl eframe::App for Romoulade {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        TopBottomPanel::top("top_panel").show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut Frame) {
+        TopBottomPanel::top("top_panel").show(ui.ctx(), |ui| {
             self.update_top_panel(ui);
         });
-        TopBottomPanel::bottom("status_panel").show(ctx, |ui| {
+        TopBottomPanel::bottom("status_panel").show(ui.ctx(), |ui| {
             ui.horizontal(|ui| {
                 self.draw_cartridge_info(ui);
                 ui.separator();
@@ -288,18 +288,18 @@ impl eframe::App for Romoulade {
         let frame_size = self.frame_layout_size();
         CentralPanel::default()
             .frame(egui::Frame::NONE)
-            .show(ctx, |ui| {
+            .show(ui.ctx(), |ui| {
                 ui.allocate_ui(frame_size, |ui| {
                     if let Some(emulator) = &mut self.frontend {
-                        emulator.update(ctx, ui);
+                        emulator.update(ui);
                     }
                 });
             });
-        if ctx.input(|i| i.viewport().close_requested()) {
+        if ui.ctx().input(|i| i.viewport().close_requested()) {
             self.stop_emulator();
         }
         // Update the viewport size to match the current upscale factor
-        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
             frame_size + Vec2::new(0.0, PANEL_HEIGHT * 2.0),
         ));
     }
