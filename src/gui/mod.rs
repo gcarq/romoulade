@@ -6,9 +6,9 @@ mod macros;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::{EmulatorConfig, FrontendMessage, GBResult};
 use crate::gui::emulator::{EmulatorFrontend, SCREEN_HEIGHT, SCREEN_WIDTH};
-use eframe::{egui, Frame};
-use eframe::egui::{Layout, RichText, Vec2, MenuBar};
-use egui::{CentralPanel, Color32, Label, TopBottomPanel, Ui, Widget};
+use eframe::egui::{Layout, MenuBar, Panel, RichText, Vec2};
+use eframe::{Frame, egui};
+use egui::{CentralPanel, Color32, Label, Ui, Widget};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -271,11 +271,11 @@ impl Romoulade {
 }
 
 impl eframe::App for Romoulade {
-    fn ui(&mut self, ui: &mut Ui, frame: &mut Frame) {
-        TopBottomPanel::top("top_panel").show(ui.ctx(), |ui| {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
+        Panel::top("top_panel").show(ui, |ui| {
             self.update_top_panel(ui);
         });
-        TopBottomPanel::bottom("status_panel").show(ui.ctx(), |ui| {
+        Panel::bottom("status_panel").show(ui, |ui| {
             ui.horizontal(|ui| {
                 self.draw_cartridge_info(ui);
                 ui.separator();
@@ -288,7 +288,7 @@ impl eframe::App for Romoulade {
         let frame_size = self.frame_layout_size();
         CentralPanel::default()
             .frame(egui::Frame::NONE)
-            .show(ui.ctx(), |ui| {
+            .show(ui, |ui| {
                 ui.allocate_ui(frame_size, |ui| {
                     if let Some(emulator) = &mut self.frontend {
                         emulator.update(ui);

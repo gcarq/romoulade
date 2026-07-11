@@ -9,8 +9,7 @@ use crate::gb::debugger::{AnnotatedInstr, DebugMessage, FrontendDebugMessage};
 use crate::gui::debugger::disasm::Disassembler;
 use crate::gui::debugger::memory::MemoryMap;
 use crate::gui::debugger::registers::Registers;
-use eframe::egui;
-use eframe::egui::{CentralPanel, SidePanel, TopBottomPanel, Ui};
+use eframe::egui::{CentralPanel, Panel, Ui};
 use std::sync::mpsc::Sender;
 
 /// Holds the current state of the emulator that is relevant for debugging.
@@ -52,30 +51,26 @@ impl DebuggerFrontend {
     }
 
     /// Updates the UI of the debugger.
-    pub fn update(&mut self, ctx: &egui::Context) {
-        TopBottomPanel::top("actions")
-            .resizable(false)
-            .show(ctx, |ui| {
-                self.draw_top_panel(ui);
-            });
+    pub fn update(&mut self, ui: &mut Ui) {
+        Panel::top("actions").resizable(false).show(ui, |ui| {
+            self.draw_top_panel(ui);
+        });
 
-        SidePanel::left("instructions")
-            .resizable(false)
-            .show(ctx, |ui| {
-                if let Some(state) = &self.state {
-                    if self.disassembler.update(state, ui) {
-                        self.send_message(FrontendDebugMessage::Breakpoints(
-                            self.disassembler.breakpoints.clone(),
-                        ));
-                    }
+        Panel::left("instructions").resizable(false).show(ui, |ui| {
+            if let Some(state) = &self.state {
+                if self.disassembler.update(state, ui) {
+                    self.send_message(FrontendDebugMessage::Breakpoints(
+                        self.disassembler.breakpoints.clone(),
+                    ));
                 }
-            });
-        SidePanel::right("memory").resizable(false).show(ctx, |ui| {
+            }
+        });
+        Panel::right("memory").resizable(false).show(ui, |ui| {
             if let Some(state) = &mut self.state {
                 self.memory.update(state, ui);
             }
         });
-        CentralPanel::default().show(ctx, |ui| {
+        CentralPanel::default().show(ui, |ui| {
             if let Some(state) = &mut self.state {
                 self.registers.update(state, ui);
             }
