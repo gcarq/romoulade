@@ -57,12 +57,12 @@ impl DebuggerFrontend {
         });
 
         Panel::left("instructions").resizable(false).show(ui, |ui| {
-            if let Some(state) = &self.state {
-                if self.disassembler.update(state, ui) {
-                    self.send_message(FrontendDebugMessage::Breakpoints(
-                        self.disassembler.breakpoints.clone(),
-                    ));
-                }
+            if let Some(state) = &self.state
+                && self.disassembler.update(state, ui)
+            {
+                self.send_message(FrontendDebugMessage::Breakpoints(
+                    self.disassembler.breakpoints.clone(),
+                ));
             }
         });
         Panel::right("memory").resizable(false).show(ui, |ui| {

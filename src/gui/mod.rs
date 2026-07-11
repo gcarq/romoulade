@@ -157,16 +157,15 @@ impl Romoulade {
             );
             // Save As button
             ui.add_enabled_ui(self.frontend.is_some() && supports_saves, |ui| {
-                if ui.button(menu_text!("💾 Save As...")).clicked() {
-                    if let Some(frontend) = &mut self.frontend {
-                        let dialog = rfd::FileDialog::new().add_filter("Save Files", &["sav"]);
-                        if let Some(path) = dialog.save_file() {
-                            println!("Writing save file to: {}", path.display());
-                            self.config.savefile = Some(path);
-                            frontend
-                                .send_message(FrontendMessage::UpdateConfig(self.config.clone()));
-                            frontend.send_message(FrontendMessage::WriteSaveFile);
-                        }
+                if ui.button(menu_text!("💾 Save As...")).clicked()
+                    && let Some(frontend) = &mut self.frontend
+                {
+                    let dialog = rfd::FileDialog::new().add_filter("Save Files", &["sav"]);
+                    if let Some(path) = dialog.save_file() {
+                        println!("Writing save file to: {}", path.display());
+                        self.config.savefile = Some(path);
+                        frontend.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
+                        frontend.send_message(FrontendMessage::WriteSaveFile);
                     }
                 }
             });

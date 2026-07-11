@@ -39,10 +39,10 @@ impl BankController for NoMBC {
     }
 
     fn write(&mut self, address: u16, value: u8) {
-        if let CRAM_BANK_BEGIN..=CRAM_BANK_END = address {
-            if !self.ram.is_empty() {
-                self.ram[(address - CRAM_BANK_BEGIN) as usize] = value;
-            }
+        if let CRAM_BANK_BEGIN..=CRAM_BANK_END = address
+            && !self.ram.is_empty()
+        {
+            self.ram[(address - CRAM_BANK_BEGIN) as usize] = value;
         }
     }
 

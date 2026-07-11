@@ -363,10 +363,10 @@ impl PPU {
             if !is_on_screen_x(screen_x) || pixel == Pixel::Zero {
                 continue;
             }
-            if !sprite.attrs.contains(SpriteAttributes::PRIORITY) || !bg_prio[screen_x as usize] {
-                if let Some(display) = &mut self.display {
-                    display.write_pixel(screen_x, screen_y, palette.colorize(pixel));
-                }
+            if (!sprite.attrs.contains(SpriteAttributes::PRIORITY) || !bg_prio[screen_x as usize])
+                && let Some(display) = &mut self.display
+            {
+                display.write_pixel(screen_x, screen_y, palette.colorize(pixel));
             }
         }
     }

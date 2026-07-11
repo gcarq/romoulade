@@ -173,12 +173,10 @@ impl BankController for MBC1 {
                 self.update_rom_offsets();
                 self.update_ram_offset();
             }
-            CRAM_BANK_BEGIN..=CRAM_BANK_END => {
-                if self.has_ram_access && !self.ram.is_empty() {
-                    let offset = (address - CRAM_BANK_BEGIN) as usize;
-                    let address = (self.ram_bank_offset + offset) % self.ram.len();
-                    self.ram[address] = value;
-                }
+            CRAM_BANK_BEGIN..=CRAM_BANK_END if self.has_ram_access && !self.ram.is_empty() => {
+                let offset = (address - CRAM_BANK_BEGIN) as usize;
+                let address = (self.ram_bank_offset + offset) % self.ram.len();
+                self.ram[address] = value;
             }
             _ => {}
         }

@@ -192,10 +192,10 @@ impl Emulator {
         if !self.config.autosave || !self.bus.cartridge.header.config.is_savable() {
             return;
         }
-        if let Some(last_autosave) = self.last_autosave {
-            if last_autosave.elapsed().as_secs() < 60 {
-                return;
-            }
+        if let Some(last_autosave) = self.last_autosave
+            && last_autosave.elapsed().as_secs() < 60
+        {
+            return;
         }
         let path = match self.config.savefile {
             Some(ref path) => path.as_path(),
