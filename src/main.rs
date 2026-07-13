@@ -11,7 +11,7 @@ use crate::gb::{Emulator, EmulatorConfig, SCREEN_HEIGHT};
 use crate::gui::emulator::SCREEN_WIDTH;
 use crate::gui::{PANEL_HEIGHT, Romoulade};
 use clap::Parser;
-use eframe::{HardwareAcceleration, egui};
+use eframe::egui;
 use std::path::PathBuf;
 use std::sync::mpsc;
 
@@ -75,7 +75,6 @@ fn gui_mode(config: EmulatorConfig) {
         viewport: egui::ViewportBuilder::default()
             .with_resizable(false)
             .with_inner_size(size),
-        hardware_acceleration: HardwareAcceleration::Preferred,
         ..Default::default()
     };
 

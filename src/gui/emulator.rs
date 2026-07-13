@@ -57,7 +57,7 @@ impl EmulatorFrontend {
         });
 
         // Create initial TextureHandle for the frame buffer
-        let image = ColorImage::new([1, 1], Color32::TRANSPARENT);
+        let image = ColorImage::new([1, 1], vec![Color32::TRANSPARENT]);
         let frame = ctx.load_texture("frame", image, TextureOptions::LINEAR);
 
         Self {
@@ -70,11 +70,11 @@ impl EmulatorFrontend {
     }
 
     /// Updates the emulator frontend Ui.
-    pub fn update(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+    pub fn update(&mut self, ui: &mut Ui) {
         self.handle_user_input(ui);
         self.recv_message();
         self.draw_emulator_frame(ui);
-        if !self.update_debugger(ctx) {
+        if !self.update_debugger(ui.ctx()) {
             self.detach_debugger();
         }
     }
@@ -151,10 +151,7 @@ impl EmulatorFrontend {
 
     /// Sets the frame texture to the given `FrameBuffer`.
     fn set_frame_texture(&mut self, frame: FrameBuffer) {
-        let image = ColorImage {
-            size: [frame.width(), frame.height()],
-            pixels: frame.into_vec(),
-        };
+        let image = ColorImage::new([frame.width(), frame.height()], frame.into_vec());
         self.frame.set(image, TextureOptions::LINEAR);
     }
 

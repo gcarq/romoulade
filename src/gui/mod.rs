@@ -6,9 +6,9 @@ mod macros;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::{EmulatorConfig, FrontendMessage, GBResult};
 use crate::gui::emulator::{EmulatorFrontend, SCREEN_HEIGHT, SCREEN_WIDTH};
-use eframe::egui;
-use eframe::egui::{Layout, RichText, Vec2, menu};
-use egui::{CentralPanel, Color32, Label, TopBottomPanel, Ui, Widget};
+use eframe::egui::{Layout, MenuBar, Panel, RichText, Vec2};
+use eframe::{Frame, egui};
+use egui::{CentralPanel, Color32, Label, Ui, Widget};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -87,7 +87,7 @@ impl Romoulade {
 
     /// Updates the top panel of the main window.
     fn update_top_panel(&mut self, ui: &mut Ui) {
-        menu::bar(ui, |ui| {
+        MenuBar::new().ui(ui, |ui| {
             self.update_emulator_menu(ui);
             ui.separator();
             self.update_savegame_menu(ui);
@@ -157,16 +157,15 @@ impl Romoulade {
             );
             // Save As button
             ui.add_enabled_ui(self.frontend.is_some() && supports_saves, |ui| {
-                if ui.button(menu_text!("💾 Save As...")).clicked() {
-                    if let Some(frontend) = &mut self.frontend {
-                        let dialog = rfd::FileDialog::new().add_filter("Save Files", &["sav"]);
-                        if let Some(path) = dialog.save_file() {
-                            println!("Writing save file to: {}", path.display());
-                            self.config.savefile = Some(path);
-                            frontend
-                                .send_message(FrontendMessage::UpdateConfig(self.config.clone()));
-                            frontend.send_message(FrontendMessage::WriteSaveFile);
-                        }
+                if ui.button(menu_text!("💾 Save As...")).clicked()
+                    && let Some(frontend) = &mut self.frontend
+                {
+                    let dialog = rfd::FileDialog::new().add_filter("Save Files", &["sav"]);
+                    if let Some(path) = dialog.save_file() {
+                        println!("Writing save file to: {}", path.display());
+                        self.config.savefile = Some(path);
+                        frontend.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
+                        frontend.send_message(FrontendMessage::WriteSaveFile);
                     }
                 }
             });
@@ -271,11 +270,11 @@ impl Romoulade {
 }
 
 impl eframe::App for Romoulade {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        TopBottomPanel::top("top_panel").show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut Frame) {
+        Panel::top("top_panel").show(ui, |ui| {
             self.update_top_panel(ui);
         });
-        TopBottomPanel::bottom("status_panel").show(ctx, |ui| {
+        Panel::bottom("status_panel").show(ui, |ui| {
             ui.horizontal(|ui| {
                 self.draw_cartridge_info(ui);
                 ui.separator();
@@ -288,18 +287,18 @@ impl eframe::App for Romoulade {
         let frame_size = self.frame_layout_size();
         CentralPanel::default()
             .frame(egui::Frame::NONE)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.allocate_ui(frame_size, |ui| {
                     if let Some(emulator) = &mut self.frontend {
-                        emulator.update(ctx, ui);
+                        emulator.update(ui);
                     }
                 });
             });
-        if ctx.input(|i| i.viewport().close_requested()) {
+        if ui.ctx().input(|i| i.viewport().close_requested()) {
             self.stop_emulator();
         }
         // Update the viewport size to match the current upscale factor
-        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(
+        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
             frame_size + Vec2::new(0.0, PANEL_HEIGHT * 2.0),
         ));
     }

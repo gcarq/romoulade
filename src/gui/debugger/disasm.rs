@@ -27,10 +27,10 @@ impl Disassembler {
             .sense(Sense::click());
 
         let instructions = state.instructions.as_slice();
-        if let Some(address) = self.scroll_to_address.take() {
-            if let Ok(index) = instructions.binary_search_by_key(&address, |ctx| ctx.address) {
-                table = table.scroll_to_row(index, Some(Align::Center));
-            }
+        if let Some(address) = self.scroll_to_address.take()
+            && let Ok(index) = instructions.binary_search_by_key(&address, |ctx| ctx.address)
+        {
+            table = table.scroll_to_row(index, Some(Align::Center));
         }
 
         table.body(|body| {

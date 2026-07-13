@@ -97,11 +97,9 @@ impl BankController for MBC5 {
             RAM_BANK_NUMBER_BEGIN..=RAM_BANK_NUMBER_END => {
                 self.ram_bank_number = value & 0b0000_1111;
             }
-            CRAM_BANK_BEGIN..=CRAM_BANK_END => {
-                if self.has_ram_access && !self.ram.is_empty() {
-                    let offset = self.ram_bank_number as usize * RAM_BANK_SIZE;
-                    self.ram[offset + (address - CRAM_BANK_BEGIN) as usize] = value;
-                }
+            CRAM_BANK_BEGIN..=CRAM_BANK_END if self.has_ram_access && !self.ram.is_empty() => {
+                let offset = self.ram_bank_number as usize * RAM_BANK_SIZE;
+                self.ram[offset + (address - CRAM_BANK_BEGIN) as usize] = value;
             }
             _ => {}
         }
