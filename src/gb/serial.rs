@@ -34,7 +34,7 @@ impl SerialTransfer {
         }
     }
 
-    pub fn update_config(&mut self, config: &EmulatorConfig) {
+    pub const fn update_config(&mut self, config: &EmulatorConfig) {
         self.print_serial = config.print_serial;
     }
 

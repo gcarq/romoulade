@@ -54,7 +54,7 @@ impl JoypadRegister {
         );
     }
 
-    /// Returns true if the DPad is currently selected
+    /// Returns true if the `DPad` is currently selected
     const fn is_dpad_selected(self) -> bool {
         !self.contains(Self::SELECT_DPAD)
     }
@@ -101,7 +101,7 @@ impl Joypad {
     }
 
     /// Reads the Joypad register and returns the current state of the selected buttons.
-    pub fn read(&self) -> u8 {
+    pub const fn read(&self) -> u8 {
         self.register.bits()
     }
 

@@ -75,7 +75,7 @@ pub enum WordRegister {
 impl WordRegister {
     /// Read from register.
     #[inline]
-    pub fn read(self, cpu: &CPU) -> u16 {
+    pub const fn read(self, cpu: &CPU) -> u16 {
         match self {
             WordRegister::AF => cpu.r.get_af(),
             WordRegister::BC => cpu.r.get_bc(),
@@ -332,8 +332,7 @@ pub enum JumpTarget {
 
 impl JumpTarget {
     /// Resolves and returns the referring target address
-    #[inline]
-    pub fn read(self, cpu: &CPU) -> u16 {
+    pub const fn read(self, cpu: &CPU) -> u16 {
         match self {
             JumpTarget::D16(word) => word,
             JumpTarget::HL => cpu.r.get_hl(),

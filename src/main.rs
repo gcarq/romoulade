@@ -1,7 +1,3 @@
-#![allow(clippy::upper_case_acronyms)]
-#![warn(clippy::semicolon_if_nothing_returned)]
-#![warn(clippy::unnecessary_semicolon)]
-
 #[macro_use]
 extern crate bitflags;
 extern crate clap;

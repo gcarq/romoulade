@@ -254,9 +254,8 @@ impl PPU {
         }
 
         // Y position of the pixel in the tile map
-        let window_y = match self.wy_internal {
-            Some(wy) => wy,
-            None => return,
+        let Some(window_y) = self.wy_internal else {
+            return;
         };
         self.wy_internal = Some(window_y + 1);
         // Y position of the pixel on the final screen

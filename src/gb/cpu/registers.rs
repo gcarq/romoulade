@@ -15,7 +15,7 @@ pub struct Registers {
 
 impl Registers {
     #[inline(always)]
-    pub fn get_af(self) -> u16 {
+    pub const fn get_af(self) -> u16 {
         u16::from_be_bytes([self.a, self.f.bits()])
     }
 
@@ -26,7 +26,7 @@ impl Registers {
     }
 
     #[inline(always)]
-    pub fn get_bc(self) -> u16 {
+    pub const fn get_bc(self) -> u16 {
         u16::from_be_bytes([self.b, self.c])
     }
 
@@ -37,7 +37,7 @@ impl Registers {
     }
 
     #[inline(always)]
-    pub fn get_de(self) -> u16 {
+    pub const fn get_de(self) -> u16 {
         u16::from_be_bytes([self.d, self.e])
     }
 
@@ -48,7 +48,7 @@ impl Registers {
     }
 
     #[inline(always)]
-    pub fn get_hl(self) -> u16 {
+    pub const fn get_hl(self) -> u16 {
         u16::from_be_bytes([self.h, self.l])
     }
 

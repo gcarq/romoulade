@@ -226,14 +226,14 @@ impl Emulator {
             None => return,
         };
         match self.bus.cartridge.write_savefile(path) {
-            Ok(_) => println!("Autosaved to: {}", path.display()),
-            Err(msg) => eprintln!("Failed to autosave: {}", msg),
+            Ok(()) => println!("Autosaved to: {}", path.display()),
+            Err(msg) => eprintln!("Failed to autosave: {msg}"),
         }
         self.last_autosave = Some(std::time::Instant::now());
     }
 
     /// Fastboot the emulator by setting the CPU registers as if it had booted normally.
-    fn fastboot(&mut self) {
+    const fn fastboot(&mut self) {
         self.cpu.r.set_af(0x01B0);
         self.cpu.r.set_bc(0x0013);
         self.cpu.r.set_de(0x00D8);
@@ -264,8 +264,8 @@ impl Emulator {
                 FrontendMessage::WriteSaveFile => {
                     if let Some(ref path) = self.config.savefile {
                         match self.bus.cartridge.write_savefile(path) {
-                            Ok(_) => println!("Save file written to: {}", path.display()),
-                            Err(msg) => eprintln!("Failed to write save file: {}", msg),
+                            Ok(()) => println!("Save file written to: {}", path.display()),
+                            Err(msg) => eprintln!("Failed to write save file: {msg}"),
                         }
                     }
                 }

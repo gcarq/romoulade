@@ -17,36 +17,36 @@ pub struct Registers;
 
 impl Registers {
     pub fn update(&mut self, state: &mut EmulatorState, ui: &mut Ui) {
-        self.update_cpu(state, ui);
+        Self::update_cpu(state, ui);
         ui.separator();
-        self.update_interrupts(state, ui);
+        Self::update_interrupts(state, ui);
         ui.separator();
-        self.update_ppu(state, ui);
+        Self::update_ppu(state, ui);
         ui.separator();
-        self.update_timer(state, ui);
+        Self::update_timer(state, ui);
         ui.separator();
-        self.update_input(state, ui);
+        Self::update_input(state, ui);
     }
 
     /// Updates all relevant parts of the CPU in the UI.
-    fn update_cpu(&self, state: &mut EmulatorState, ui: &mut Ui) {
-        self.update_cpu_registers(state, ui);
+    fn update_cpu(state: &mut EmulatorState, ui: &mut Ui) {
+        Self::update_cpu_registers(state, ui);
         ui.separator();
         ui.horizontal(|ui| {
             ui.columns(2, |columns| {
                 columns[0].vertical_centered_justified(|ui| {
-                    self.draw_flag(ui, "IME", state.cpu.ime == ImeState::Enabled);
+                    Self::draw_flag(ui, "IME", state.cpu.ime == ImeState::Enabled);
                 });
                 columns[1].vertical_centered_justified(|ui| {
-                    self.draw_flag(ui, "HALT", state.cpu.is_halted);
+                    Self::draw_flag(ui, "HALT", state.cpu.is_halted);
                 });
             });
         });
     }
 
     /// Updates the interrupt registers in the UI.
-    fn update_interrupts(&self, state: &mut EmulatorState, ui: &mut Ui) {
-        self.draw_io_registers(
+    fn update_interrupts(state: &mut EmulatorState, ui: &mut Ui) {
+        Self::draw_io_registers(
             "INTERRUPTS",
             ui,
             &[
@@ -57,8 +57,8 @@ impl Registers {
     }
 
     /// Updates the PPU registers in the UI.
-    fn update_ppu(&self, state: &mut EmulatorState, ui: &mut Ui) {
-        self.draw_io_registers(
+    fn update_ppu(state: &mut EmulatorState, ui: &mut Ui) {
+        Self::draw_io_registers(
             "PPU",
             ui,
             &[
@@ -78,8 +78,8 @@ impl Registers {
     }
 
     /// Updates the timer registers in the UI.
-    fn update_timer(&self, state: &mut EmulatorState, ui: &mut Ui) {
-        self.draw_io_registers(
+    fn update_timer(state: &mut EmulatorState, ui: &mut Ui) {
+        Self::draw_io_registers(
             "TIMER",
             ui,
             &[
@@ -92,19 +92,19 @@ impl Registers {
     }
 
     /// Updates the input register in the UI.
-    fn update_input(&self, state: &mut EmulatorState, ui: &mut Ui) {
-        self.draw_io_registers("INPUT", ui, &[(JOYPAD, "JOYP", state.bus.read(JOYPAD))]);
+    fn update_input(state: &mut EmulatorState, ui: &mut Ui) {
+        Self::draw_io_registers("INPUT", ui, &[(JOYPAD, "JOYP", state.bus.read(JOYPAD))]);
     }
 
     /// Updates the CPUS flags in the UI (lower 8 bits of AF register).
-    fn update_cpu_flags(&self, state: &EmulatorState, ui: &mut Ui) {
+    fn update_cpu_flags(state: &EmulatorState, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.columns(2, |columns| {
                 columns[0].vertical_centered_justified(|ui| {
-                    self.draw_flag(ui, "Z", state.cpu.r.f.contains(FlagsRegister::ZERO));
+                    Self::draw_flag(ui, "Z", state.cpu.r.f.contains(FlagsRegister::ZERO));
                 });
                 columns[1].vertical_centered_justified(|ui| {
-                    self.draw_flag(ui, "N", state.cpu.r.f.contains(FlagsRegister::SUBTRACTION));
+                    Self::draw_flag(ui, "N", state.cpu.r.f.contains(FlagsRegister::SUBTRACTION));
                 });
             });
         });
@@ -112,26 +112,26 @@ impl Registers {
         ui.horizontal(|ui| {
             ui.columns(2, |columns| {
                 columns[0].vertical_centered_justified(|ui| {
-                    self.draw_flag(ui, "H", state.cpu.r.f.contains(FlagsRegister::HALF_CARRY));
+                    Self::draw_flag(ui, "H", state.cpu.r.f.contains(FlagsRegister::HALF_CARRY));
                 });
                 columns[1].vertical_centered_justified(|ui| {
-                    self.draw_flag(ui, "C", state.cpu.r.f.contains(FlagsRegister::CARRY));
+                    Self::draw_flag(ui, "C", state.cpu.r.f.contains(FlagsRegister::CARRY));
                 });
             });
         });
     }
 
     /// Updates the CPU registers in the UI.
-    fn update_cpu_registers(&self, state: &EmulatorState, ui: &mut Ui) {
-        self.update_cpu_flags(state, ui);
+    fn update_cpu_registers(state: &EmulatorState, ui: &mut Ui) {
+        Self::update_cpu_flags(state, ui);
         ui.separator();
         ui.horizontal(|ui| {
             ui.columns(2, |columns| {
                 columns[0].vertical_centered_justified(|ui| {
-                    self.draw_cpu_register(ui, "A", state.cpu.r.a);
+                    Self::draw_cpu_register(ui, "A", state.cpu.r.a);
                 });
                 columns[1].vertical_centered_justified(|ui| {
-                    self.draw_cpu_register(ui, "F", state.cpu.r.f.bits());
+                    Self::draw_cpu_register(ui, "F", state.cpu.r.f.bits());
                 });
             });
         });
@@ -139,10 +139,10 @@ impl Registers {
         ui.horizontal(|ui| {
             ui.columns(2, |columns| {
                 columns[0].vertical_centered_justified(|ui| {
-                    self.draw_cpu_register(ui, "B", state.cpu.r.b);
+                    Self::draw_cpu_register(ui, "B", state.cpu.r.b);
                 });
                 columns[1].vertical_centered_justified(|ui| {
-                    self.draw_cpu_register(ui, "C", state.cpu.r.c);
+                    Self::draw_cpu_register(ui, "C", state.cpu.r.c);
                 });
             });
         });
@@ -150,10 +150,10 @@ impl Registers {
         ui.horizontal(|ui| {
             ui.columns(2, |columns| {
                 columns[0].vertical_centered_justified(|ui| {
-                    self.draw_cpu_register(ui, "D", state.cpu.r.d);
+                    Self::draw_cpu_register(ui, "D", state.cpu.r.d);
                 });
                 columns[1].vertical_centered_justified(|ui| {
-                    self.draw_cpu_register(ui, "E", state.cpu.r.e);
+                    Self::draw_cpu_register(ui, "E", state.cpu.r.e);
                 });
             });
         });
@@ -161,22 +161,22 @@ impl Registers {
         ui.horizontal(|ui| {
             ui.columns(2, |columns| {
                 columns[0].vertical_centered_justified(|ui| {
-                    self.draw_cpu_register(ui, "H", state.cpu.r.h);
+                    Self::draw_cpu_register(ui, "H", state.cpu.r.h);
                 });
                 columns[1].vertical_centered_justified(|ui| {
-                    self.draw_cpu_register(ui, "L", state.cpu.r.l);
+                    Self::draw_cpu_register(ui, "L", state.cpu.r.l);
                 });
             });
         });
         ui.separator();
-        self.draw_u16_register(ui, "SP", state.cpu.r.sp);
+        Self::draw_u16_register(ui, "SP", state.cpu.r.sp);
         ui.separator();
-        self.draw_u16_register(ui, "PC", state.cpu.r.pc);
+        Self::draw_u16_register(ui, "PC", state.cpu.r.pc);
     }
 
     /// Draws the given IO registers in a table format.
     /// The data is expected to be a tuple of (address, register name, value).
-    fn draw_io_registers(&self, name: &str, ui: &mut Ui, data: &[(u16, &str, u8)]) {
+    fn draw_io_registers(name: &str, ui: &mut Ui, data: &[(u16, &str, u8)]) {
         ui.label(RichText::new(name).monospace().color(Color32::CYAN));
         let table = TableBuilder::new(ui)
             .id_salt(name)
@@ -207,7 +207,7 @@ impl Registers {
                 //Draw register binary value
                 row.col(|ui| {
                     let mut job = LayoutJob::default();
-                    self.draw_bits(&mut job, value);
+                    Self::draw_bits(&mut job, value);
                     ui.label(job);
                 });
             });
@@ -215,7 +215,7 @@ impl Registers {
     }
 
     /// Draw a boolean flag with its name and value.
-    fn draw_flag(&self, ui: &mut Ui, name: &str, value: bool) {
+    fn draw_flag(ui: &mut Ui, name: &str, value: bool) {
         let mut job = LayoutJob::default();
         monospace_append!(job, name, Color32::CYAN);
         monospace_append!(
@@ -227,18 +227,18 @@ impl Registers {
     }
 
     /// Draws a `u8` register with its name and value.
-    fn draw_cpu_register(&self, ui: &mut Ui, name: &str, value: u8) {
+    fn draw_cpu_register(ui: &mut Ui, name: &str, value: u8) {
         ui.vertical_centered(|ui| {
             let mut job = LayoutJob::default();
             monospace_append!(job, name, Color32::ORANGE);
             monospace_append!(job, &format!(" = {value:#04X}\n"), Color32::WHITE);
-            self.draw_bits(&mut job, value);
+            Self::draw_bits(&mut job, value);
             ui.label(job);
         });
     }
 
     /// Draws an integer value in binary format with colored bits.
-    fn draw_bits<T: BitView>(&self, job: &mut LayoutJob, value: T) {
+    fn draw_bits<T: BitView>(job: &mut LayoutJob, value: T) {
         let bits = value.view_bits::<Msb0>();
         for (i, chunk) in bits.chunks(4).enumerate() {
             if i > 0 {
@@ -255,12 +255,12 @@ impl Registers {
     }
 
     /// Draws a 16-bit register with its name and value.
-    fn draw_u16_register(&self, ui: &mut Ui, name: &str, value: u16) {
+    fn draw_u16_register(ui: &mut Ui, name: &str, value: u16) {
         ui.vertical_centered(|ui| {
             let mut job = LayoutJob::default();
             monospace_append!(job, name, Color32::ORANGE);
             monospace_append!(job, &format!(" = {value:#06X}\n"), Color32::WHITE);
-            self.draw_bits(&mut job, value);
+            Self::draw_bits(&mut job, value);
             ui.label(job);
         });
     }

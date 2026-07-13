@@ -268,9 +268,8 @@ impl Cartridge {
     /// Loads a save file from the given path.
     pub fn load_savefile(&mut self, path: &Path) -> Result<(), SaveError> {
         let mut data = fs::read(path)?;
-        let checksum = match data.pop() {
-            Some(checksum) => checksum,
-            None => return Err(SaveError::MalformedFile),
+        let Some(checksum) = data.pop() else {
+            return Err(SaveError::MalformedFile);
         };
         if checksum != self.header.header_checksum {
             return Err(SaveError::InvalidChecksum);

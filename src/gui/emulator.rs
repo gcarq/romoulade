@@ -27,7 +27,7 @@ struct EmulatorChannel {
 
 impl EmulatorChannel {
     #[inline]
-    pub fn new(sender: Sender<FrontendMessage>, receiver: Receiver<EmulatorMessage>) -> Self {
+    pub const fn new(sender: Sender<FrontendMessage>, receiver: Receiver<EmulatorMessage>) -> Self {
         Self { sender, receiver }
     }
 }
