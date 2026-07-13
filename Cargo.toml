@@ -9,7 +9,7 @@ edition = "2024"
 [dependencies]
 arraydeque = { version = "0.5.1", default-features = false, features = ["std"] }
 bitflags = { version = "2.13.0", default-features = false }
-bitvec = { version = "1.0.1", default-features = false, features = [] }
+bitvec = { version = "1.1.1", default-features = false }
 clap = { version = "4.5.38", default-features = false, features = ["derive", "error-context", "help", "std", "usage"] }
 dyn-clone = { version = "1.0.19", default-features = false, features = [] }
 eframe = { version = "0.35.0", default-features = false, features = ["default_fonts", "wgpu", "wayland", "x11"] }
