@@ -1,3 +1,5 @@
+use eframe::egui;
+
 use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::BOOT_END;
@@ -9,6 +11,7 @@ use crate::gb::ppu::display::Display;
 use std::error;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, SyncSender};
+use std::time::Instant;
 
 mod audio;
 pub mod bus;
@@ -120,31 +123,32 @@ pub struct Emulator {
     debugger: Option<Debugger>,
     is_running: bool,
     config: EmulatorConfig,
-    last_autosave: Option<std::time::Instant>, // Last time the autosave was performed
+    last_autosave: Option<Instant>, // Last time the autosave was performed
 }
 
 impl Emulator {
-    /// Creates a new `Emulator` instance.
-    pub fn new(
+    /// Creates a new `Emulator` instance with a display.
+    pub fn with_display(
+        sender: SyncSender<EmulatorMessage>,
+        receiver: Receiver<FrontendMessage>,
+        cartridge: Cartridge,
+        repaint_ctx: egui::Context,
+        config: EmulatorConfig,
+    ) -> Self {
+        let display = Display::new(sender.clone(), repaint_ctx, config.upscale);
+        let bus = MainBus::with_cartridge(cartridge, config.clone(), Some(display));
+        Self::new(sender, receiver, config, bus)
+    }
+
+    /// Creates a new `Emulator` instance in headless mode (no display).
+    pub fn headless(
         sender: SyncSender<EmulatorMessage>,
         receiver: Receiver<FrontendMessage>,
         cartridge: Cartridge,
         config: EmulatorConfig,
     ) -> Self {
-        let cpu = CPU::default();
-        let display = (!config.headless).then_some(Display::new(sender.clone(), config.upscale));
-        let bus = MainBus::with_cartridge(cartridge, config.clone(), display);
-
-        Self {
-            is_running: true,
-            debugger: None,
-            last_autosave: config.autosave.then(std::time::Instant::now),
-            config,
-            cpu,
-            bus,
-            sender,
-            receiver,
-        }
+        let bus = MainBus::with_cartridge(cartridge, config.clone(), None);
+        Self::new(sender, receiver, config, bus)
     }
 
     /// Runs the emulator loop.
@@ -171,6 +175,25 @@ impl Emulator {
             }
         }
         Ok(())
+    }
+
+    /// Creates a new `Emulator` instance with the given `MainBus`.
+    fn new(
+        sender: SyncSender<EmulatorMessage>,
+        receiver: Receiver<FrontendMessage>,
+        config: EmulatorConfig,
+        bus: MainBus,
+    ) -> Self {
+        Self {
+            cpu: CPU::default(),
+            is_running: true,
+            debugger: None,
+            last_autosave: config.autosave.then(std::time::Instant::now),
+            config,
+            bus,
+            sender,
+            receiver,
+        }
     }
 
     /// Steps the `CPU` once and handles interrupts if any.

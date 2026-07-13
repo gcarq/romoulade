@@ -1,7 +1,7 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::ColoredPixel;
 use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorConfig, EmulatorMessage};
-use eframe::egui::Color32;
+use eframe::egui::{self, Color32};
 use std::sync::mpsc::SyncSender;
 use std::time::{Duration, Instant};
 
@@ -11,15 +11,24 @@ pub struct Display {
     sender: SyncSender<EmulatorMessage>,
     buffer: FrameBuffer,
     frame_limiter: FrameLimiter,
+    repaint_context: egui::Context,
 }
 
 impl Display {
-    /// Creates a new display with the given int upscale.
-    pub fn new(sender: SyncSender<EmulatorMessage>, upscale: usize) -> Self {
+    /// Creates a new display with the given `upscale`.
+    ///
+    /// `repaint_context` will be used to request a repaint
+    /// once a new frame has been sent.
+    pub fn new(
+        sender: SyncSender<EmulatorMessage>,
+        repaint_context: egui::Context,
+        upscale: usize,
+    ) -> Self {
         Self {
             buffer: FrameBuffer::new(upscale),
             frame_limiter: FrameLimiter::new(DISPLAY_REFRESH_RATE),
             sender,
+            repaint_context,
         }
     }
 
@@ -28,6 +37,7 @@ impl Display {
         let msg = EmulatorMessage::Frame(self.buffer.clone());
         self.frame_limiter.wait();
         self.sender.send(msg).ok();
+        self.repaint_context.request_repaint();
     }
 
     /// Writes a pixel to the given coordinates

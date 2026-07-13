@@ -92,7 +92,7 @@ fn headless_mode(config: EmulatorConfig) {
     let cartridge = Cartridge::try_from(rom.as_path()).expect("Failed to load cartridge");
     let (emulator_sender, _) = mpsc::sync_channel(2);
     let (_, frontend_receiver) = mpsc::channel();
-    let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
+    let mut emulator = Emulator::headless(emulator_sender, frontend_receiver, cartridge, config);
     if let Err(msg) = emulator.run() {
         eprintln!("Error running emulator: {}", msg);
     }

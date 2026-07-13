@@ -49,9 +49,16 @@ impl EmulatorFrontend {
         let (emulator_sender, emulator_receiver) = mpsc::sync_channel(2);
         let (frontend_sender, frontend_receiver) = mpsc::channel();
         let cartridge = cartridge.clone();
+        let repaint_ctx = ctx.clone();
 
         let thread = thread::spawn(move || {
-            let mut emulator = Emulator::new(emulator_sender, frontend_receiver, cartridge, config);
+            let mut emulator = Emulator::with_display(
+                emulator_sender,
+                frontend_receiver,
+                cartridge,
+                repaint_ctx,
+                config,
+            );
             if let Err(msg) = emulator.run() {
                 eprintln!("Emulator error: {msg}");
             }
@@ -148,7 +155,6 @@ impl EmulatorFrontend {
     #[inline]
     fn draw_emulator_frame(&self, ui: &mut Ui) {
         ui.image(SizedTexture::from_handle(&self.frame));
-        ui.ctx().request_repaint();
     }
 
     /// Sets the frame texture to the given `FrameBuffer`.

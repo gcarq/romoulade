@@ -190,6 +190,9 @@ impl Romoulade {
                         update |= ui.selectable_value(&mut self.config.upscale, 5, "5x").clicked();
                         if update {
                             self.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
+                                self.frame_layout_size() + Vec2::new(0.0, PANEL_HEIGHT * 2.0),
+                            ));
                         }
                     });
                     ui.end_row();
@@ -284,11 +287,10 @@ impl eframe::App for Romoulade {
                 });
             });
         });
-        let frame_size = self.frame_layout_size();
         CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
-                ui.allocate_ui(frame_size, |ui| {
+                ui.allocate_ui(self.frame_layout_size(), |ui| {
                     if let Some(emulator) = &mut self.frontend {
                         emulator.update(ui);
                     }
@@ -297,9 +299,5 @@ impl eframe::App for Romoulade {
         if ui.ctx().input(|i| i.viewport().close_requested()) {
             self.stop_emulator();
         }
-        // Update the viewport size to match the current upscale factor
-        ui.ctx().send_viewport_cmd(egui::ViewportCommand::InnerSize(
-            frame_size + Vec2::new(0.0, PANEL_HEIGHT * 2.0),
-        ));
     }
 }
