@@ -1,10 +1,10 @@
-use crate::gb::GBError;
+use crate::gb::SubSystem;
 use crate::gb::cartridge::controller::BankController;
-use crate::gb::{GBResult, SubSystem};
+use anyhow::{Context, Result, bail};
+use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
 use std::{fmt, fs};
-use thiserror::Error;
 
 pub mod controller;
 mod mbc1;
@@ -51,16 +51,43 @@ const CARTRIDGE_GLOBAL_CHECKSUM2: u16 = 0x014F;
 const ROM_BANK_SIZE: usize = 16384;
 const RAM_BANK_SIZE: usize = 8192;
 
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum SaveError {
-    #[error("The cartridge does not support saving.")]
     NoSaveSupport,
-    #[error("The save file is not compatible with the current cartridge.")]
     InvalidChecksum,
-    #[error("The save file is empty or malformed.")]
     MalformedFile,
-    #[error("Failed to read or write the save file: {0}")]
-    IOError(#[from] std::io::Error),
+    IOError(std::io::Error),
+}
+
+impl fmt::Display for SaveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoSaveSupport => write!(f, "The cartridge does not support saving."),
+            Self::InvalidChecksum => write!(
+                f,
+                "The save file is not compatible with the current cartridge."
+            ),
+            Self::MalformedFile => write!(f, "The save file is empty or malformed."),
+            Self::IOError(error) => {
+                write!(f, "Failed to read or write the save file: {error}")
+            }
+        }
+    }
+}
+
+impl Error for SaveError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::IOError(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for SaveError {
+    fn from(error: std::io::Error) -> Self {
+        Self::IOError(error)
+    }
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -92,7 +119,7 @@ impl ControllerType {
 }
 
 impl TryFrom<u8> for ControllerType {
-    type Error = GBError;
+    type Error = anyhow::Error;
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         let mode = match value {
             0x00 | 0x08 => ControllerType::NoMBC { battery: false },
@@ -106,7 +133,7 @@ impl TryFrom<u8> for ControllerType {
             0x19 | 0x1A | 0x1C | 0x1D => ControllerType::MBC5 { battery: false },
             0x1B | 0x1E => ControllerType::MBC5 { battery: true },
             0x22 => ControllerType::MBC7 { battery: true },
-            _ => return Err(format!("Cartridge type {value:#04x} not implemented").into()),
+            _ => bail!("Cartridge type {value:#04x} not implemented"),
         };
         Ok(mode)
     }
@@ -136,14 +163,14 @@ pub struct CartridgeConfig {
 }
 
 impl CartridgeConfig {
-    pub fn new(controller: ControllerType, rom_size: u8, ram_size: u8) -> GBResult<Self> {
+    pub fn new(controller: ControllerType, rom_size: u8, ram_size: u8) -> Result<Self> {
         let ram_banks = match ram_size {
             0x00 | 0x01 => 0,
             0x02 => 1,
             0x03 => 4,
             0x04 => 16,
             0x05 => 8,
-            value => return Err(format!("Unsupported RAM size: {value:#04x}").into()),
+            value => bail!("Unsupported RAM size: {value:#04x}"),
         };
 
         // This can be expressed as 2^(value + 1) up until 512 KiB
@@ -157,7 +184,7 @@ impl CartridgeConfig {
             0x06 => 128,
             0x07 => 256,
             0x08 => 512,
-            value => return Err(format!("Unsupported ROM size: {value:#04x}").into()),
+            value => bail!("Unsupported ROM size: {value:#04x}"),
         };
 
         Ok(Self {
@@ -190,7 +217,7 @@ pub struct CartridgeHeader {
 }
 
 impl TryFrom<&[u8]> for CartridgeHeader {
-    type Error = GBError;
+    type Error = anyhow::Error;
     fn try_from(buf: &[u8]) -> Result<Self, Self::Error> {
         let controller = ControllerType::try_from(buf[CARTRIDGE_TYPE as usize])?;
         Ok(Self {
@@ -272,11 +299,11 @@ impl Cartridge {
 }
 
 impl TryFrom<Arc<[u8]>> for Cartridge {
-    type Error = GBError;
+    type Error = anyhow::Error;
 
     fn try_from(rom: Arc<[u8]>) -> Result<Self, Self::Error> {
         if rom.len() < CARTRIDGE_GLOBAL_CHECKSUM2 as usize {
-            return Err("Cartridge is too small to calculate the checksum".into());
+            bail!("Cartridge is too small to calculate the checksum");
         }
         let header = CartridgeHeader::try_from(rom.as_ref())?;
         if let Err(msg) = verify_checksum(rom.as_ref(), header.global_checksum) {
@@ -288,11 +315,13 @@ impl TryFrom<Arc<[u8]>> for Cartridge {
 }
 
 impl TryFrom<&Path> for Cartridge {
-    type Error = GBError;
+    type Error = anyhow::Error;
 
     fn try_from(path: &Path) -> Result<Self, Self::Error> {
-        let rom = fs::read(path)?;
+        let rom = fs::read(path)
+            .with_context(|| format!("Failed to read cartridge: {}", path.display()))?;
         Cartridge::try_from(Arc::from(rom.into_boxed_slice()))
+            .with_context(|| format!("Failed to load cartridge: {}", path.display()))
     }
 }
 
@@ -315,7 +344,7 @@ impl SubSystem for Cartridge {
 }
 
 /// Validates the global checksum of the given buffer containing the whole cartridge.
-fn verify_checksum(buf: &[u8], checksum: u16) -> GBResult<()> {
+fn verify_checksum(buf: &[u8], checksum: u16) -> Result<()> {
     debug_assert!(buf.len() >= CARTRIDGE_GLOBAL_CHECKSUM2 as usize);
 
     let calculated_checksum = calculate_global_checksum(buf);
@@ -323,10 +352,7 @@ fn verify_checksum(buf: &[u8], checksum: u16) -> GBResult<()> {
         return Ok(());
     }
 
-    let msg = format!(
-        "Global checksum mismatch! Expected: {calculated_checksum:#06x} Got: {checksum:#06x}"
-    );
-    Err(msg.into())
+    bail!("Global checksum mismatch! Expected: {calculated_checksum:#06x} Got: {checksum:#06x}")
 }
 
 /// Calculates the global checksum by adding all bytes from the given cartridge buffer except

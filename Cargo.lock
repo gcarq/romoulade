@@ -77,6 +77,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
+name = "anyhow"
+version = "1.0.103"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
+
+[[package]]
 name = "arboard"
 version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2274,6 +2280,7 @@ dependencies = [
 name = "romoulade"
 version = "0.2.0"
 dependencies = [
+ "anyhow",
  "arraydeque",
  "bitflags 2.13.0",
  "bitvec",
@@ -2284,7 +2291,6 @@ dependencies = [
  "itertools 0.15.0",
  "rfd",
  "spin_sleep",
- "thiserror 2.0.18",
 ]
 
 [[package]]

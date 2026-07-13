@@ -59,8 +59,8 @@ impl EmulatorFrontend {
                 repaint_ctx,
                 config,
             );
-            if let Err(msg) = emulator.run() {
-                eprintln!("Emulator error: {msg}");
+            if let Err(error) = emulator.run() {
+                eprintln!("Emulator error: {error:#}");
             }
         });
 

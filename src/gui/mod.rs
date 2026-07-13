@@ -4,14 +4,13 @@ pub mod emulator;
 mod macros;
 
 use crate::gb::cartridge::Cartridge;
-use crate::gb::{EmulatorConfig, FrontendMessage, GBResult};
+use crate::gb::{EmulatorConfig, FrontendMessage};
 use crate::gui::emulator::{EmulatorFrontend, SCREEN_HEIGHT, SCREEN_WIDTH};
+use anyhow::Result;
 use eframe::egui::{Layout, MenuBar, Panel, RichText, Vec2};
 use eframe::{Frame, egui};
 use egui::{CentralPanel, Color32, Label, Ui, Widget};
-use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 /// The height of the top and bottom panels in pixels.
 pub const PANEL_HEIGHT: f32 = 22.0;
@@ -23,7 +22,7 @@ pub struct Romoulade {
 }
 
 impl Romoulade {
-    pub fn new(config: EmulatorConfig) -> GBResult<Self> {
+    pub fn new(config: EmulatorConfig) -> Result<Self> {
         let cartridge = match &config.rom {
             Some(rom) => Some(Cartridge::try_from(rom.as_path())?),
             None => None,
@@ -36,15 +35,14 @@ impl Romoulade {
     }
 
     /// Loads a cartridge using a file dialog.
-    fn choose_cartridge(&mut self) -> GBResult<()> {
+    fn choose_cartridge(&mut self) -> Result<()> {
         if let Some(frontend) = &self.frontend {
             frontend.stop();
         }
         let dialog = rfd::FileDialog::new().add_filter("Game Boy ROM", &["gb"]);
         if let Some(path) = dialog.pick_file() {
             println!("Loading Cartridge: {}", path.display());
-            let rom = fs::read(path)?;
-            let cartridge = Cartridge::try_from(Arc::from(rom.into_boxed_slice()))?;
+            let cartridge = Cartridge::try_from(path.as_path())?;
 
             // Set savefile if autosave is enabled, the cartridge supports it and the file exists.
             let file_name = PathBuf::from(cartridge.autosave_filename());
@@ -104,8 +102,8 @@ impl Romoulade {
             // Load ROM button
             if ui.button(menu_text!("📁 Load ROM...")).clicked() {
                 self.stop_emulator();
-                if let Err(msg) = self.choose_cartridge() {
-                    eprintln!("Error loading ROM: {msg}");
+                if let Err(error) = self.choose_cartridge() {
+                    eprintln!("Error loading ROM: {error:#}");
                 }
             }
             ui.separator();

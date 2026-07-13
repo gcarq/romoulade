@@ -10,6 +10,7 @@ use crate::gb::cartridge::Cartridge;
 use crate::gb::{Emulator, EmulatorConfig, SCREEN_HEIGHT};
 use crate::gui::emulator::SCREEN_WIDTH;
 use crate::gui::{PANEL_HEIGHT, Romoulade};
+use anyhow::{Context, Result};
 use clap::Parser;
 use eframe::egui;
 use std::path::PathBuf;
@@ -45,7 +46,7 @@ struct Args {
     headless: bool,
 }
 
-fn main() {
+fn main() -> Result<()> {
     let args = Args::parse();
 
     let config = EmulatorConfig {
@@ -59,14 +60,14 @@ fn main() {
     };
 
     if config.headless {
-        headless_mode(config);
+        headless_mode(config)
     } else {
-        gui_mode(config);
+        gui_mode(config)
     }
 }
 
 /// Starts the emulator with an `egui` frontend.
-fn gui_mode(config: EmulatorConfig) {
+fn gui_mode(config: EmulatorConfig) -> Result<()> {
     let size = egui::vec2(
         SCREEN_WIDTH as f32 * DEFAULT_UPSCALE as f32,
         SCREEN_HEIGHT as f32 * DEFAULT_UPSCALE as f32 + PANEL_HEIGHT * 2.0,
@@ -78,22 +79,23 @@ fn gui_mode(config: EmulatorConfig) {
         ..Default::default()
     };
 
-    let app = Romoulade::new(config).expect("Failed to create Romoulade instance");
+    let app = Romoulade::new(config).with_context(|| "Unable to start emulator")?;
     eframe::run_native("Romoulade", options, Box::new(|_| Ok(Box::new(app))))
-        .expect("Unable to run egui app");
+        .with_context(|| "Failed to run egui app")?;
+    Ok(())
 }
 
 /// Starts the emulator in headless mode.
-fn headless_mode(config: EmulatorConfig) {
+fn headless_mode(config: EmulatorConfig) -> Result<()> {
     let rom = config
         .rom
         .as_ref()
-        .expect("No ROM path provided for headless mode");
-    let cartridge = Cartridge::try_from(rom.as_path()).expect("Failed to load cartridge");
+        .with_context(|| "No ROM path provided for headless mode")?;
+    let cartridge = Cartridge::try_from(rom.as_path())?;
     let (emulator_sender, _) = mpsc::sync_channel(2);
     let (_, frontend_receiver) = mpsc::channel();
     let mut emulator = Emulator::headless(emulator_sender, frontend_receiver, cartridge, config);
-    if let Err(msg) = emulator.run() {
-        eprintln!("Error running emulator: {}", msg);
-    }
+    emulator
+        .run()
+        .with_context(|| "Failed to run emulator in headless mode")
 }

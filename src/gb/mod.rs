@@ -1,3 +1,4 @@
+use anyhow::{Context, Result, anyhow};
 use eframe::egui;
 
 use crate::gb::bus::{InterruptRegister, MainBus};
@@ -8,7 +9,6 @@ use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
 use crate::gb::joypad::JoypadInputState;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
-use std::error;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::time::Instant;
@@ -32,9 +32,6 @@ pub const DISPLAY_REFRESH_RATE: f64 = 59.727500569606;
 
 pub const SCREEN_WIDTH: u8 = 160;
 pub const SCREEN_HEIGHT: u8 = 144;
-
-pub type GBResult<T> = Result<T, GBError>;
-pub type GBError = Box<dyn error::Error>;
 
 /// This trait defines a common interface for all subsystems of the emulator.
 pub trait SubSystem {
@@ -152,12 +149,15 @@ impl Emulator {
     }
 
     /// Runs the emulator loop.
-    pub fn run(&mut self) -> GBResult<()> {
+    pub fn run(&mut self) -> Result<()> {
         println!("Starting emulator...");
         println!("Loaded ROM: {}", self.bus.cartridge);
 
         if let Some(ref savefile) = self.config.savefile {
-            self.bus.cartridge.load_savefile(savefile)?;
+            self.bus
+                .cartridge
+                .load_savefile(savefile)
+                .with_context(|| anyhow!("Failed to load save file: {}", savefile.display()))?;
             println!("Loaded save file: {}", savefile.display());
         }
         if self.config.fastboot {
