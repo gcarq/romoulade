@@ -1,6 +1,6 @@
 use crate::gb::bus::InterruptRegister;
 use crate::gb::cpu::{CPU, ImeState, interrupt};
-use crate::gb::tests::MockBus;
+use crate::gb::test_support::MockBus;
 use crate::gb::{Bus, SubSystem};
 
 #[test]

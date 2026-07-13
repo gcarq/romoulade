@@ -250,3 +250,47 @@ impl Bus for MainBus {
         self.interrupt_flag
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_interrupt_flags_read() {
+        let mut flags = InterruptRegister::all();
+        assert_eq!(flags.bits(), 0b0001_1111);
+
+        flags.remove(InterruptRegister::VBLANK);
+        assert_eq!(flags.bits(), 0b0001_1110);
+
+        flags.remove(InterruptRegister::STAT);
+        assert_eq!(flags.bits(), 0b0001_1100);
+
+        flags.remove(InterruptRegister::TIMER);
+        assert_eq!(flags.bits(), 0b0001_1000);
+
+        flags.remove(InterruptRegister::SERIAL);
+        assert_eq!(flags.bits(), 0b0001_0000);
+
+        flags.remove(InterruptRegister::JOYPAD);
+        assert_eq!(flags.bits(), 0b0000_0000);
+    }
+
+    #[test]
+    fn test_interrupt_flags_write() {
+        let mut flags = InterruptRegister::from_bits_retain(0b1111_1110);
+        assert!(!flags.contains(InterruptRegister::VBLANK));
+
+        flags = InterruptRegister::from_bits_retain(0b1111_1100);
+        assert!(!flags.contains(InterruptRegister::STAT));
+
+        flags = InterruptRegister::from_bits_retain(0b1111_1000);
+        assert!(!flags.contains(InterruptRegister::TIMER));
+
+        flags = InterruptRegister::from_bits_retain(0b1111_0000);
+        assert!(!flags.contains(InterruptRegister::SERIAL));
+
+        flags = InterruptRegister::from_bits_retain(0b1110_0000);
+        assert!(!flags.contains(InterruptRegister::JOYPAD));
+    }
+}

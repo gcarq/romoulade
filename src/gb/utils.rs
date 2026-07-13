@@ -23,3 +23,38 @@ pub const fn set_bit(input: u8, n: u8, state: bool) -> u8 {
 pub const fn half_carry_u8(x: u8, y: u8) -> bool {
     ((x & 0b0000_1111) + (y & 0b0000_1111)) & 0b0001_0000 == 0b0001_0000
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bit_at() {
+        let x = 0b11110000u8;
+        assert!(!bit_at(x, 3));
+        assert!(bit_at(x, 4));
+    }
+
+    #[test]
+    fn test_set_bit() {
+        let x = 0b11110000u8;
+        assert_eq!(set_bit(x, 0, true), 0b11110001u8);
+        assert_eq!(set_bit(x, 1, true), 0b11110010u8);
+        assert_eq!(set_bit(x, 0, false), 0b11110000u8);
+        assert_eq!(set_bit(x, 7, false), 0b01110000u8);
+    }
+
+    #[test]
+    fn test_half_carry_u8_true() {
+        let x = 62;
+        let y = 34;
+        assert!(half_carry_u8(x, y));
+    }
+
+    #[test]
+    fn test_half_carry_u8_false() {
+        let x = 34;
+        let y = 34;
+        assert!(!half_carry_u8(x, y));
+    }
+}

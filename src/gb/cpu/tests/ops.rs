@@ -6,7 +6,7 @@ use crate::gb::cpu::ops::{
     ByteRef, ByteSource, ByteTarget, JumpCondition, JumpTarget, Load, ResetCode, WordSource,
 };
 use crate::gb::cpu::registers::FlagsRegister;
-use crate::gb::tests::MockBus;
+use crate::gb::test_support::MockBus;
 
 #[test]
 fn test_register_a() {
