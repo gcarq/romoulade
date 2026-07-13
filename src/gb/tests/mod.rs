@@ -1,5 +1,3 @@
-mod joypad;
-
 use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;

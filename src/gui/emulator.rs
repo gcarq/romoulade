@@ -1,5 +1,5 @@
 use crate::gb::cartridge::Cartridge;
-use crate::gb::joypad::JoypadInputEvent;
+use crate::gb::joypad::JoypadInputState;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
@@ -39,6 +39,7 @@ pub struct EmulatorFrontend {
     channel: EmulatorChannel,
     frame: TextureHandle,
     debugger: Option<DebuggerFrontend>,
+    last_input: JoypadInputState,
     pub fps_counter: PerformanceCounter,
 }
 
@@ -63,6 +64,7 @@ impl EmulatorFrontend {
         Self {
             channel: EmulatorChannel::new(frontend_sender, emulator_receiver),
             debugger: None,
+            last_input: JoypadInputState::default(),
             fps_counter: PerformanceCounter::default(),
             frame,
             thread,
@@ -172,9 +174,9 @@ impl EmulatorFrontend {
     }
 
     /// Handles user input and sends it to the emulator.
-    fn handle_user_input(&self, ui: &mut Ui) {
-        ui.input(|i| {
-            let mut input = JoypadInputEvent::default();
+    fn handle_user_input(&mut self, ui: &mut Ui) {
+        let input = ui.input(|i| {
+            let mut input = JoypadInputState::default();
             for key in &i.keys_down {
                 match key {
                     Key::A => input.left = true,
@@ -188,9 +190,12 @@ impl EmulatorFrontend {
                     _ => {}
                 }
             }
-            if input.is_pressed() {
-                self.send_message(FrontendMessage::Input(input));
-            }
+            input
         });
+
+        if input != self.last_input {
+            self.send_message(FrontendMessage::Input(input));
+            self.last_input = input;
+        }
     }
 }

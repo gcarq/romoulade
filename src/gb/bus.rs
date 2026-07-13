@@ -1,7 +1,7 @@
 use crate::gb::audio::AudioProcessor;
 use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::*;
-use crate::gb::joypad::Joypad;
+use crate::gb::joypad::{Joypad, JoypadInputState};
 use crate::gb::ppu::PPU;
 use crate::gb::ppu::display::Display;
 use crate::gb::serial::SerialTransfer;
@@ -37,7 +37,7 @@ pub struct MainBus {
     pub cartridge: Cartridge,
     timer: Timer,
     ppu: PPU,
-    pub joypad: Joypad,
+    joypad: Joypad,
     pub interrupt_enable: InterruptRegister,
     pub interrupt_flag: InterruptRegister,
     wram: [u8; WRAM_SIZE],
@@ -70,6 +70,12 @@ impl MainBus {
     pub fn update_config(&mut self, config: &EmulatorConfig) {
         self.ppu.update_config(config);
         self.serial.update_config(config);
+    }
+
+    /// Updates the `Joypad` for the given `input`.
+    #[inline]
+    pub fn handle_joypad_input(&mut self, input: JoypadInputState) {
+        self.joypad.handle_input(input, &mut self.interrupt_flag);
     }
 
     /// Reads value from boot ROM or cartridge

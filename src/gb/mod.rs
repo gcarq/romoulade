@@ -3,7 +3,7 @@ use crate::gb::cartridge::Cartridge;
 use crate::gb::constants::BOOT_END;
 use crate::gb::cpu::CPU;
 use crate::gb::debugger::{DebugMessage, Debugger, FrontendDebugMessage};
-use crate::gb::joypad::JoypadInputEvent;
+use crate::gb::joypad::JoypadInputState;
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::display::Display;
 use std::error;
@@ -78,7 +78,7 @@ pub enum EmulatorMessage {
 /// This enum defines the possible messages that can be sent from the frontend to the emulator.
 pub enum FrontendMessage {
     Stop,
-    Input(JoypadInputEvent),
+    Input(JoypadInputState),
     UpdateConfig(EmulatorConfig),
     WriteSaveFile,
     AttachDebugger,
@@ -236,7 +236,7 @@ impl Emulator {
                     self.last_autosave = None;
                     self.is_running = false;
                 }
-                FrontendMessage::Input(input) => self.bus.joypad.handle_input(input),
+                FrontendMessage::Input(input) => self.bus.handle_joypad_input(input),
                 FrontendMessage::UpdateConfig(config) => self.update_config(config),
                 FrontendMessage::WriteSaveFile => {
                     if let Some(ref path) = self.config.savefile {
