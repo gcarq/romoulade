@@ -10,6 +10,7 @@ use anyhow::Result;
 use eframe::egui::{Layout, MenuBar, Panel, RichText, Vec2};
 use eframe::{Frame, egui};
 use egui::{CentralPanel, Color32, Label, Ui, Widget};
+use log::{error, info};
 use std::path::PathBuf;
 
 /// The height of the top and bottom panels in pixels.
@@ -41,7 +42,7 @@ impl Romoulade {
         }
         let dialog = rfd::FileDialog::new().add_filter("Game Boy ROM", &["gb"]);
         if let Some(path) = dialog.pick_file() {
-            println!("Loading Cartridge: {}", path.display());
+            info!("Loading Cartridge: {}", path.display());
             let cartridge = Cartridge::try_from(path.as_path())?;
 
             // Set savefile if autosave is enabled, the cartridge supports it and the file exists.
@@ -103,7 +104,7 @@ impl Romoulade {
             if ui.button(menu_text!("📁 Load ROM...")).clicked() {
                 self.stop_emulator();
                 if let Err(error) = self.choose_cartridge() {
-                    eprintln!("Error loading ROM: {error:#}");
+                    error!("Error loading ROM: {error:#}");
                 }
             }
             ui.separator();
@@ -160,7 +161,7 @@ impl Romoulade {
                 {
                     let dialog = rfd::FileDialog::new().add_filter("Save Files", &["sav"]);
                     if let Some(path) = dialog.save_file() {
-                        println!("Writing save file to: {}", path.display());
+                        info!("Writing save file to: {}", path.display());
                         self.config.savefile = Some(path);
                         frontend.send_message(FrontendMessage::UpdateConfig(self.config.clone()));
                         frontend.send_message(FrontendMessage::WriteSaveFile);

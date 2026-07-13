@@ -1,6 +1,7 @@
 use crate::gb::SubSystem;
 use crate::gb::cartridge::controller::BankController;
 use anyhow::{Context, Result, bail};
+use log::warn;
 use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
@@ -306,7 +307,7 @@ impl TryFrom<Arc<[u8]>> for Cartridge {
         }
         let header = CartridgeHeader::try_from(rom.as_ref())?;
         if let Err(msg) = verify_checksum(rom.as_ref(), header.global_checksum) {
-            eprintln!("WARNING: {msg}");
+            warn!("{msg}");
         }
         let controller = controller::new(header.config, rom);
         Ok(Self { controller, header })

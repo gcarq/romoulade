@@ -9,14 +9,27 @@ use crate::gui::{PANEL_HEIGHT, Romoulade};
 use anyhow::{Context, Result};
 use clap::Parser;
 use eframe::egui;
+use fern::colors::{Color, ColoredLevelConfig};
+use log::LevelFilter;
+use std::io;
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::{LazyLock, mpsc};
 
 mod gb;
 mod gui;
 mod perf;
 
 const DEFAULT_UPSCALE: usize = 3; // Default upscale factor for the display
+
+/// Colors for log levels.
+static COLORS: LazyLock<ColoredLevelConfig> = LazyLock::new(|| {
+    ColoredLevelConfig::new()
+        .error(Color::Red)
+        .warn(Color::Yellow)
+        .info(Color::Green)
+        .debug(Color::Cyan)
+        .trace(Color::BrightCyan)
+});
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -43,6 +56,7 @@ struct Args {
 }
 
 fn main() -> Result<()> {
+    setup_logger(LevelFilter::Info)?;
     let args = Args::parse();
 
     let config = EmulatorConfig {
@@ -94,4 +108,22 @@ fn headless_mode(config: EmulatorConfig) -> Result<()> {
     emulator
         .run()
         .with_context(|| "Failed to run emulator in headless mode")
+}
+
+/// Sets up application logger with the given `log_level`.
+fn setup_logger(level_filter: log::LevelFilter) -> Result<()> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{}] {} - {message}",
+                COLORS.color(record.level()),
+                record.target()
+            ));
+        })
+        .level(level_filter)
+        .chain(io::stdout())
+        .apply()
+        .context("failed to initialize logging")?;
+
+    Ok(())
 }

@@ -1,5 +1,6 @@
 use anyhow::{Context, Result, anyhow};
 use eframe::egui;
+use log::{error, info};
 
 use crate::gb::bus::{InterruptRegister, MainBus};
 use crate::gb::cartridge::Cartridge;
@@ -150,18 +151,18 @@ impl Emulator {
 
     /// Runs the emulator loop.
     pub fn run(&mut self) -> Result<()> {
-        println!("Starting emulator...");
-        println!("Loaded ROM: {}", self.bus.cartridge);
+        info!("Starting emulator...");
+        info!("Loaded ROM: {}", self.bus.cartridge);
 
         if let Some(ref savefile) = self.config.savefile {
             self.bus
                 .cartridge
                 .load_savefile(savefile)
                 .with_context(|| anyhow!("Failed to load save file: {}", savefile.display()))?;
-            println!("Loaded save file: {}", savefile.display());
+            info!("Loaded save file: {}", savefile.display());
         }
         if self.config.fastboot {
-            println!("Fastboot enabled. Skipping boot ROM ...");
+            info!("Fastboot enabled. Skipping boot ROM ...");
             self.fastboot();
         }
 
@@ -205,7 +206,7 @@ impl Emulator {
     /// Updates the emulator configuration.
     #[inline]
     fn update_config(&mut self, config: EmulatorConfig) {
-        println!("Updating emulator configuration...");
+        info!("Updating emulator configuration...");
         self.config = config;
         self.bus.update_config(&self.config);
     }
@@ -226,8 +227,8 @@ impl Emulator {
             None => return,
         };
         match self.bus.cartridge.write_savefile(path) {
-            Ok(()) => println!("Autosaved to: {}", path.display()),
-            Err(msg) => eprintln!("Failed to autosave: {msg}"),
+            Ok(()) => info!("Autosaved to: {}", path.display()),
+            Err(msg) => error!("Failed to autosave: {msg}"),
         }
         self.last_autosave = Some(std::time::Instant::now());
     }
@@ -264,8 +265,8 @@ impl Emulator {
                 FrontendMessage::WriteSaveFile => {
                     if let Some(ref path) = self.config.savefile {
                         match self.bus.cartridge.write_savefile(path) {
-                            Ok(()) => println!("Save file written to: {}", path.display()),
-                            Err(msg) => eprintln!("Failed to write save file: {msg}"),
+                            Ok(()) => info!("Save file written to: {}", path.display()),
+                            Err(msg) => error!("Failed to write save file: {msg}"),
                         }
                     }
                 }

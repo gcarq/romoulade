@@ -9,6 +9,7 @@ use eframe::egui::{self, Image};
 use eframe::egui::{Color32, Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
+use log::{error, info, warn};
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -60,7 +61,7 @@ impl EmulatorFrontend {
                 config,
             );
             if let Err(error) = emulator.run() {
-                eprintln!("Emulator error: {error:#}");
+                error!("Emulator error: {error:#}");
             }
         });
 
@@ -90,7 +91,7 @@ impl EmulatorFrontend {
 
     /// Stops the emulator by sending a reset message and waiting for it to finish.
     pub fn stop(&self) {
-        println!("Stopping emulator ...");
+        info!("Stopping emulator ...");
         self.send_message(FrontendMessage::Stop);
         // Wait for the emulator to finish
         while !self.thread.is_finished() {
@@ -104,10 +105,10 @@ impl EmulatorFrontend {
     #[inline]
     pub fn attach_debugger(&mut self) {
         if self.debugger.is_some() {
-            println!("Debugger already attached");
+            info!("Debugger already attached");
             return;
         }
-        println!("Attaching debugger ...");
+        info!("Attaching debugger ...");
         self.debugger = Some(DebuggerFrontend::new(self.channel.sender.clone()));
         self.send_message(FrontendMessage::AttachDebugger);
     }
@@ -116,7 +117,7 @@ impl EmulatorFrontend {
     #[inline]
     pub fn send_message(&self, message: FrontendMessage) {
         if let Err(msg) = self.channel.sender.send(message) {
-            eprintln!("Emulator isn't running: {msg}");
+            error!("Emulator isn't running: {msg}");
         }
     }
 
@@ -146,7 +147,7 @@ impl EmulatorFrontend {
     /// Closes the debugger frontend and sends a `DetachDebugger` message to the emulator.
     #[inline]
     fn detach_debugger(&mut self) {
-        println!("Detaching debugger ...");
+        info!("Detaching debugger ...");
         self.debugger = None;
         self.send_message(FrontendMessage::DetachDebugger);
     }
@@ -173,7 +174,7 @@ impl EmulatorFrontend {
                 }
                 EmulatorMessage::Debug(message) => match &mut self.debugger {
                     Some(dbg) => dbg.handle_message(*message),
-                    None => eprintln!("Got debug message, but debugger is not attached"),
+                    None => warn!("Got debug message, but debugger is not attached"),
                 },
             }
         }

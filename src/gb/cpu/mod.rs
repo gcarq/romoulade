@@ -4,6 +4,7 @@ use crate::gb::cpu::ops::WordRegister::HL;
 use crate::gb::cpu::ops::*;
 use crate::gb::cpu::registers::FlagsRegister;
 use crate::gb::{Bus, utils};
+use log::warn;
 use registers::Registers;
 
 pub mod instruction;
@@ -128,7 +129,7 @@ impl CPU {
             POP(target) => self.handle_pop(target, bus),
             XOR(source) => self.handle_xor(source, bus),
             Illegal(opcode) => {
-                eprintln!("WARNING: Illegal opcode: {opcode:#04x}");
+                warn!("WARNING: Illegal opcode: {opcode:#04x}");
                 self.r.pc
             }
         }
@@ -680,7 +681,7 @@ impl CPU {
 
     /// Handles STOP instruction
     fn handle_stop(&mut self) -> u16 {
-        eprintln!("WARNING: STOP instruction not implemented");
+        warn!("WARNING: STOP instruction not implemented");
         self.r.pc
     }
 
