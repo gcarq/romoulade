@@ -290,9 +290,10 @@ impl eframe::App for Romoulade {
         CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
-                ui.allocate_ui(self.frame_layout_size(), |ui| {
+                let display_size = self.frame_layout_size();
+                ui.allocate_ui(display_size, |ui| {
                     if let Some(emulator) = &mut self.frontend {
-                        emulator.update(ui);
+                        emulator.update(ui, display_size);
                     }
                 });
             });

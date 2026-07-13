@@ -68,7 +68,6 @@ impl MainBus {
     /// Updates the configuration of the bus and all connected subsystems.
     #[inline]
     pub fn update_config(&mut self, config: &EmulatorConfig) {
-        self.ppu.update_config(config);
         self.serial.update_config(config);
     }
 

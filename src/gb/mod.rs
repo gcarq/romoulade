@@ -135,7 +135,7 @@ impl Emulator {
         repaint_ctx: egui::Context,
         config: EmulatorConfig,
     ) -> Self {
-        let display = Display::new(sender.clone(), repaint_ctx, config.upscale);
+        let display = Display::new(sender.clone(), repaint_ctx);
         let bus = MainBus::with_cartridge(cartridge, config.clone(), Some(display));
         Self::new(sender, receiver, config, bus)
     }

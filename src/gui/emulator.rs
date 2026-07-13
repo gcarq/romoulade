@@ -4,8 +4,8 @@ use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
 use crate::perf::PerformanceCounter;
-use eframe::egui;
 use eframe::egui::load::SizedTexture;
+use eframe::egui::{self, Image};
 use eframe::egui::{Color32, Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
@@ -66,7 +66,7 @@ impl EmulatorFrontend {
 
         // Create initial TextureHandle for the frame buffer
         let image = ColorImage::new([1, 1], vec![Color32::TRANSPARENT]);
-        let frame = ctx.load_texture("frame", image, TextureOptions::LINEAR);
+        let frame = ctx.load_texture("frame", image, TextureOptions::NEAREST);
 
         Self {
             channel: EmulatorChannel::new(frontend_sender, emulator_receiver),
@@ -79,10 +79,10 @@ impl EmulatorFrontend {
     }
 
     /// Updates the emulator frontend Ui.
-    pub fn update(&mut self, ui: &mut Ui) {
+    pub fn update(&mut self, ui: &mut Ui, display_size: Vec2) {
         self.handle_user_input(ui);
         self.recv_message();
-        self.draw_emulator_frame(ui);
+        self.draw_emulator_frame(ui, display_size);
         if !self.update_debugger(ui.ctx()) {
             self.detach_debugger();
         }
@@ -152,15 +152,15 @@ impl EmulatorFrontend {
     }
 
     /// Draws the latest frame from the emulator to the screen
-    #[inline]
-    fn draw_emulator_frame(&self, ui: &mut Ui) {
-        ui.image(SizedTexture::from_handle(&self.frame));
+    fn draw_emulator_frame(&self, ui: &mut Ui, display_size: Vec2) {
+        let image = Image::from_texture(SizedTexture::from_handle(&self.frame));
+        ui.add(image.fit_to_exact_size(display_size));
     }
 
     /// Sets the frame texture to the given `FrameBuffer`.
     fn set_frame_texture(&mut self, frame: FrameBuffer) {
         let image = ColorImage::new([frame.width(), frame.height()], frame.into_vec());
-        self.frame.set(image, TextureOptions::LINEAR);
+        self.frame.set(image, TextureOptions::NEAREST);
     }
 
     /// Checks for messages from the emulator and updates the state if necessary.

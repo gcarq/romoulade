@@ -1,6 +1,6 @@
 use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::ppu::misc::ColoredPixel;
-use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorConfig, EmulatorMessage};
+use crate::gb::{DISPLAY_REFRESH_RATE, EmulatorMessage};
 use eframe::egui::{self, Color32};
 use std::sync::mpsc::SyncSender;
 use std::time::{Duration, Instant};
@@ -15,17 +15,13 @@ pub struct Display {
 }
 
 impl Display {
-    /// Creates a new display with the given `upscale`.
+    /// Creates a new display.
     ///
     /// `repaint_context` will be used to request a repaint
     /// once a new frame has been sent.
-    pub fn new(
-        sender: SyncSender<EmulatorMessage>,
-        repaint_context: egui::Context,
-        upscale: usize,
-    ) -> Self {
+    pub fn new(sender: SyncSender<EmulatorMessage>, repaint_context: egui::Context) -> Self {
         Self {
-            buffer: FrameBuffer::new(upscale),
+            buffer: FrameBuffer::new(),
             frame_limiter: FrameLimiter::new(DISPLAY_REFRESH_RATE),
             sender,
             repaint_context,
@@ -44,10 +40,6 @@ impl Display {
     #[inline]
     pub fn write_pixel(&mut self, x: u8, y: u8, color: ColoredPixel) {
         self.buffer.write_pixel(x, y, translate_color(color));
-    }
-
-    pub fn update_config(&mut self, config: &EmulatorConfig) {
-        self.buffer = FrameBuffer::new(config.upscale);
     }
 }
 
