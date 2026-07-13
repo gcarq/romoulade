@@ -1,11 +1,8 @@
 /target
-/roms
-/blargg_roms
 /scripts
 
 .idea
-misc.txt
-log.txt
+.scratch/
 *.sav
 flamegraph*.svg
 perf.data*
