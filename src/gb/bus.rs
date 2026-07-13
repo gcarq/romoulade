@@ -223,6 +223,7 @@ impl Bus for MainBus {
         enabled & flag != 0
     }
 
+    #[cfg(test)]
     #[inline(always)]
     fn set_ie(&mut self, r: InterruptRegister) {
         self.interrupt_enable = r;

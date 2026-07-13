@@ -81,6 +81,7 @@ impl Bus for DebugBus {
         self.inner.has_irq()
     }
 
+    #[cfg(test)]
     #[inline(always)]
     fn set_ie(&mut self, r: InterruptRegister) {
         self.inner.set_ie(r);

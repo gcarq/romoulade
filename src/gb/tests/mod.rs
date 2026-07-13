@@ -56,6 +56,7 @@ impl Bus for MockBus {
         enabled & flag != 0
     }
 
+    #[cfg(test)]
     fn set_ie(&mut self, r: InterruptRegister) {
         self.interrupt_enable = r;
     }

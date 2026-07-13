@@ -62,6 +62,7 @@ pub trait Bus: SubSystem {
     /// Indicates whether an interrupt is pending.
     fn has_irq(&self) -> bool;
 
+    #[cfg(test)]
     fn set_ie(&mut self, r: InterruptRegister);
     fn get_ie(&self) -> InterruptRegister;
     fn set_if(&mut self, r: InterruptRegister);
