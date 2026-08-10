@@ -14,7 +14,7 @@ bitvec = { version = "1.1.1", default-features = false }
 clap = { version = "4.6.1", default-features = false, features = ["derive", "error-context", "help", "std", "usage"] }
 dyn-clone = { version = "1.0.20", default-features = false }
 eframe = { version = "0.35.0", default-features = false, features = ["default_fonts", "wgpu", "wayland", "x11"] }
-egui_extras = { version = "0.35.0", default-features = false }
+egui_extras = { version = "0.36.1", default-features = false }
 fern = { version = "0.7.1", default-features = false, features = ["colored"] }
 itertools = { version = "0.15.0", default-features = false, features = ["use_std"] }
 log = { version = "0.4.33", default-features = false }
