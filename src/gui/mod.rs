@@ -37,9 +37,7 @@ impl Romoulade {
 
     /// Loads a cartridge using a file dialog.
     fn choose_cartridge(&mut self) -> Result<()> {
-        if let Some(frontend) = &self.frontend {
-            frontend.stop();
-        }
+        self.stop_emulator();
         let dialog = rfd::FileDialog::new().add_filter("Game Boy ROM", &["gb"]);
         if let Some(path) = dialog.pick_file() {
             info!("Loading Cartridge: {}", path.display());
@@ -101,11 +99,10 @@ impl Romoulade {
     fn update_emulator_menu(&mut self, ui: &mut Ui) {
         ui.menu_button(menu_text!("Emulator"), |ui| {
             // Load ROM button
-            if ui.button(menu_text!("📁 Load ROM...")).clicked() {
-                self.stop_emulator();
-                if let Err(error) = self.choose_cartridge() {
-                    error!("Error loading ROM: {error:#}");
-                }
+            if ui.button(menu_text!("📁 Load ROM...")).clicked()
+                && let Err(error) = self.choose_cartridge()
+            {
+                error!("Error loading ROM: {error:#}");
             }
             ui.separator();
             // Run or Reset button
@@ -241,9 +238,8 @@ impl Romoulade {
 
     /// Displays the savefile information in the bottom panel.
     fn draw_savefile_info(&self, ui: &mut Ui) {
-        if let Some(ref savefile) = self.config.savefile {
-            // TODO: get rid of unwrap
-            Label::new(savefile.file_name().unwrap().display().to_string())
+        if let Some(savefile) = &self.config.savefile {
+            Label::new(savefile.display().to_string())
                 .selectable(false)
                 .ui(ui);
         }
@@ -290,14 +286,13 @@ impl eframe::App for Romoulade {
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
                 let display_size = self.frame_layout_size();
-                ui.allocate_ui(display_size, |ui| {
-                    if let Some(emulator) = &mut self.frontend {
-                        emulator.update(ui, display_size);
-                    }
-                });
+                if let Some(emulator) = &mut self.frontend {
+                    emulator.update(ui, display_size);
+                }
             });
-        if ui.ctx().input(|i| i.viewport().close_requested()) {
-            self.stop_emulator();
-        }
+    }
+
+    fn on_exit(&mut self) {
+        self.stop_emulator();
     }
 }

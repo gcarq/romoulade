@@ -4,8 +4,7 @@ use crate::gb::ppu::buffer::FrameBuffer;
 use crate::gb::{Emulator, EmulatorConfig, EmulatorMessage, FrontendMessage};
 use crate::gui::debugger::DebuggerFrontend;
 use crate::perf::PerformanceCounter;
-use eframe::egui::load::SizedTexture;
-use eframe::egui::{self, Image};
+use eframe::egui;
 use eframe::egui::{Color32, Key, TextureHandle, Ui, Vec2, ViewportBuilder, ViewportId};
 use eframe::epaint::ColorImage;
 use eframe::epaint::textures::TextureOptions;
@@ -89,15 +88,16 @@ impl EmulatorFrontend {
         }
     }
 
-    /// Stops the emulator by sending a reset message and waiting for it to finish.
-    pub fn stop(&self) {
+    /// Stops the emulator and waits for its thread to finish.
+    pub fn stop(self) {
         info!("Stopping emulator ...");
         self.send_message(FrontendMessage::Stop);
-        // Wait for the emulator to finish
+
         while !self.thread.is_finished() {
-            let _ = self.channel.receiver.try_recv();
+            while self.channel.receiver.try_recv().is_ok() {}
             spin_sleep::sleep(std::time::Duration::from_millis(15));
         }
+        let _ = self.thread.join();
     }
 
     /// Attaches a debugger to the frontend and sends a `AttachDebugger` to the emulator
@@ -152,10 +152,9 @@ impl EmulatorFrontend {
         self.send_message(FrontendMessage::DetachDebugger);
     }
 
-    /// Draws the latest frame from the emulator to the screen
+    /// Draws the latest frame from the emulator to the screen.
     fn draw_emulator_frame(&self, ui: &mut Ui, display_size: Vec2) {
-        let image = Image::from_texture(SizedTexture::from_handle(&self.frame));
-        ui.add(image.fit_to_exact_size(display_size));
+        ui.image((self.frame.id(), display_size));
     }
 
     /// Sets the frame texture to the given `FrameBuffer`.
@@ -166,16 +165,24 @@ impl EmulatorFrontend {
 
     /// Checks for messages from the emulator and updates the state if necessary.
     fn recv_message(&mut self) {
-        if let Ok(msg) = self.channel.receiver.try_recv() {
+        // Only consider the newest messages when the UI thread is busy
+        let mut latest_frame = None;
+        let mut latest_debug = None;
+        while let Ok(msg) = self.channel.receiver.try_recv() {
             match msg {
-                EmulatorMessage::Frame(frame) => {
-                    self.set_frame_texture(frame);
-                    self.fps_counter.update();
-                }
-                EmulatorMessage::Debug(message) => match &mut self.debugger {
-                    Some(dbg) => dbg.handle_message(*message),
-                    None => warn!("Got debug message, but debugger is not attached"),
-                },
+                EmulatorMessage::Frame(frame) => latest_frame = Some(frame),
+                EmulatorMessage::Debug(message) => latest_debug = Some(message),
+            }
+        }
+
+        if let Some(frame) = latest_frame {
+            self.set_frame_texture(frame);
+            self.fps_counter.update();
+        }
+        if let Some(message) = latest_debug {
+            match &mut self.debugger {
+                Some(dbg) => dbg.handle_message(*message),
+                None => warn!("Got debug message, but debugger is not attached"),
             }
         }
     }

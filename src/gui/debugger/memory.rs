@@ -6,7 +6,29 @@ use eframe::egui::text::LayoutJob;
 use eframe::egui::{Color32, FontId, RichText, TextFormat, Ui};
 use egui_extras::{Column, TableBuilder};
 use itertools::Itertools;
-use std::sync::Arc;
+use std::ops::RangeInclusive;
+
+const BYTES_PER_ROW: usize = 16;
+
+/// Returns the memory range for a row within the selected memory range.
+fn memory_row_range(
+    memory_range: &RangeInclusive<u16>,
+    row_index: usize,
+) -> Option<RangeInclusive<u16>> {
+    let row_offset = u16::try_from(row_index.checked_mul(BYTES_PER_ROW)?).ok()?;
+    let row_begin = memory_range.start().checked_add(row_offset)?;
+    let memory_end = *memory_range.end();
+    if row_begin > memory_end {
+        return None;
+    }
+
+    Some(
+        row_begin
+            ..=row_begin
+                .saturating_add((BYTES_PER_ROW - 1) as u16)
+                .min(memory_end),
+    )
+}
 
 #[derive(Default, PartialEq)]
 enum MemoryArea {
@@ -66,38 +88,35 @@ impl MemoryMap {
             });
 
         // Determine the memory area to display
-        let (mem_begin, mem_range) = match self.memory_area {
-            MemoryArea::RomBank0 => (ROM_LOW_BANK_BEGIN, ROM_LOW_BANK_BEGIN..=ROM_LOW_BANK_END),
-            MemoryArea::RomBank1 => (ROM_HIGH_BANK_BEGIN, ROM_HIGH_BANK_BEGIN..=ROM_HIGH_BANK_END),
-            MemoryArea::CRam => (CRAM_BANK_BEGIN, CRAM_BANK_BEGIN..=CRAM_BANK_END),
-            MemoryArea::WRam => (WRAM_BEGIN, WRAM_BEGIN..=WRAM_END),
-            MemoryArea::Oam => (OAM_BEGIN, OAM_BEGIN..=OAM_END),
-            MemoryArea::IO => (IO_BEGIN, IO_BEGIN..=IO_END),
-            MemoryArea::HRam => (HRAM_BEGIN, HRAM_BEGIN..=HRAM_END),
+        let mem_range = match self.memory_area {
+            MemoryArea::RomBank0 => ROM_LOW_BANK_BEGIN..=ROM_LOW_BANK_END,
+            MemoryArea::RomBank1 => ROM_HIGH_BANK_BEGIN..=ROM_HIGH_BANK_END,
+            MemoryArea::CRam => CRAM_BANK_BEGIN..=CRAM_BANK_END,
+            MemoryArea::WRam => WRAM_BEGIN..=WRAM_END,
+            MemoryArea::Oam => OAM_BEGIN..=OAM_END,
+            MemoryArea::IO => IO_BEGIN..=IO_END,
+            MemoryArea::HRam => HRAM_BEGIN..=HRAM_END,
         };
-
-        let memory = mem_range
-            .map(|addr| state.bus.read(addr))
-            .collect::<Arc<_>>();
-
-        let memory = memory.chunks(16).collect::<Arc<_>>();
+        let row_count = mem_range.clone().count().div_ceil(BYTES_PER_ROW);
 
         table.body(|body| {
-            body.rows(text_height, memory.len(), |mut row| {
-                let index = row.index();
-                let bytes = &memory[index];
+            body.rows(text_height, row_count, |mut row| {
+                let Some(row_range) = memory_row_range(&mem_range, row.index()) else {
+                    return;
+                };
+                let address = *row_range.start();
+                let bytes: Vec<_> = row_range.map(|addr| state.bus.read(addr)).collect();
 
                 // Draw address column
                 row.col(|ui| {
-                    let address = mem_begin + index as u16 * 16;
                     let text = RichText::new(format!("{address:#06X}"));
                     ui.label(text.monospace().color(Color32::LIGHT_GREEN));
                 });
                 // Draw bytes column
                 row.col(|ui| {
                     let mut job = LayoutJob::default();
-                    for byte in *bytes {
-                        let color = match *byte != 0 {
+                    for &byte in &bytes {
+                        let color = match byte != 0 {
                             true => Color32::WHITE,
                             false => Color32::GRAY,
                         };
@@ -108,9 +127,9 @@ impl MemoryMap {
                 // Draw ASCII column
                 row.col(|ui| {
                     let mut job = LayoutJob::default();
-                    for byte in *bytes {
+                    for &byte in &bytes {
                         let (text, color) = match byte.is_ascii_graphic() {
-                            true => (*byte as char, Color32::WHITE),
+                            true => (byte as char, Color32::WHITE),
                             false => ('.', Color32::GRAY),
                         };
                         monospace_append!(job, text, color);
@@ -119,5 +138,18 @@ impl MemoryMap {
                 });
             });
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hram_final_row_is_partial() {
+        assert_eq!(
+            memory_row_range(&(HRAM_BEGIN..=HRAM_END), 7),
+            Some(0xFFF0..=HRAM_END)
+        );
     }
 }
